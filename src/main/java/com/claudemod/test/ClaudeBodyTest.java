@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1669: return st1669(stage, t, c, h, level, mock);
             case 1668: return st1668(stage, t, c, h, level, mock);
             case 1667: return st1667(stage, t, c, h, level, mock);
             case 1665: return st1665(stage, t, c, h, level, mock);
@@ -22523,6 +22524,32 @@ public final class ClaudeBodyTest {
             check(onJob.startsWith("false"), "on blaze_rods at full health, armor 14, a shield, 8 salmon, one blaze 12 off: shouldFlee ran = " + onJob);
             check(offJob.startsWith("true"), "off the rods job the same blaze: shouldFlee ran = " + offJob + " (the avoid stays his)");
             pass(stage, t, "rods job: fights (" + onJob + "); off it: runs (" + offJob + ")");
+        }
+        return true;
+    }
+    /** Stage 1669 (D2D 11-12, the lone-blaze breakdown: 23 of 33 no-kill fights 11-0x..11-12 had the blaze out of sword reach the whole fight, 881 s; in 18 of them no bow kit that worked: a bow and 0 arrows (9), arrows and no bow (5), 1-2 arrows; FortressFight.noteBowNeeded had no caller since 11-10, so the rods' bow need never came to his kit, and the kit asked for arrows only with flint and feathers both on him). A blaze 6 up out of his swing, his fight on it, 3 string and no arrows on him: the need is noted within 1 s, and gear_up's kit then wants the bow and 16+ arrows. */
+    private static net.minecraft.world.entity.monster.Blaze s1669B; private static int s1669T;
+    private static boolean st1669(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.FortressFight.reset(c); if (s1669B != null) s1669B.discard(); s1669B = null; s1669T = -1; }
+        if (t[0] == 10) {
+            for (int x = -10; x <= 10; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 12; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.STRING, 3)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1669B = EntityType.BLAZE.create(level); s1669B.moveTo(o.getX() + 4.5, o.getY() + 6, o.getZ() + 0.5, 90, 0); s1669B.setPersistenceRequired(); s1669B.setNoAi(true); level.addFreshEntity(s1669B);
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.Attack(s1669B.getUUID(), 20 * 30)); s1669T = t[0]; }
+        if (s1669T > 0 && t[0] == s1669T + 30) {
+            boolean noted = com.claudemod.entity.life.FortressFight.bowNeeded(c, level);
+            var kit = com.claudemod.director.Kit.missing(c, true);
+            int arrows = kit.getOrDefault(Items.ARROW, 0); boolean bow = kit.containsKey(Items.BOW);
+            s1669B.discard(); s1669B = null; s1669T = -1; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.prefs.remove("stay_close"); com.claudemod.entity.life.FortressFight.reset(c);
+            for (int x = -10; x <= 10; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 12; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(noted, "a blaze 6 up out of his swing, his fight on it, no bow or arrows: the rods' bow need never noted");
+            check(bow && arrows >= 16, "the need noted, gear_up's kit: bow " + bow + ", " + arrows + " arrow(s) (no flint or feathers on him)");
+            pass(stage, t, "noted; the kit wants the bow and " + arrows + " arrows");
         }
         return true;
     }

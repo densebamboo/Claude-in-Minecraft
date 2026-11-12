@@ -65,6 +65,8 @@ public final class FortressFight {
     private static Map<UUID, Object[]> walkStop; // (the blaze that last stopped his walk, and when: lazy, fields added live start null)
     /** Each tick: on a blaze_rods step, a walk off elsewhere (its end 32+ off, the blaze not there) with a blaze he knows of within 24 (seen or heard, not a crowd let be) stops, so the step weighs it; each blaze once in 30 s. D2D review 130724-84, live 13:03:28-13:05:42 11-12: "to the blaze spawner he found at 315, 63, 489 (581 off)", a blaze heard 14 off, the walk went on. Stage 1667. */
     public static void tick(ClaudeEntity g) {
+        if (g.tickCount % 10 == 0 && g.currentTask instanceof Task.Attack at && g.level() instanceof ServerLevel lv0 && lv0.getEntity(at.target()) instanceof Blaze bz && bz.isAlive() && bz.getBoundingBox().minY > g.getY() + 3.2 && !rangedKit(g) && !bowNeeded(g, lv0)) { // the blaze he fights floats over his swing and he has no bow and arrows: the bow is what the rods want (D2D 11-12: 18 of 23 out-of-reach blaze fights with no working bow kit; noteBowNeeded had no caller since 11-10; stage 1669)
+            noteBowNeeded(g, lv0); ClaudeMod.LOGGER.info("[Claude fight] the blaze {} up floats over his swing and he has no bow and arrows: a bow and arrows into the rods' kit (FortressFight.tick)", Math.round(bz.getY() - g.getY())); }
         if (g.tickCount % 10 != 0 || g.tasks.isEmpty() && g.currentTask == null || !(g.level() instanceof ServerLevel level)) return;
         var head = g.skillQueue.peekFirst(); if (head == null || !"blaze_rods".equals(head.skill())) return;
         BlockPos end = null; for (var t : g.tasks) { if (t instanceof Task.GoTo gt) end = gt.pos(); else if (!(t instanceof Task.Bore)) return; }
@@ -797,6 +799,14 @@ public final class FortressFight {
 
     /** When his rods last failed for want of a bow (game time, so a portal trip's tick reset doesn't lose it): the bow is then the rods' own need, not just the End's (live 23:20 11-09: "a bow is what this needs", then "the bow is stuck waiting on string" with 17 string in his chests; stage 1360). */
     private static final java.util.Map<java.util.UUID, Long> BOW_NEEDED = new java.util.HashMap<>(); // shortcut: in memory, lost on a restart; the next out-of-reach fight sets it again
+    /** A bow and arrows enough to shoot a blaze down (blaze.arrows_per_kill). */
+    public static boolean rangedKit(ClaudeEntity g) { return g.inventory.count(s -> s.is(Items.BOW)) > 0 && g.inventory.count(s -> s.is(Items.ARROW)) >= Weights.w("blaze.arrows_per_kill", 5); }
+    /** Arrows for the rods still to come: a blaze a blaze.rods_per_kill of them, blaze.out_of_reach_share of those out of sword reach (23 of 33 no-kill fights 11-0x..11-12), blaze.arrows_per_kill each; 16 to 64. Rods on him and in his chests count. */
+    public static int blazeArrows(ClaudeEntity g) {
+        int have = rods(g) + (g.level() instanceof ServerLevel sl ? com.claudemod.director.ClaudeLife.stored(g, sl).getOrDefault(Items.BLAZE_ROD, 0) : 0), left = Math.max(1, (int) Weights.w("blaze.rods_goal", 7) - have);
+        double kills = Math.ceil(left / Weights.w("blaze.rods_per_kill", 0.5));
+        return (int) Math.max(16, Math.min(64, Math.ceil(kills * Weights.w("blaze.out_of_reach_share", 0.55) * Weights.w("blaze.arrows_per_kill", 5))));
+    }
     public static void noteBowNeeded(ClaudeEntity g, ServerLevel level) { BOW_NEEDED.put(g.getUUID(), level.getGameTime()); }
     public static boolean bowNeeded(ClaudeEntity g, ServerLevel level) { Long t = BOW_NEEDED.get(g.getUUID()); return t != null && level.getGameTime() - t < 20L * 60 * 60; }
 }

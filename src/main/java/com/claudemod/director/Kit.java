@@ -167,9 +167,12 @@ public final class Kit {
             if (!shield(g)) m.put(Items.SHIELD, 1);
             for (Item t : dragonKit ? java.util.List.of(Items.DIAMOND_PICKAXE) /* (no diamond axe or shovel: full diamond is the dragon's armor, not tools; asking for them sent him 350 blocks from the stronghold's bricks for 4 diamonds, live 00:36) */ : com.claudemod.entity.life.PortalMap.litPortal(g) ? java.util.List.<Item>of() : java.util.List.of(Items.DIAMOND_PICKAXE)) if (g.inventory.count(st -> st.is(t)) == 0) m.put(t, 1); // (the Nether trip: a diamond pick for the obsidian; the axe and shovel for the dragon kit) // then the diamond tools: the same trip as the iron, just deeper (y -58)
             // the bow and its quiver are a want, not this kit's gate (the user: wanted for the Nether, a must only before the End): in the kit when they're cheap, the string on him or in a chest a short walk off, the flint and feathers on him; never a spider hunt for the kit (live 13:05: gear_up's "fight spider 2" with none about, then a daylight explore for spiders while the portal waited)
-            if (g.inventory.count(s -> s.is(Items.BOW)) == 0 && bowCheap(g)) m.put(Items.BOW, 1);
-            int arrowsOn = g.inventory.count(s -> s.is(Items.ARROW));
-            if ((g.inventory.count(s -> s.is(Items.BOW)) > 0 || m.containsKey(Items.BOW)) && arrowsOn < 32 && flint > 0 && feathers > 0) m.put(Items.ARROW, Math.min(32 - arrowsOn, 4 * Math.min(flint, feathers)));
+            // the rods' bow need (a blaze he fought floated over his swing, no bow and arrows: FortressFight.noteBowNeeded): the bow from string anywhere in his chests, and the arrows the rods left want, get_arrows' chest / skeleton / flint and feathers (it says so and moves on when there are none to be had); D2D 11-12, stage 1669
+            boolean rodsBow = !netherDone(g) && g.level() instanceof ServerLevel sl0 && com.claudemod.entity.life.FortressFight.bowNeeded(g, sl0);
+            int stringAll = rodsBow ? string + com.claudemod.entity.life.ChestLedger.where(g, (ServerLevel) g.level(), s -> s.is(Items.STRING)).stream().mapToInt(com.claudemod.entity.life.ChestLedger.Spot::count).sum() : 0;
+            if (g.inventory.count(s -> s.is(Items.BOW)) == 0 && (bowCheap(g) || stringAll >= 3)) m.put(Items.BOW, 1);
+            int arrowsOn = g.inventory.count(s -> s.is(Items.ARROW)), arrowsWant = rodsBow ? com.claudemod.entity.life.FortressFight.blazeArrows(g) : 32;
+            if ((g.inventory.count(s -> s.is(Items.BOW)) > 0 || m.containsKey(Items.BOW)) && arrowsOn < arrowsWant && (rodsBow || flint > 0 && feathers > 0)) m.put(Items.ARROW, rodsBow ? arrowsWant - arrowsOn : Math.min(32 - arrowsOn, 4 * Math.min(flint, feathers)));
             if (dragonKit) for (Item a : new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS}) if (!has(g, a)) m.put(a, 1); // and for the End, full diamond armor (never before the Nether: live 12:04 World 15 it held the Nether trip on hours of diamonds)
             m = byValue(g, m);
         }

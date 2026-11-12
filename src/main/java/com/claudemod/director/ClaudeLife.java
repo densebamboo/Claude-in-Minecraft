@@ -1610,6 +1610,7 @@ public final class ClaudeLife {
     private static java.util.Map<java.util.UUID, Integer> branchPairs; // branch pairs dug, for the every-other-branch torch (static: fields added live start null)
     private static java.util.Map<java.util.UUID, Integer> branchPairs() { if (branchPairs == null) branchPairs = new java.util.HashMap<>(); return branchPairs; }
 
+    private static int tidyWaitLog = -1000; // the last "cover block waits" line (1 in 10 s)
     static void tidyLitter(ClaudeEntity g, ServerLevel level) {
         g.pillarBlocks.removeIf(q -> level.isLoaded(q) && level.getBlockState(q).isAir());
         g.pillarBlocks.removeIf(q -> { // fill, not a tower: three or four solid sides round it (the blocks he climbed out of a dig-in hole on); taking those out is how the hillside got its pits
@@ -1621,6 +1622,8 @@ public final class ClaudeLife {
         BlockPos best = null; double bd = 48 * 48;
         for (BlockPos q : g.pillarBlocks) {
             if (!level.isLoaded(q) || pillarTries().getOrDefault(q, 0) > 3) continue;
+            int r = (int) com.claudemod.entity.life.Weights.w("tidy.hostile_r", 12); var near = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(q).inflate(r), x -> x.isAlive());
+            if (!near.isEmpty()) { if (Math.abs(g.tickCount - tidyWaitLog) >= 200) { tidyWaitLog = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] the cover block at {} waits: {} hostile(s) he knows of within {} of it (first {}): a block's tidying isn't worth their hits (ClaudeLife.tidyLitter)", q.toShortString(), near.size(), r, near.get(0).getType().getDescription().getString()); } continue; } // (death 01:57 11-12: the planner thinking, he walked 22 into 4 blazes for one cover block, stage 1079)
             double dd = q.distSqr(g.blockPosition());
             if (dd < bd) { bd = dd; best = q; }
         }

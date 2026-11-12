@@ -10895,6 +10895,7 @@ public final class ClaudeBodyTest {
             case 1074: return st1074(stage, t, c, h, level, mock);
             case 1076: return st1076(stage, t, c, h, level, mock);
             case 1078: return st1078(stage, t, c, h, level, mock);
+            case 1079: return st1079(stage, t, c, h, level, mock);
             case 1077: return st1077(stage, t, c, h, level, mock);
             case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
@@ -20579,6 +20580,36 @@ public final class ClaudeBodyTest {
             check(los, "setup: no line of sight to the skeleton down the pit");
             check(!(in == 0 && !run), "the way in refused (out of its sight) while the fight-or-run price picked the fight: " + odds);
             pass(stage, t, "agreed: " + (run ? "run" : "fight") + ", way in " + in + " (" + odds + ")");
+        }
+        return true;
+    }
+    /** Stage 1079 (death 01:57:12 11-12 World 17, fortress 317,63,494: the blaze job gave up, and while the planner thought, whileThinking's tidyLitter sent him 22 blocks to take down one cover block at 316,62,509 with 4 blazes heard round it; he jumped down among them, was cornered and burned): a cover block with blazes he knows of round it waits, no walk to it. */
+    private static BlockPos s1079L;
+    private static boolean st1079(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), y == -1 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            s1079L = o.offset(18, 0, 0).immutable(); level.setBlock(s1079L, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            for (int k = -1; k <= 1; k++) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(level); b.setNoAi(true); b.setPos(s1079L.getX() + 0.5 + 2 * k, s1079L.getY() + 2, s1079L.getZ() + 2.5); level.addFreshEntity(b); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear(); c.pillarBlocks.addFirst(s1079L);
+        }
+        if (t[0] == 60) {
+            String err = null; int known = com.claudemod.entity.life.Perception.known(c, net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(s1079L).inflate(8)).size();
+            c.tasks.clear(); c.currentTask = null;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("tidyLitter", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { err = "setup threw " + e; }
+            boolean walk = c.tasks.stream().anyMatch(x -> (x instanceof Task.GoTo g0 && g0.pos().distSqr(s1079L) <= 16) || (x instanceof Task.Break bk && bk.pos().equals(s1079L)));
+            String q = c.tasks.stream().limit(3).toList().toString(); boolean listed = c.pillarBlocks.contains(s1079L);
+            c.tasks.clear(); c.pillarBlocks.clear();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            check(err == null, err == null ? "" : err);
+            check(known >= 3, "setup: he knows of " + known + " of the 3 blazes");
+            check(!walk, "off to take down the cover block among 3 blazes he knows of: " + q);
+            check(listed, "the cover block dropped from his list instead of waiting");
+            pass(stage, t, "the cover block among the blazes waits (still listed)"); return true;
         }
         return true;
     }

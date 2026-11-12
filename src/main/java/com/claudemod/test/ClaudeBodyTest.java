@@ -11036,6 +11036,7 @@ public final class ClaudeBodyTest {
             case 1537: return st1537(stage, t, c, h, level, mock);
             case 1538: return st1538(stage, t, c, h, level, mock);
             case 1539: return st1539(stage, t, c, h, level, mock);
+            case 1540: return st1540(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22705,6 +22706,24 @@ public final class ClaudeBodyTest {
             check(at.distSqr(ent) <= 2, "setup: not at the entrance (" + at.toShortString() + " vs " + ent.toShortString() + ")");
             check(!out, "at his mine's entrance: a walk out of the mine queued (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
             pass(stage, t, "at his mine's entrance he's out: no walk out of it");
+        }
+        return true;
+    }
+    /** Stage 1540 (D2D review 30, live 01:00:25-01:00:38 11-12: plan "smelt charcoal x4, craft torch x16"; the charcoal out, ironPiecemeal's torch rule made 16 torches from it, then the plan's "craft torch x16 -> no coal for the torches: making 4 charcoal" and back to the furnace). Torches made by the rule take that many off his queued torch craft. */
+    private static boolean st1540(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CHARCOAL, 4)); c.getInventory().add(new ItemStack(Items.STICK, 4)); c.getInventory().add(new ItemStack(Items.TORCH, 4)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.tasks.clear(); c.currentTask = null; c.skillQueue.clear();
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "torch", 16)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 7));
+            com.claudemod.entity.ClaudeSpawner.testing = false;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("ironPiecemeal", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } finally { com.claudemod.entity.ClaudeSpawner.testing = true; }
+            int torches = c.getInventory().countItem(Items.TORCH); String q = String.valueOf(c.skillQueue);
+            boolean still = c.skillQueue.stream().anyMatch(x -> x.skill().equals("craft") && x.target().equals("torch"));
+            c.skillQueue.clear(); c.getInventory().clearContent();
+            check(torches == 20, "setup: the torch rule didn't make its 16 (" + torches + ")");
+            check(!still, "16 torches made by the rule, the plan's craft torch x16 still queued: " + q);
+            pass(stage, t, "the rule's 16 torches took the plan's torch craft off the queue: " + q);
         }
         return true;
     }

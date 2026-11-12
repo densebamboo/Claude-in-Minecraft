@@ -9907,7 +9907,10 @@ public final class ClaudeLife {
                 for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it0 = g.inventory.items.getItem(i); if (it0.getItem() instanceof net.minecraft.world.item.PickaxeItem) { anyPick = true; if (!it0.is(Items.WOODEN_PICKAXE) && !it0.is(Items.GOLDEN_PICKAXE)) better = true; } }
                 if (anyPick && !better && g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= 3) upgradeToolFor(g, level, Blocks.STONE.defaultBlockState());
             }
-            if (coalOn > 0 && torchOn <= 6) { int made = Crafting.craft(level, g.inventory, Items.TORCH, Math.min(64 - torchOn, coalOn * 4), false).made(); if (made > 0) ClaudeMod.LOGGER.info("[Claude life] coal on him and {} torches: made {} torches", torchOn, made); }
+            if (coalOn > 0 && torchOn <= 6) { int made = Crafting.craft(level, g.inventory, Items.TORCH, Math.min(64 - torchOn, coalOn * 4), false).made(); if (made > 0) { ClaudeMod.LOGGER.info("[Claude life] coal on him and {} torches: made {} torches", torchOn, made);
+                int left = made; List<Skills.Step> keep = new ArrayList<>(); // the plan's own torch craft is that much done (live 01:00 11-12, D2D 30: its x16 sent him back to smelt charcoal for torches he'd just made; stage 1540)
+                for (Skills.Step s0 : g.skillQueue) { if (left > 0 && s0.skill().equals("craft") && s0.target().equals("torch")) { int n0 = s0.count() - left; left = Math.max(0, -n0); ClaudeMod.LOGGER.info("[Claude skill] its queued step {} is {} with them", s0, n0 > 0 ? "down to " + n0 : "done"); if (n0 > 0) keep.add(new Skills.Step(s0.skill(), s0.target(), n0, s0.where())); continue; } keep.add(s0); }
+                if (keep.size() != g.skillQueue.size() || left < made) { g.skillQueue.clear(); g.skillQueue.addAll(keep); } } }
         } // a sword as soon as there's the stuff for one, not when something's already on him (66 cobble and "unarmed" for an hour)
         if (com.claudemod.entity.ClaudeSpawner.testing || g.commandActive || g.getHealth() < 10) return;
         if (g.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && (s.target().startsWith("iron_") || s.target().startsWith("diamond_")))) return; // the pieces are queued already

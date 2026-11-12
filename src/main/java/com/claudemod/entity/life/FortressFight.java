@@ -463,6 +463,13 @@ public final class FortressFight {
         return blazes * (kill + Decide.riskS(g, health, burst * perHit, perHit, most) - pDie * carried) + (1 - Math.pow(1 - pDie, Math.max(0, blazes))) * carried + heal;
     }
 
+    /** Healing up where he is, his step queued again: out of a blaze's sight first (a wait in its view heals into its fireballs: live 01:33:11 11-12, review 013454-45, "healing before I go on" in a dug-in cover they saw into, 11 -> 5), else a wait while regen and his meals do it. */
+    public static String healHere(ClaudeEntity g, ServerLevel level, String why) {
+        Blaze seen = null; for (Blaze b : blazesNear(g, level, g.blockPosition(), 32)) if (b.hasLineOfSight(g)) seen = b;
+        g.tasks.add(seen != null ? new Task.Flee(20 * 6) : new Task.Wait(40, false));
+        ClaudeMod.LOGGER.info("[Claude fight] healing here first at health {}: {} ({}) (FortressFight.healHere)", (int) g.getHealth(), seen != null ? "out of the sight of the blaze at " + seen.blockPosition().toShortString() + " first" : "out of their sight, waiting on regen", why);
+        return "healing here first (health " + (int) g.getHealth() + ")" + (seen != null ? ": out of the blazes' sight, then" : ":") + " back to full before the fight (" + why + ")";
+    }
     public static String blazeRods(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {
         String target = st.target().toLowerCase();
         int have = rods(g);
@@ -498,16 +505,19 @@ public final class FortressFight {
           var kit = com.claudemod.director.Kit.ready(g); boolean inVain = HuntPatrol.readiedInVain(g); double readyArmor = inVain ? g.getArmorValue() : kit.armor(); boolean readyShield = shield || kit.shield() && !inVain;
           // HP past his meals out here is a trip home for a kit of food, not 60 s an HP found from nothing (that priced 3 meals at ~2000 s and the trip won every time)
           int kitMeals = Math.max((int) Weights.w("trip.food_back_meals", 6), com.claudemod.director.Kit.food(g) + kit.meals()); double hpPerMeal = Weights.w("food.meal_points", 20.8) / 1.5;
-          Double wasNf = Food.noFoodHpWhatIf; int wasM = Food.mealsWhatIf; double now, ready;
+          Double wasNf = Food.noFoodHpWhatIf; int wasM = Food.mealsWhatIf; double now, ready, healHere = Double.NaN;
           try { Food.noFoodHpWhatIf = (trip + Weights.w("blaze.ready_s", 240)) / (kitMeals * hpPerMeal) + 4;
             now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left);
+            if (g.getHealth() < g.getMaxHealth() - 1 && food > 0) healHere = Food.regenS(g, g.getMaxHealth() - g.getHealth()) + Weights.w("blaze.heal_backout_s", 15) + fightS(g, g.getMaxHealth(), g.getArmorValue(), tough, shield, false, left); // (out of their sight, his meals, back to full here: live 01:33:58 11-12, review 013454-46, at 15 HP the fight read ~16938 s against ~10998 s for a 594-block walk home, the only way to 20 HP on offer; stage 1586)
             Food.mealsWhatIf = kit.meals(); if (have > 0) Decide.carriedWhatIf = 0.0; // (home first banks the rods he has: the fight after it risks none of them)
             ready = fightS(g, 20, readyArmor, tough, readyShield, true, left);
           } finally { Food.noFoodHpWhatIf = wasNf; Food.mealsWhatIf = wasM; Decide.carriedWhatIf = null; }
           boolean adds = have > 0 || readyArmor > g.getArmorValue() || readyShield && !shield || kit.meals() > 0;
           var pick = Decide.choose(g, "blaze.ready", left + " rod(s) to go", true, List.of(
               Decide.Option.of("fight now", now, (int) g.getHealth() + " HP, armor " + g.getArmorValue() + (shield ? ", a shield" : ", no shield")),
+              Double.isNaN(healHere) ? Decide.Option.out("heal here first", g.getHealth() >= g.getMaxHealth() - 1 ? "at full health" : "no food on him") : Decide.Option.of("heal here first", healHere, "out of their sight, his " + food + " meal(s), back to " + (int) g.getMaxHealth() + " HP here, then the fight"),
               !adds ? Decide.Option.out("get ready first", inVain && (kit.armor() > g.getArmorValue() || kit.shield()) ? "the last go home for armor brought none (armor " + g.getArmorValue() + "), and nothing else of gear_up's kit to add" : "gear_up's kit adds nothing to him (armor " + g.getArmorValue() + (shield ? ", a shield" : "") + ", " + com.claudemod.director.Kit.food(g) + " meals): kitted out already") : Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (kit.meals() > 0 ? ", +" + kit.meals() + " meal(s)" : "") + (have > 0 ? ", his " + have + " rod(s) in his chest first" : "") + (inVain ? " (no armor came of the last go)" : ""))));
+          if (pick != null && pick.name().equals("heal here first")) { g.skillQueue.addFirst(again); return healHere(g, level, "the fight at " + (int) g.getHealth() + " HP priced ~" + Math.round(now) + " s, healed here ~" + Math.round(healHere) + " s"); }
           if (pick != null && pick.name().equals("get ready first")) {
               HuntPatrol.readying(g); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1)); if (have > 0) g.skillQueue.addFirst(new Skills.Step("store", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
               java.util.List<String> gets = new java.util.ArrayList<>(); if (readyArmor > g.getArmorValue()) gets.add("armor " + (int) readyArmor); if (readyShield && !shield) gets.add("a shield"); if (kit.meals() > 0) gets.add(kit.meals() + " more meal(s)"); if (g.getHealth() < 20) gets.add("full health"); // (what the trip adds, not a fixed "armor and a shield": live 02:20:48 11-11 said that at armor 14 with a shield in hand)

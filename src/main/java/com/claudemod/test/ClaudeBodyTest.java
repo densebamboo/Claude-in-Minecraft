@@ -11008,6 +11008,7 @@ public final class ClaudeBodyTest {
             case 1527: return st1527(stage, t, c, h, level, mock);
             case 1528: return st1528(stage, t, c, h, level, mock);
             case 1529: return st1529(stage, t, c, h, level, mock);
+            case 1530: return st1530(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21905,6 +21906,30 @@ public final class ClaudeBodyTest {
             c.setNoGravity(false); c.attempts.clear(); com.claudemod.entity.life.Watchdog.reset(c); nsHome(c, h, level);
             check(!off, "a stair climb a block up and one along every step, ~0.9 nearer each: written off as a failed walk");
             pass(stage, t, "9 steps up the stairs, the climb not written off");
+        }
+        return true;
+    }
+    /** Stage 1530 (D2D 183600-98, live 18:35:08-18:35:34+ 11-11 at -148,0,-411): setting off for his chest 409 off, two of his pillar blocks 13 off on his level (-135,0/-1,-403) with no way to them; their digs ended with nothing changed and the gate refused them again, yet TempLedger.leaving dropped the walk every 2 s for them: "setting off ... back up first" 13 times, the walk never went. Digs the gate won't let in are no reason to drop the walk. */
+    private static boolean st1530(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.attempts.clear(); com.claudemod.entity.life.Gate.reset(c); }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), b0 = me.offset(13, 0, 8), b1 = b0.below();
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(3000);
+            for (BlockPos b : new BlockPos[] {b1, b0}) { level.setBlock(b, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, b, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 20)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.setHealth(20); c.prefs.put("stay_close", "no");
+        }
+        if (t[0] == 20) for (BlockPos b : new BlockPos[] {b0, b1}) { var br = new Task.Break(b); com.claudemod.entity.life.Gate.started(c, br, null); com.claudemod.entity.life.Gate.ended(c, br, "no way to it"); } // (their digs ended with nothing changed: on the gate's record)
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var go = new Task.GoTo(me.offset(-300, 0, 0), 2.0); int dropped = 0; String q = "";
+            try { var m = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("leaving", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true);
+                for (int i = 0; i < 3; i++) { c.tasks.clear(); c.tasks.add(go); boolean r = (Boolean) m.invoke(null, c, level); boolean anyBreak = c.tasks.stream().anyMatch(x -> x instanceof Task.Break); if (r && !anyBreak) dropped++; q = String.valueOf(c.tasks);
+                    var tl = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("book", ClaudeEntity.class); tl.setAccessible(true); for (Object e : ((java.util.Map<?, ?>) tl.invoke(null, c)).values()) { var f = e.getClass().getDeclaredField("triedAt"); f.setAccessible(true); f.setInt(e, -1); } } // (2 s on, as live: the try's hold past)
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            c.tasks.clear(); c.dropCurrent = true; level.setBlock(b0, Blocks.AIR.defaultBlockState(), 2); level.setBlock(b1, Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent(); c.prefs.remove("stay_close"); com.claudemod.entity.life.Gate.reset(c); c.attempts.clear();
+            check(dropped == 0, "the walk set aside " + dropped + " of 3 times for digs the gate refused: " + q);
+            pass(stage, t, "the walk kept, the refused digs left: " + q);
         }
         return true;
     }

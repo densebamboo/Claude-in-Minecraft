@@ -435,6 +435,10 @@ public final class TempLedger {
         final BlockPos at = first.pos; List<Entry> batch = new ArrayList<>();
         for (Entry e : book(g).values()) if (e.pos.distSqr(at) <= 6 * 6 && due.test(e)) batch.add(e);
         batch.sort(Comparator.comparingInt((Entry e) -> -e.pos.getY())); // top down
+        { List<Entry> refused = new ArrayList<>(); // a dig the gate won't let in (ended with nothing changed, nothing since): no reason to set the walk aside; on record a minute (live 18:35 11-11, D2D 183600-98: the walk to his chest 409 off dropped every 2 s for 2 pillar blocks 13 off with no way to them; stage 1530)
+          for (Entry e : batch) { var br = new Task.Break(e.pos); g.tasks.addFirst(br); if (g.tasks.remove(br)) continue; refused.add(e); g.attempts.fail(Attempts.Kind.BREAK, e.pos, g.tickCount, me, Attempts.Reason.NO_PATH, "the gate refused it again: " + Gate.LAST_WHY.getOrDefault(g.getUUID(), "-")); }
+          if (!refused.isEmpty()) { batch.removeAll(refused); ClaudeMod.LOGGER.info("[Claude temp] setting off for {}: {} of his temporary blocks left standing, their digs refused again by the gate (no way to them): {} (TempLedger.leaving)", to.toShortString(), refused.size(), refused); }
+          if (batch.isEmpty()) return false; }
         if (walkingNow) { g.tasks.addFirst(go); ClaudeLife.dropCurrent(g); g.getNavigation().stop(); } // (turned back for them, then on; the walk's path stopped too: the dropped walk's path kept him running east 12 more blocks while the break was "on")
         g.tasks.addFirst(new Task.Pickup(60));
         for (int i = batch.size() - 1; i >= 0; i--) { Entry e = batch.get(i); g.tasks.addFirst(new Task.Break(e.pos)); e.triedAt = g.tickCount; e.awayAfterTry = false; e.now = line(g); }

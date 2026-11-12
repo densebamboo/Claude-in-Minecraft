@@ -5484,6 +5484,13 @@ public class WorkGoal extends Goal {
             double rh = witch && sprint ? w("flee.witch_hits", 1) : pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0; runHits += rh * dmg; if (m instanceof net.minecraft.world.entity.monster.WitherSkeleton) witherR += rh; if (m instanceof net.minecraft.world.entity.monster.CaveSpider) poisonR += rh;
             boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
         }
+        String wetNote = ""; { var n0 = them.get(0); double reachB = w("fight.reach_blocks", 3.5); // the water between them: the swim to it, back out to air after, and the air it costs (live 03:25 11-12: a zombie heard 16 off through a flooded cave priced "fight ~3 s", the swim after it took his air and he drowned)
+            if ((g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) || n0.isInWater()) && !shoots(n0) && n0.distanceTo(g) > reachB) {
+                double swimS = (n0.distanceTo(g) - reachB) / w("fight.swim_bps", 1.5), airS = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? g.getAirSupply() / 20.0 : w("fight.dive_air_s", 15);
+                double drownHp = Math.max(0, swimS * 2 + t - airS) * w("fight.drown_hp_per_s", 2);
+                t += swimS * 2; hp += drownHp; hits += drownHp / 2; most += (int) Math.ceil(drownHp / 2);
+                wetNote = ", ~" + Math.round(swimS) + " s of swim each way on " + Math.round(airS) + " s of air" + (drownHp > 0 ? " (~" + Math.round(drownHp) + " HP drowning)" : "");
+            } }
         double perHit = hits > 0 ? hp / hits : 3;
         boolean shooters = them.stream().anyMatch(m -> shoots(m)); double sightHp = shooters && sprint ? bestSightHp(crowd) : 0; runHits += sightHp; // (a shooter gets its shots while he is in its sight: on the heading that breaks it soonest, not three each whatever the ground)
         if (underground && !g.level().dimensionType().hasCeiling()) runHits += w("flee.dark_hits", 1.0) * perHit; // (the Nether is "underground" by its roof, but lit to the eye: no dark surcharge there)
@@ -5501,9 +5508,9 @@ public class WorkGoal extends Goal {
         String unpriced = ""; if (say) for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && shoots(m) && !them.contains(m) && g.hasLineOfSight(m))) unpriced += (unpriced.isEmpty() ? "" : ", ") + m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + " off (" + (m.getTarget() == g ? "on him" : m.getTarget() == null ? "no target" : "on " + m.getTarget().getType().getDescription().getString()) + ")"; // (a shooter with a line on him left out of the price: World 17 09:11, 09:41; the log first, the cause unproven)
         String countedNow = them.stream().map(m -> m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + (g.hasLineOfSight(m) ? "" : " unseen") + (m == foe ? " (asked for)" : "")).collect(java.util.stream.Collectors.joining(", ")); // (the set priced, on the decision line too: two prices 2 ticks apart counted 2 then 3, fight then break-off, live 05:42:11 and 05:58:57 11-11, D2D reviews 90/36, and which mob came in and why was never logged)
         var pick = com.claudemod.entity.life.Decide.choose(g, "fight.flee", what + " (" + countedNow + "), health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (armed() ? "" : ", unarmed") + (underground ? ", underground" : "") + (unpriced.isEmpty() ? "" : "; shooters with a line on him not priced: " + unpriced), say, java.util.List.of(
-            com.claudemod.entity.life.Decide.Option.of("fight", fightNow + (pile ? w("recovery.fight_s", 600) : 0), swings + " swings, ~" + Math.round(hp) + " HP of hits" + (pile ? ", his pile on it out of his armor" : "")),
+            com.claudemod.entity.life.Decide.Option.of("fight", fightNow + (pile ? w("recovery.fight_s", 600) : 0), swings + " swings, ~" + Math.round(hp) + " HP of hits" + wetNote + (pile ? ", his pile on it out of his armor" : "")),
             g.tickCount - noWayOutTick < 200 ? com.claudemod.entity.life.Decide.Option.out("run", "every way out goes past them (seen " + (g.tickCount - noWayOutTick) / 20 + " s ago)") : com.claudemod.entity.life.Decide.Option.of("run", run, "~" + Math.round(runHits) + " HP getting away" + (shooters && sprint ? " (~" + Math.round(sightHp) + " of it arrows on the way out of their sight)" : "") + ", then " + (later == fightFull ? "the fight at full health" : allBurn ? "keeping away while it burns" : "keeping away from them"))));
-        fightOdds = what + ": fight ~" + Math.round(fightNow) + " s (kill in " + swings + ", ~" + Math.round(hp) + " HP of hits; counted " + countedNow + ")" + (pile ? " + his pile" : "") + (unreachable != null ? ", the " + unreachable + " out of his reach on foot" : "") + ", run ~" + Math.round(run) + " s";
+        fightOdds = what + ": fight ~" + Math.round(fightNow) + " s (kill in " + swings + ", ~" + Math.round(hp) + " HP of hits; counted " + countedNow + wetNote + ")" + (pile ? " + his pile" : "") + (unreachable != null ? ", the " + unreachable + " out of his reach on foot" : "") + ", run ~" + Math.round(run) + " s";
         return pick != null && pick.name().equals("run");
     }
 
@@ -7411,6 +7418,7 @@ public class WorkGoal extends Goal {
     }
     /** (tests) the cornered choice's run price: fight.flee's run, or the flat flee.run_s, plus the corner's own. */
     public double cornerRunTest(net.minecraft.world.entity.Mob near, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { cornerPrices(near, mobs); return (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); }
+    public String coverPaysForTest(String why, int n) { pricedFightS = Double.NaN; boolean c = coverPays(why, n); return (c ? "cover" : "no cover") + ", fight " + String.format("%.1f", pricedFightS) + " s (" + fightOdds + "), carry on " + String.format("%.1f", backAmongS(n)) + " s, armed " + armed(); } // (tests)
     public int closeOnShooterTest(net.minecraft.world.entity.LivingEntity mob) { return closeOnShooter(mob, new Task.Attack(mob.getUUID(), 300)); } // (tests)
     private int closeOnShooter(net.minecraft.world.entity.LivingEntity mob, Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();

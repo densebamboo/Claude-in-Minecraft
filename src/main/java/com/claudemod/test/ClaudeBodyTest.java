@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1593: return st1593(stage, t, c, h, level, mock);
             case 1592: return st1592(stage, t, c, h, level, mock);
             case 1591: return st1591(stage, t, c, h, level, mock);
             case 1590: return st1590(stage, t, c, h, level, mock);
@@ -21515,6 +21516,34 @@ public final class ClaudeBodyTest {
                 check(breathed && c.isAlive(), "air 145 under a roof 2 thick, the magma column 11 back along his way: no breath in " + (t[0] - 10) / 20.0 + " s (at " + at + ")");
                 pass(stage, t, "back to the bubbles, breath back in " + (t[0] - 10) / 20.0 + " s (at " + at + ")");
             }
+        }
+        return true;
+    }
+
+    /** Stage 1593 (D2D, live 03:25:28-03:25:38 11-12 at -31,4,-493, the 03:26 drowning): in a flooded cave at night, 0 armor, an iron sword, air ~245 under water; a zombie heard 16 off, not in sight, through the water: "cover.dig_in ... fight ~3 s (kill in 4, ~2 HP of hits) ... : fight", the swim after it took his air and he drowned under a roof 10 s later. A zombie he knows of 16 off through a flooded cave, him under water with air 250: no chase. */
+    private static net.minecraft.world.entity.monster.Zombie s1593Z;
+    private static boolean st1593(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(3, 3, 5)); // (in the arena: a mob put down out in an unloaded section never joins the world)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(18000); }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 21; x++) for (int y = -1; y <= 6; y++) for (int z = -3; z <= 3; z++) { boolean in = x >= -2 && x <= 20 && y >= 0 && y <= 5 && Math.abs(z) <= 2; level.setBlock(o.offset(x, y, z), (in ? Blocks.WATER : Blocks.STONE).defaultBlockState(), 2); } // a flooded cave, capped
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 12) { var z = EntityType.ZOMBIE.create(level); z.moveTo(o.getX() + 16.5, o.getY() + 2, o.getZ() + 0.5, 270, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); s1593Z = z; }
+        if (t[0] == 14 && s1593Z != null) {
+            var z = s1593Z; s1593Z = null; com.claudemod.entity.life.Perception.noteSeenTest(c, z);
+            c.setAirSupply(250); c.setHealth(20);
+            String cover = c.work.coverPaysForTest("weak kit", 1);
+            boolean chase = c.tasks.stream().anyMatch(q -> q instanceof Task.Attack a && a.target().equals(z.getUUID())) || c.currentTask instanceof Task.Attack a2 && a2.target().equals(z.getUUID());
+            String q = c.tasks.toString(); z.discard();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setAirSupply(300);
+            for (int x = -3; x <= 21; x++) for (int y = -1; y <= 6; y++) for (int zz = -3; zz <= 3; zz++) level.setBlock(o.offset(x, y, zz), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setSwimming(false); c.setPose(net.minecraft.world.entity.Pose.STANDING); c.fallDistance = 0;
+            check(!chase, "under water with air 250, a zombie 16 off through a flooded cave: after it (" + cover + "; " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+            pass(stage, t, "the zombie through the water let be (" + cover + ")");
         }
         return true;
     }

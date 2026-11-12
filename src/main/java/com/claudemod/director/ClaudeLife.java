@@ -5738,7 +5738,7 @@ public final class ClaudeLife {
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         java.util.List<Integer> toss = new java.util.ArrayList<>(); // what this toss throws, picked before he turns: the turn away from his work is for that, not for the junk list alone (spare cobble and a 4th stone pick went at his feet in his highway tunnel, walked over and taken back, live 22:00:39 / 22:57, stage 788)
         java.util.Map<Item, Boolean> need = new java.util.HashMap<>(); java.util.List<Integer> order = new java.util.ArrayList<>(); for (int i = 0; i < inv.items.size(); i++) order.add(i);
-        order.sort(java.util.Comparator.comparing((Integer i) -> inv.items.get(i).isEmpty() || !need.computeIfAbsent(inv.items.get(i).getItem(), x -> neededByPlan(g, x)))); // (stacks his queued steps need first: they get the stone kept)
+        order.sort(java.util.Comparator.comparing((Integer i) -> inv.items.get(i).isEmpty() || !need.computeIfAbsent(inv.items.get(i).getItem(), x -> neededByPlan(g, x))).thenComparing((Integer i) -> { var s0 = inv.items.get(i); return s0.is(Items.COBBLESTONE) || s0.is(Items.COBBLED_DEEPSLATE) || s0.is(Items.NETHERRACK) || s0.is(Items.BLACKSTONE) ? -s0.getCount() : 0; })); // (stacks his queued steps need first: they get the stone kept; then the biggest stone stacks: 5 cobble and 1 deepslate kept in slot order threw the 19 netherrack he was digging, every 5 s, D2D review 125225-43 live 12:50 11-12; stage 1621)
         for (int i : order) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;

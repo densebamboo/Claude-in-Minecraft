@@ -11090,6 +11090,7 @@ public final class ClaudeBodyTest {
             case 1618: return st1618(stage, t, c, h, level, mock);
             case 1619: return st1619(stage, t, c, h, level, mock);
             case 1620: return st1620(stage, t, c, h, level, mock);
+            case 1621: return st1621(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -24369,6 +24370,26 @@ public final class ClaudeBodyTest {
             check(in && iron, "raw iron in a floor hole 11 off: after " + took / 20.0 + " s the patch " + (in ? "in" : "not in") + ", the iron " + (iron ? "on him" : "not on him") + " (" + q + ")");
             check(took < 20 * 10, "raw iron in a floor hole 11 off: " + took / 20.0 + " s for the walk, the pickup and the patch");
             pass(stage, t, "in to the hole, the iron up, the patch in after " + took / 20.0 + " s");
+        }
+        return true;
+    }
+    /** Stage 1621 (D2D review 125225-43, live 12:50:19-12:52:33 11-12 in the Nether at 318,60,502: 5 cobblestone, 1 cobbled deepslate and 19 netherrack on him, his two stacks of stone kept in slot order, so the netherrack he was digging went: "threw out 19 netherrack", picked back up, thrown again, then 4, 2, 3, 5, 7, 1 every 5 s). A full pack with 5 cobble, 1 cobbled deepslate and 19 netherrack: the netherrack stays, the little stacks go. */
+    private static boolean st1621(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard(); }
+        if (t[0] == 10) {
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0;
+            inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.items.set(1, new ItemStack(Items.COBBLESTONE, 5)); inv.items.set(2, new ItemStack(Items.COBBLED_DEEPSLATE, 1)); inv.items.set(3, new ItemStack(Items.NETHERRACK, 19));
+            for (int i = 4; i < inv.items.size() - 1; i++) inv.items.set(i, new ItemStack(Items.IRON_INGOT, 64)); // (a pack of keeps, one slot free)
+            c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) {
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int rack = c.getInventory().countItem(Items.NETHERRACK), cob = c.getInventory().countItem(Items.COBBLESTONE), ds = c.getInventory().countItem(Items.COBBLED_DEEPSLATE);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
+            c.getInventory().clearContent(); c.tasks.clear(); c.prefs.remove("stay_close");
+            check(rack == 19, "5 cobble, 1 cobbled deepslate, 19 netherrack, a full pack: the netherrack thrown (left " + rack + " netherrack, " + cob + " cobble, " + ds + " deepslate)");
+            pass(stage, t, "the 19 netherrack kept: " + cob + " cobble, " + ds + " deepslate left");
         }
         return true;
     }

@@ -462,7 +462,9 @@ public final class Route {
             if (unknown.contains(key(n.x, n.z))) continue; // (the plan stops at the loaded land's edge)
             for (int[] d : dirs) {
                 int x = n.x + d[0], z = n.z + d[1];
+                boolean start = n.x == from.getX() && n.z == from.getZ() && n.feet == from.getY();
                 Col c = col(level, cache, x, z, n.feet);
+                if (start && c.feet == BAD) c = col(level, cache, x, z, n.feet - 5); // (from up a tree or a ledge: the ground under it, 5-9 down)
                 int feet = c.feet;
                 boolean unk = feet == UNKNOWN;
                 if (feet == BAD) continue;
@@ -471,9 +473,9 @@ public final class Route {
                 Col here = col(level, cache, n.x, n.z, n.feet);
                 boolean swim = c.water || here.water;
                 if (dy >= 3) continue; // a cliff: round it (a 2-high step is cut into, below)
-                if (dy <= -4 && !c.water) continue; // a drop that hurts: round it, unless into water
+                if (dy <= -4 && !c.water && !(start && dy >= -9)) continue; // a drop that hurts: round it, unless into water; from where he stands it's the way down (up a tree he was chopping, every column round him 4+ down: "1 columns looked at", no legs, the walk straight at the goal 150 the wrong way; D2D review 211145-20, stage 1577), his walker's descent, priced below
                 double cost = (d[0] != 0 && d[1] != 0 ? 1.414 : 1.0) * (swim ? com.claudemod.entity.life.Weights.w("route.swim_factor", 2.5) : 1.0) + (dy == 1 ? 0.4 : 0) + (dy == 2 ? 16.0 : 0) + (dy <= -2 ? 1.0 : 0) + c.extra + (unk ? 0.5 : 0)
-                        + (atDy < 0 && feet < deep ? 0.5 * (deep - feet) : 0); // (under both ends by more than 4: dear, a ravine's floor only when the spot's down there or nothing else gets there)
+                        + (atDy < 0 && feet < deep ? 0.5 * (deep - feet) : 0) + (start && dy <= -4 ? 2.0 * (-dy - 3) : 0); // (the way down from his start: ~a heart a block past 3; under both ends by more than 4: dear, a ravine's floor only when the spot's down there or nothing else gets there)
                 if (d[0] != 0 && d[1] != 0) { // a diagonal: both sides open at about this height (no corner cutting through a trunk)
                     Col a = col(level, cache, n.x + d[0], n.z, n.feet), b2 = col(level, cache, n.x, n.z + d[1], n.feet);
                     if (a.feet == BAD || b2.feet == BAD || a.feet != UNKNOWN && Math.abs(a.feet - n.feet) > 1 || b2.feet != UNKNOWN && Math.abs(b2.feet - n.feet) > 1) continue;

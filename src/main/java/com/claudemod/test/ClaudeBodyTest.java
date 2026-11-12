@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1577: return st1577(stage, t, c, h, level, mock);
             case 1576: return st1576(stage, t, c, h, level, mock);
             case 1575: return st1575(stage, t, c, h, level, mock);
             case 1574: return st1574(stage, t, c, h, level, mock);
@@ -20806,6 +20807,28 @@ public final class ClaudeBodyTest {
                 check(done, "the water source by the hole into his tunnel: not patched in 10 s (at " + at.toShortString() + ", " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
                 pass(stage, t, "the source patched in " + s / 20.0 + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1577 (D2D review 211145-20, live 21:06:27 11-11 at -162,73,-155, 4 up on the tree he was chopping: the route chose in by his door, "land plan -162, 73, -155 -> -14, 68, -20: 1 columns looked at (no way through found)": every column round him a 4+ drop, so no legs; the walk went on straight at the chest's spot, 150 west the wrong way, 45 s and written off). Him 4 up on a log column in a flat field, a spot 60 off over the land: the land plan's legs, from the ground under him. */
+    private static boolean st1577(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 70, 12100), to = o.offset(60, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(3000); }
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 10) {
+            for (int x = -6; x <= 66; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), y < 0 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int y = 0; y < 4; y++) level.setBlock(o.offset(0, y, 0), Blocks.OAK_LOG.defaultBlockState(), 2); // (the trunk he chopped down to: him on its top, 4 up)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY() + 4, o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) {
+            var r = com.claudemod.entity.nav.Route.expand(c, level, to, 1.0);
+            String said = r == null ? "his walker's (no legs)" : r.size() + " tasks";
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (int x = -6; x <= 66; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(r != null && r.size() >= 2, "4 up on a trunk, a spot 60 off over flat land: no land plan (" + said + ")");
+            pass(stage, t, "legs from the ground: " + said);
         }
         return true;
     }

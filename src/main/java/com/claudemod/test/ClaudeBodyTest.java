@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1591: return st1591(stage, t, c, h, level, mock);
+            case 1590: return st1590(stage, t, c, h, level, mock);
             case 1589: return st1589(stage, t, c, h, level, mock);
             case 1588: return st1588(stage, t, c, h, level, mock);
             case 1587: return st1587(stage, t, c, h, level, mock);
@@ -21388,6 +21390,52 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(r.startsWith("blocks first"), "at his fortress, armor 14 and a shield, a pick, 9 blocks on him: into the blazes without blocks to wall in (" + r + ")");
             pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 1590 (D2D review 015814-24, live 01:57:12-15 11-12 by his fortress: his death pile at 317,63,494 went into the flowing lava at 314,62,492 in 15-21 ticks, "GEAR GONE: diamond_pickaxe, diamond_sword, iron set, shield, bow ..."; at 01:57:13 recover_drops still said "my things at 317, 63, 494 in the nether (... diamond_pickaxe, diamond_sword ...) aren't worth the run from here ... picked up if I pass them", the pile pending on his record). His pile drops into lava and burns: his record has it gone, not waiting. */
+    private static int s1590T; private static BlockPos s1590P;
+    private static boolean st1590(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1590T = -1; com.claudemod.entity.life.DeathLog.reset(c); flatBox(h); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, 0, z), Blocks.LAVA.defaultBlockState(), 2); }
+            c.teleportTo(o.getX() + 0.5, o.getY() + 6, o.getZ() + 8.5); c.fallDistance = 0;
+            s1590P = o.east(3).immutable(); level.setBlock(o.offset(3, -1, 0), Blocks.STONE.defaultBlockState(), 2); /* (he died beside the lava, not in it: live 3 off it) */ java.util.List<net.minecraft.world.entity.item.ItemEntity> fell = new java.util.ArrayList<>();
+            for (var st : new ItemStack[] {new ItemStack(Items.DIAMOND_PICKAXE), new ItemStack(Items.IRON_CHESTPLATE), new ItemStack(Items.SHIELD), new ItemStack(Items.COBBLESTONE, 4)}) { var it = new net.minecraft.world.entity.item.ItemEntity(level, o.getX() + 0.5, o.getY() + 0.2, o.getZ() + 0.5, st); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); fell.add(it); }
+            com.claudemod.entity.life.DeathLog.died(c, level, s1590P, fell); s1590T = t[0];
+        }
+        if (s1590T > 0 && t[0] == s1590T + 60) {
+            var l = com.claudemod.entity.life.DeathLog.of(c); var d = l.isEmpty() ? null : l.get(l.size() - 1);
+            int left = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(s1590P).inflate(4), net.minecraft.world.entity.Entity::isAlive).size();
+            String st = d == null ? "none" : d.status;
+            com.claudemod.entity.life.DeathLog.reset(c);
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { level.setBlock(o.offset(x, 0, z), Blocks.AIR.defaultBlockState(), 2); }
+            flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+            check(d != null, "setup: no death on his record");
+            check(left == 0, "setup: " + left + " item(s) of the pile not burned in 3 s");
+            check(d == null || !d.pending(), "his pile burned in the lava: his record still has it waiting (" + st + ")");
+            pass(stage, t, "his record: " + st);
+        }
+        return true;
+    }
+    /** Stage 1591 (D2D review 015814, live 01:57:12 11-12: dead 3 off the flowing lava at 314,62,492 at his fortress, the route had turned that lava down 22 s before; his pile went into it in 15-21 ticks, "GEAR GONE: diamond_pickaxe, diamond_sword, iron set, shield, bow"; the fight and flee prices had a death as the walk back only). His gear on, flat stone, then lava 2 off: a death there is priced with the pile lost. */
+    private static boolean st1591(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); flatBox(h); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BOW));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0;
+        }
+        if (t[0] == 20) {
+            double dry = com.claudemod.entity.life.Decide.deathS(c);
+            level.setBlock(o.east(2), Blocks.LAVA.defaultBlockState(), 2);
+            c.tickCount++; double wet = com.claudemod.entity.life.Decide.deathS(c);
+            level.setBlock(o.east(2), Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent();
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            check(wet > dry + 300, "diamond tools and iron on him, lava 2 off: a death priced ~" + Math.round(wet) + " s against ~" + Math.round(dry) + " s on dry stone (the pile lost in it unpriced)");
+            pass(stage, t, "a death by lava ~" + Math.round(wet) + " s, on dry stone ~" + Math.round(dry) + " s");
         }
         return true;
     }

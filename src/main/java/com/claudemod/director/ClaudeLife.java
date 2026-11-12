@@ -2198,6 +2198,8 @@ public final class ClaudeLife {
                             g.skillQueue.addFirst(st);
                             return "no " + animal + " down here: heading up top to look for one";
                         }
+                        ClaudeMod.LOGGER.info("[Claude skill] collect {}: none got at within 48 ({}) (ClaudeLife collect)", animal, reachNote != null ? reachNote : "none in the area"); // (live 01:46:25 11-12, review 014948-30: "no hoglin within 48" with hoglins 19-21 off on his decide lines; which one it was went unsaid)
+                        if (reachNote != null) return "failed: " + reachNote + "; nothing else of it within 48 blocks";
                         return "failed: no " + animal + " within 48 blocks of you or them; animals are on the surface, explore up top for them";
                     }
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble));

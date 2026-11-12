@@ -104,10 +104,16 @@ public final class DeathLog {
         var r = it.getRemovalReason();
         if (r == null || r == net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_TO_CHUNK || r == net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_WITH_PLAYER || r == net.minecraft.world.entity.Entity.RemovalReason.CHANGED_DIMENSION) return;
         String dim = level.dimension().location().getPath(); BlockPos p = it.blockPosition();
-        for (List<Death> l : all.values()) for (Death d : l) if (d.pending() && d.dim.equals(dim) && d.at.distSqr(p) <= 8 * 8) {
+        for (var en : all.entrySet()) for (Death d : en.getValue()) if (d.pending() && d.dim.equals(dim) && d.at.distSqr(p) <= 8 * 8) {
             String why = it.getItem().isEmpty() ? "picked up (or merged)" : r == net.minecraft.world.entity.Entity.RemovalReason.KILLED ? "destroyed (fire, lava, cactus, explosion)" : it.getAge() >= 6000 ? "despawned" : "discarded (" + r + ")";
             var pl = level.getNearestPlayer(it, -1);
             ClaudeMod.LOGGER.info("[Claude deaths] an item off his pile at {} left the world: {} ({}), age {} ticks ({} s counted on the pile), at {} in {} on {}, nearest player {}", d.at.toShortString(), BuiltInRegistries.ITEM.getKey(it.getItem().getItem()).getPath(), why, it.getAge(), d.loadedTicks / 20, p.toShortString(), level.getBlockState(p).getBlock().getName().getString() + (level.getFluidState(p).isEmpty() ? "" : " / " + level.getFluidState(p).getType()), level.getBlockState(p.below()).getBlock().getName().getString(), pl == null ? "none" : pl.getName().getString() + " " + (int) pl.distanceTo(it) + " off");
+            boolean lava = level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA), fire = level.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE);
+            if (!it.getItem().isEmpty() && (lava || fire || r == net.minecraft.world.entity.Entity.RemovalReason.KILLED)) { // burned: once nothing worth a trip is left of the pile, it's gone, not waiting (live 01:57:13 11-12, review 015814-24: his diamond tools and iron set burned in the lava by his death spot, recover_drops still listed them "picked up if I pass them"; stage 1590)
+                boolean left = false; for (ItemEntity o : level.getEntitiesOfClass(ItemEntity.class, new AABB(d.at).inflate(8), x -> x != it && x.isAlive())) if (worthTrip(BuiltInRegistries.ITEM.getKey(o.getItem().getItem()).getPath())) left = true;
+                if (!left) { d.status = "gone: burned in the " + (lava ? "lava" : "fire") + " at " + p.toShortString(); ClaudeMod.LOGGER.info("[Claude deaths] his pile at {} in {}: {}", d.at.toShortString(), d.dim, d.status);
+                    for (ServerLevel lv : level.getServer().getAllLevels()) if (lv.getEntity(en.getKey()) instanceof ClaudeEntity g) save(g); }
+            }
             return;
         }
     }

@@ -87,7 +87,20 @@ public final class Decide {
      * carriedWhatIf: a what-if with nothing carried (the bank-them-first option), null otherwise.
      */
     public static Double carriedWhatIf;
-    public static double deathS(ClaudeEntity g) { return w("danger.death_s", 1800) + (carriedWhatIf != null ? carriedWhatIf : carriedS(g)); }
+    public static double deathS(ClaudeEntity g) { return w("danger.death_s", 1800) + (carriedWhatIf != null ? carriedWhatIf : carriedS(g)) + pileLossS(g); }
+    /** A death with lava by him loses the pile, not just the walk back: his gear's worth (DeathLog.worthS's points) times death.pile_lava_loss. Live 01:57:12 11-12: dead 3 off flowing lava at the fortress, the pile in it in 15-21 ticks, diamond tools and an iron set gone (D2D review 015814; stage 1591). */
+    public static double pileLossS(ClaudeEntity g) {
+        if (g == null || g.inventory == null || !(g.level() instanceof net.minecraft.server.level.ServerLevel l)) return 0;
+        if (pileG == g && pileT == g.tickCount) return pileS;
+        int r = (int) w("death.pile_lava_blocks", 4); net.minecraft.core.BlockPos f = g.blockPosition(); boolean lava = false;
+        for (var q : net.minecraft.core.BlockPos.betweenClosed(f.offset(-r, -3, -r), f.offset(r, 1, r))) if (l.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { lava = true; break; }
+        double pts = 0;
+        if (lava) { for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var s = g.inventory.items.getItem(i); if (!s.isEmpty()) pts += com.claudemod.director.ClaudeLife.worthEach(s) * s.getCount(); }
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) { var s = g.getItemBySlot(sl); if (!s.isEmpty()) pts += com.claudemod.director.ClaudeLife.worthEach(s) * s.getCount(); } }
+        pileG = g; pileT = g.tickCount; pileS = pts * w("recovery.trip_s_per_point", 3) * w("death.pile_lava_loss", 0.8);
+        return pileS;
+    }
+    private static ClaudeEntity pileG; private static int pileT; private static double pileS; // (one look a tick: riskS asks it many times)
     public static double carriedS(ClaudeEntity g) {
         if (g == null || g.inventory == null) return 0;
         int rods = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BLAZE_ROD)), powder = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ENDER_PEARL)), eyes = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ENDER_EYE));

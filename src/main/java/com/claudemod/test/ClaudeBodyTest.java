@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1588: return st1588(stage, t, c, h, level, mock);
+            case 1587: return st1587(stage, t, c, h, level, mock);
             case 1586: return st1586(stage, t, c, h, level, mock);
             case 1585: return st1585(stage, t, c, h, level, mock);
             case 1584: return st1584(stage, t, c, h, level, mock);
@@ -21250,6 +21252,72 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(!r.startsWith("getting ready first"), "at his fortress, armor 14 and a shield, 15 HP and his meals on him, 12 meals, 1 rod of 7, his portal 270 off: sent home to heal (" + r + ")");
             pass(stage, t, "on with the fight: " + r);
+        }
+        return true;
+    }
+    /** Stage 1587 (D2D review 013454-48, live 01:34:09 11-12 by his fortress at 274,65,475: blaze.retreat "out of their sight ... boxed in where he stands, 10 blocks", the first wall at 274,65,475 "didn't take (in the way: Blaze)", the fight in the open after; 162 s, down to 2 HP). An open deck, nowhere out of sight, 64 cobbled deepslate, a blaze in the cell beside him and two more off: no box priced through a cell a blaze fills. */
+    private static net.minecraft.world.entity.monster.Blaze[] s1587B; private static int s1587T; private static boolean s1587Into;
+    private static boolean st1587(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1587T = -1; s1587Into = false; if (s1587B != null) for (var b : s1587B) b.discard(); s1587B = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // an open deck: nowhere out of their sight
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(9); c.getFoodData().setFoodLevel(20); c.setRemainingFireTicks(100); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1587B = new net.minecraft.world.entity.monster.Blaze[3];
+            for (int i = 0; i < 3; i++) { var b = EntityType.BLAZE.create(level); if (i == 0) b.moveTo(o.getX() + 1.5, o.getY(), o.getZ() + 0.5, 90, 0); else b.moveTo(o.getX() + 8.5, o.getY() + 4, o.getZ() + 0.5 + (i - 1) * 3, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1587B[i] = b; com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1587B[1].getUUID(), 20 * 60)); s1587T = t[0]; }
+        if (s1587T > 0 && t[0] > s1587T) {
+            BlockPos filled = o.east(); java.util.function.Predicate<Task> into = q -> q instanceof Task.Place p && (p.pos().equals(filled) || p.pos().equals(filled.above()));
+            if (into.test(c.currentTask) || c.tasks.stream().anyMatch(into)) s1587Into = true;
+            if (s1587Into || t[0] - s1587T > 20 * 3) {
+                boolean bad = s1587Into; String q = c.currentTask + " " + c.tasks;
+                for (var b : s1587B) b.discard(); s1587B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!bad, "a blaze in the cell beside him: his box-in wall planned into its cell (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "no wall into the blaze's cell: " + (q.length() > 100 ? q.substring(0, 100) : q));
+            }
+        }
+        return true;
+    }
+    /** Stage 1588 (D2D review 013454-45, live 01:33:11-12 11-12 at 315,60,509 by his fortress: "waiting: hurt with wither skeletons about (health 11): healing before I go on" in a dug-in cover the blazes saw into, burning, fireballs landing, 11 -> 5). In the Nether at 11 HP, a wither skeleton 10 off, a blaze 12 off in sight: the blaze_rods step's heal wait is out of its sight, not a wait in its view. */
+    private static net.minecraft.world.entity.Mob[] s1588M;
+    private static boolean st1588(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12600, 64, 8300);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1588M != null) for (var m : s1588M) m.discard(); s1588M = null; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            for (int x = -16; x <= 16; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            for (int z = -8; z <= 8; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(-4, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // (a wall 4 west: out of the blaze's sight behind it)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(11); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.commandActive = false;
+        }
+        if (t[0] == 61) { // (between nsTick's clears, every 10 ticks)
+            var w = EntityType.WITHER_SKELETON.create(nl); w.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 10.5, 180, 0); w.setNoAi(true); w.setPersistenceRequired(); nl.addFreshEntity(w);
+            var b = EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 12.5, o.getY() + 2, o.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); b.setTarget(c);
+            s1588M = new net.minecraft.world.entity.Mob[] {w, b}; com.claudemod.entity.life.Perception.noteSeenTest(c, w); com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 65) {
+            c.setHealth(11); // (regen at full food: 11 was 17 by now)
+            boolean sees = s1588M[1].hasLineOfSight(c); int wn = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, c.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive).size(); float hp0 = c.getHealth(); boolean inNl = c.level() == nl;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod@7", 1);
+            boolean waitsInView = c.tasks.stream().anyMatch(q -> q instanceof Task.Wait) && c.tasks.stream().noneMatch(q -> q instanceof Task.Flee);
+            String q = c.tasks.toString();
+            boolean s1588M0alive = s1588M[0].isAlive() && s1588M[0].level() == nl; for (var m : s1588M) m.discard(); s1588M = null; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getInventory().clearContent();
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (int x = -16; x <= 16; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(sees, "setup: the blaze doesn't see him");
+            check(r != null && r.startsWith("waiting") || r != null && r.startsWith("healing"), "setup: not the heal wait (withers near " + wn + ", health " + hp0 + ", in the Nether " + inNl + ", wither alive " + s1588M0alive + "; " + r + ")");
+            check(!waitsInView, "at 11 HP, wither skeletons about, a blaze 12 off that sees him: healing in its view (" + r + "; " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            pass(stage, t, "out of its sight to heal: " + r);
         }
         return true;
     }

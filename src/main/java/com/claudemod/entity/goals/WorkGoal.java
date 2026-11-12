@@ -6996,7 +6996,9 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
         BlockPos hide = hidden.test(feet) ? feet : blazeHideCell(lv, feet, hidden, steps);
         int up = boxUp(feet), boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(up + 1)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
-        final int boxN0 = boxN; var boxIt = com.claudemod.entity.life.FortressFight.wallItem(g, boxN); boolean box = hide == null && boxN > 0 && boxIt != null && g.inventory.count(x -> x.is(boxIt)) >= boxN0; // (all his stacks of one kind: one stack of 2 cobblestone read as no blocks with 112 netherrack on him, death 57)
+        net.minecraft.world.entity.Entity boxIn = null; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up + 1; y++) { BlockPos q = y > up ? feet.above(up + 1) : feet.relative(dir).above(y); for (var e : lv.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(q), e0 -> e0 != g && e0.isAlive())) boxIn = e; } // (a box cell a mob fills takes no block: live 01:34:09 11-12, review 013454-48, "boxed in where he stands, 10 blocks", the first wall "didn't take (in the way: Blaze)", the fight in the open; stage 1587)
+        final int boxN0 = boxN; var boxIt = com.claudemod.entity.life.FortressFight.wallItem(g, boxN); boolean box = hide == null && boxN > 0 && boxIt != null && g.inventory.count(x -> x.is(boxIt)) >= boxN0 && boxIn == null;
+        if (hide == null && boxIn != null && g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] no box-in where he stands: a {} at {} fills one of its cells (WorkGoal.blazeRetreatPays)", boxIn.getType().getDescription().getString(), boxIn.blockPosition().toShortString()); // (all his stacks of one kind: one stack of 2 cobblestone read as no blocks with 112 netherrack on him, death 57)
         double walk = hide != null ? steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint() : box ? boxN * w("cover.place_s", 0.35) / 2 : w("blaze.open_run_s", 15); // (a box: the build is the time in their sight, counted twice below as there-and-back)
         double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
         double leaveHp = n * walk * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
@@ -7108,7 +7110,8 @@ public class WorkGoal extends Goal {
                 box.add(roof);
             }
             final int need = box.size(); var wallIt = com.claudemod.entity.life.FortressFight.wallItem(g, need); ItemStack blocks = wallIt == null ? ItemStack.EMPTY : new ItemStack(wallIt, g.inventory.count(x -> x.is(wallIt))); // (the kind he has enough of, all its stacks: death 57, stage 1567)
-            if (!box.isEmpty() && blocks.getCount() >= box.size()) {
+            boolean filled = box.stream().anyMatch(c -> !level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(c), e -> e != g && e.isAlive()).isEmpty()); // (a mob in a wall cell: that wall never takes, stage 1587)
+            if (!box.isEmpty() && blocks.getCount() >= box.size() && !filled) {
                 net.minecraft.world.phys.AABB body = g.getBoundingBox().deflate(0.01);
                 boolean inAWallCell = false; for (BlockPos c : box) if (body.intersects(new net.minecraft.world.phys.AABB(c))) inAWallCell = true;
                 if (inAWallCell) { // his body (0.6 wide) over a wall cell's edge: the middle of his own block first, then the walls round him (World 15 12:22: walls queued in the cells he stood across, "where he's standing" every time, dead in place)

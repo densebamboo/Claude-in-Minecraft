@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1575: return st1575(stage, t, c, h, level, mock);
             case 1574: return st1574(stage, t, c, h, level, mock);
             case 1573: return st1573(stage, t, c, h, level, mock);
             case 1572: return st1572(stage, t, c, h, level, mock);
@@ -20710,6 +20711,38 @@ public final class ClaudeBodyTest {
             check(angry, "setup: the enderman not on him"); check(s1574On, "setup: the fight with it never ran (" + (q.length() > 80 ? q.substring(0, 80) : q) + ")");
             check(!(onIt && !moving && moved < 1.0), "an angry enderman 4 below, 13 off, no way up: 8 s standing on his ledge at it (moved " + String.format("%.1f", moved) + "; " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
             pass(stage, t, dead ? "down to it and killed it, " + String.format("%.1f", moved) + " moved" : onIt ? "on his way down to it, " + String.format("%.1f", moved) + " moved" : "left it: " + (q.length() > 80 ? q.substring(0, 80) : q));
+        }
+        return true;
+    }
+    /** Stage 1575 (D2D review 202949-93, live 20:26:59 11-11 at about -114,76,-419: to his iron chest at -83,16,-430 by his row, 84 off: "under cover near his mine, no way of his own from here: in by his door ~867", 37 legs, ~400 to his door and back down his rows; the obtain line priced the chest by the same door way, 926 off). Him on the grass 28 up and 30 across from a chest by the far end of his 150-block row 24 down: his own way down to it, not round by his door, and the chest priced by that way. */
+    private static BlockPos s1575C;
+    private static boolean st1575(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 70, 11500), me = o.offset(120, 4, 0); BlockPos chest = s1575C;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); level.setDayTime(3000); }
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 176; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 10) {
+            for (int x = -2; x <= 165; x++) for (int z = -8; z <= 8; z++) for (int y = -28; y <= 6; y++) level.setBlock(o.offset(x, y, z), y <= 2 ? Blocks.STONE.defaultBlockState() : y == 3 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o, net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 4;
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, o.offset(4, -24, 0), net.minecraft.core.Direction.EAST, 147, null));
+            for (int x = 4; x <= 150; x++) for (int y = -24; y <= -23; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his row, 47 under the grass (its stairs left out: only the door's way matters)
+            chest = null; for (int dz : new int[] {-1, 1, 2, -2}) { BlockPos q = o.offset(150, -24, dz); if (!b.isWalk(q) && !b.isWalk(q.above()) && !b.isWalk(q.below())) { chest = q; break; } } s1575C = chest; // (beside his row, not in it)
+            for (int x = 4; x <= 150; x++) for (int y = -24; y <= -23; y++) for (int dz = -1; dz <= 1; dz++) if (b.isWalk(o.offset(x, y, dz))) level.setBlock(o.offset(x, y, dz), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 2);
+            c.blueprint = b; c.nook = null; c.nooks.clear(); c.stairStart = o;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) {
+            var r = com.claudemod.entity.nav.Route.expand(c, level, chest, 1.0);
+            var b = c.blueprint; boolean door = r != null && r.stream().anyMatch(q -> q instanceof Task.GoTo go && (go.pos().equals(b.entrance) || go.pos().equals(b.outside())));
+            int rd = com.claudemod.director.ClaudeLife.routeDist(c, c.blockPosition(), chest), straight = (int) Math.sqrt(c.blockPosition().distSqr(chest)), byDoor = (int) (Math.sqrt(c.blockPosition().distSqr(b.entrance)) + Math.sqrt(b.entrance.distSqr(chest)));
+            String said = r == null ? "his walker's" : r.size() + " tasks";
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.stairStart = null; c.getInventory().clearContent();
+            for (int x = -2; x <= 165; x++) for (int z = -8; z <= 8; z++) for (int y = -28; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!door, "his chest 24 down, 30 across, his door 120 back along the grass: in by his door and down 150 of rows (" + said + ")");
+            check(rd < byDoor, "his chest " + straight + " off priced " + rd + ", the door's way (" + byDoor + " at its shortest)");
+            pass(stage, t, "his own way there (" + said + "), priced " + rd + " for " + straight + " straight");
         }
         return true;
     }

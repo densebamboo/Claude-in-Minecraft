@@ -6247,7 +6247,9 @@ public final class ClaudeLife {
         if (ra != null && rc != null) { int k = rowDists(b, ra[0])[rc[0]]; return k < 0 ? straight + 1000 : k + ra[1] + rc[1]; } // (rows that don't join: no way through his mine)
         int[] on = ra != null ? ra : rc; BlockPos off = ra != null ? c : a;
         int k = rowDists(b, 0)[on[0]]; // out by his entrance (rows join both ways: one search from the entrance serves every row, never one per row: live 02:29 11-11, 53 lag ticks of 1-14 s pricing his chests from the surface; stage 1481)
-        return (k < 0 ? 1000 : k) + on[1] + (int) Math.sqrt(b.entrance.distSqr(off));
+        int door = (k < 0 ? 1000 : k) + on[1] + (int) Math.sqrt(b.entrance.distSqr(off));
+        if (straight < door && straight <= 128 && g.level() instanceof net.minecraft.server.level.ServerLevel sl && (ra == null || com.claudemod.entity.nav.Route.under(sl, c))) return (int) Math.min(door, com.claudemod.entity.nav.Route.lineOwn(sl, a, c)); // (his own way through the rock, as Route prices it and takes it: into his mine from anywhere, or out of it to a spot under cover, never up through the rock to the open ground (his stairs, stage 1456); a chest 84 off said "926 blocks off" by his door, D2D review 202949-93)
+        return door;
     }
     public static com.claudemod.entity.life.BaseNook nearestNook(ClaudeEntity g, BlockPos from, java.util.function.Predicate<com.claudemod.entity.life.BaseNook> ok) {
         com.claudemod.entity.life.BaseNook best = null; int bd = Integer.MAX_VALUE;
@@ -8452,7 +8454,7 @@ public final class ClaudeLife {
         progKey.put(g.getUUID(), nowKey);
         if (!sameTask) seen.put(seenKey, tgt >= 0 ? tgt : Double.MAX_VALUE); else if (tgt >= 0) seen.merge(seenKey, tgt, Math::min);
         boolean moved = (tgt < 0 || !sameTask) && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3; // no target: the move measure; a new action: a fresh start
-        if (busy && tgt >= 0 && sameTask && !closer && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3 && g.tickCount % 200 == 17) ClaudeMod.LOGGER.info("[Claude watchdog] moving but no nearer: {} best {} now {} (ClaudeLife.noticeStuck)", ClaudeChat.describe(g, now), String.format("%.1f", best0 == null ? -1.0 : best0), String.format("%.1f", tgt));
+        if (busy && tgt >= 0 && sameTask && !closer && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3 && g.tickCount % 200 == 17) { var np = g.getNavigation().getPath(); ClaudeMod.LOGGER.info("[Claude watchdog] moving but no nearer: {} best {} now {}; at {}, moved by {} (ClaudeLife.noticeStuck)", ClaudeChat.describe(g, now), String.format("%.1f", best0 == null ? -1.0 : best0), String.format("%.1f", tgt), at.toShortString(), np == null || np.isDone() ? "no vanilla path (his own steps or the walker's way: " + g.tasks.stream().limit(3).map(Object::toString).toList() + ")" : "a vanilla path of " + np.getNodeCount() + " nodes to " + np.getTarget().toShortString() + ", at node " + np.getNextNodeIndex() + " (" + np.getNextNodePos().toShortString() + ")"); } // (what is walking him: D2D review 195746-142, a gold ore 7 under him, the walk 20 east and back, no line said what took it)
         if (!busy || g.progressPos == null || closer || moved || items != g.progressItems || brk != progressBroken.getOrDefault(g.getUUID(), -1)) { // (a shuffle, a missed jump falling back, a hop that re-picks its own spot: moving, but no nearer, is no progress; a new action alone is no progress either)
             progPin.remove(g.getUUID()); // (real progress: the way out did its job, or it's a new job)
             seen.clear(); seen.put(seenKey, tgt >= 0 ? tgt : Double.MAX_VALUE);

@@ -170,10 +170,12 @@ public final class Route {
                 && !(me.distSqr(b.outside()) <= 9 || me.distSqr(b.entrance) <= 9); // at his mine's door he's out already: "up the rows and out" from there replanned to the same door, forever (starving at -20, 66, 76)
         boolean toIn = mine && (b.isWalk(to) || b.isWalk(to.above()) || b.isWalk(to.below()) || toNook >= 0 || under(level, to) && near(b, to, 16));
         if (toIn && !meIn && !(b.isWalk(to) || b.isWalk(to.above()) || b.isWalk(to.below()) || toNook >= 0)) { // in his mine only by being under cover near it (a cave off it, or a spot by the lake under an overhang): his walker's when a plain walk gets there, not the way in by the door (World 17 17:22-18:22: his furnace 3 off by the lake, "26 legs, over the land to his mine, in, down its rows", the walker back up and out, 58 times)
-            var plain = ActionPath.plan(g, level, me, to, Math.max(within, 1.0), false, 3000, ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount); // (MAY_DIG: a block of sand in the way is a dig, not the way round by his door)
+            var plain = ActionPath.plan(g, level, me, to, Math.max(within, 1.0), false, 3000, ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, java.util.List.of(), ActionPath.lineWeight(level, me, to)); // (MAY_DIG: a block of sand in the way is a dig, not the way round by his door; greedy as his walker plans it: a way that is mostly digging ran the plain search out, "no way of his own from here", in by his door ~867 for a chest 84 off, D2D review 202949-93)
             double door = Math.sqrt(me.distSqr(b.entrance)) + Math.sqrt(b.entrance.distSqr(to)), own = plain == null ? -1 : plain.walks() + com.claudemod.entity.life.Weights.w("route.dig_in_steps", 3) * plain.digs(); // (the door's way at its shortest, against his own: a dug block ~3 steps)
-            if (plain != null && own < door) { toIn = false; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, his own way (the walker's) ~{} ({} walks, {} digs) beats in by his door ~{}: the walker takes it (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), (int) own, plain.walks(), plain.digs(), (int) door); }
-            else com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, {}: in by his door ~{} (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), plain == null ? "no way of his own from here" : "his own way ~" + (int) own + " is longer", (int) door);
+            double line = plain == null ? lineOwn(level, me, to) : -1;
+            if (plain == null && line < door) { toIn = false; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, the search ran out on his own way; by the straight line it's ~{} against in by his door ~{}: the walker takes it (its plan runs over several ticks) (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), (int) line, (int) door); }
+            else if (plain != null && own < door) { toIn = false; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, his own way (the walker's) ~{} ({} walks, {} digs) beats in by his door ~{}: the walker takes it (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), (int) own, plain.walks(), plain.digs(), (int) door); }
+            else com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, {}: in by his door ~{} (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), plain == null ? "no way of his own found in time, the straight line ~" + (int) line + " longer still" : "his own way ~" + (int) own + " is longer", (int) door);
         }
         final int meRow = meNook >= 0 ? meNook : mine ? nearestRow(b, me) : -1, toRow = toNook >= 0 ? toNook : mine ? nearestRow(b, to) : -1; // (from or to a pocket: its mouth row)
         boolean meTop = !under(level, me);
@@ -220,8 +222,10 @@ public final class Route {
             if (under(level, to)) { // an underground spot off his mine: his own way there (along his rows, through the rock) priced against up the rows, out by his door and over the land, as the way in is (review 83 11-10: a furnace 43 on through the rock from near his row's far end, "47 legs, up his mine's rows and out", the 380-block row walked back, a 40-block swim; stage 1476)
                 var plain = ActionPath.plan(g, level, me, to, Math.max(within, 1.0), false, 3000, ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, java.util.List.of(), ActionPath.lineWeight(level, me, to)); // (greedy as his walker plans it: a way that is mostly digging runs the plain search out of its 500 ms)
                 double door = 0; BlockPos at = me; for (BlockPos p : b.walkCells(meRow, 0)) { door += Math.sqrt(at.distSqr(p)); at = p; } door += Math.sqrt(at.distSqr(b.entrance)) + Math.sqrt(b.outside().distSqr(to)); double own = plain == null ? -1 : plain.walks() + com.claudemod.entity.life.Weights.w("route.dig_in_steps", 3) * plain.digs(); // (the door's way at its shortest: along the rows' stops to his door, then the line to it, the way down to it not counted)
+                double line = plain == null ? lineOwn(level, me, to) : -1;
+                if (plain == null && line < door) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover off his mine, the search ran out on his own way; by the straight line it's ~{} against up his rows and out by his door ~{}: his walker's (its plan runs over several ticks) (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), (int) line, (int) door); return null; }
                 if (plain != null && own < door) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover off his mine, his own way ~{} ({} walks, {} digs) beats up his rows and out by his door ~{}: his walker's (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), (int) own, plain.walks(), plain.digs(), (int) door); return null; }
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover off his mine, {}: up his rows and out by his door ~{} (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), plain == null ? "no way of his own from here" : "his own way ~" + (int) own + " is longer", (int) door);
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover off his mine, {}: up his rows and out by his door ~{} (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), plain == null ? "no way of his own found in time, the straight line ~" + (int) line + " longer still" : "his own way ~" + (int) own + " is longer", (int) door);
             }
             if (flooded(level, b.routeFeet(meRow, 0), "up")) return null;
             for (BlockPos p : b.walkCells(meRow, 0)) { legs.add(p); slack.add(0.8); }
@@ -342,10 +346,18 @@ public final class Route {
     }
 
     /** Below the ground's top there by more than 3 (a cave, his mine), as far as the loaded land says; unloaded: not. */
-    static boolean under(ServerLevel level, BlockPos p) {
+    public static boolean under(ServerLevel level, BlockPos p) {
         LevelChunk ch = level.getChunkSource().getChunkNow(p.getX() >> 4, p.getZ() >> 4);
         if (ch == null) return false;
         return p.getY() < ch.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getX() & 15, p.getZ() & 15) - 3;
+    }
+    /** His own way by the straight line, as the planner prices it: a step per block across, each solid cell on it a dig (~3 steps); an unloaded cell counts as rock. For when the search runs out of time on a way that is mostly digging (D2D review 202949-93). */
+    public static double lineOwn(ServerLevel level, BlockPos a, BlockPos c) {
+        int steps = Math.max(Math.abs(c.getY() - a.getY()), Math.max(Math.abs(c.getX() - a.getX()), Math.abs(c.getZ() - a.getZ()))), digs = 0; Set<BlockPos> seen = new HashSet<>();
+        for (int i = 1; i <= steps; i++) { BlockPos c0 = BlockPos.containing(net.minecraft.world.phys.Vec3.atBottomCenterOf(a).lerp(net.minecraft.world.phys.Vec3.atBottomCenterOf(c), (double) i / steps));
+            for (BlockPos q : new BlockPos[] {c0, c0.above()}) { if (q.equals(c) || !seen.add(q)) continue; LevelChunk ch = level.getChunkSource().getChunkNow(q.getX() >> 4, q.getZ() >> 4);
+                if (ch == null || !ch.getBlockState(q).getCollisionShape(level, q).isEmpty()) digs++; } }
+        return steps + com.claudemod.entity.life.Weights.w("route.dig_in_steps", 3) * digs;
     }
     private static boolean near(MineBlueprint b, BlockPos p, int r) { for (var row : b.rows()) for (BlockPos f : row.feet()) if (f.distSqr(p) <= r * r) return true; return false; }
     /** The row nearest p, branches and runs too (a spot at a branch's end is reached by that branch). */

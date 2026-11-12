@@ -11073,6 +11073,7 @@ public final class ClaudeBodyTest {
             case 1601: return st1601(stage, t, c, h, level, mock);
             case 1602: return st1602(stage, t, c, h, level, mock);
             case 1604: return st1604(stage, t, c, h, level, mock);
+            case 1608: return st1608(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -23853,6 +23854,41 @@ public final class ClaudeBodyTest {
             flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
             check(in, "his body over the edge into the head-height cell beside him: the block not in after 8 s (him at " + at + ")");
             pass(stage, t, "into the middle of his cell, the block in after " + took / 20.0 + " s");
+        }
+        return true;
+    }
+    /** Stage 1608 (D2D urgent, live 09:29-09:36+ 11-12 at the fortress, 298,71,505: the made way's jump from 298,66,504 to 298,65,502 "ended without getting there (the walk to the lip ended off it)"; the gate refused it again, the whole way dropped, and ActionPath made the same jump again, 92 times in the log: the refusal never reached the planner). A gap jump whose lip walk fails: the next plan does not take that jump again. */
+    private static BlockPos s1608O; private static int s1608At; private static String s1608Before;
+    private static boolean st1608(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(2, 12, 6));
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1608At = 0; s1608Before = null; s1608O = o; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -2; x <= 14; x++) for (int z = -3; z <= 3; z++) for (int y = -11; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 0; x <= 4; x++) level.setBlock(o.offset(x, -1, 0), Blocks.STONE.defaultBlockState(), 2); // (platform 1, 1 wide: one jump to make)
+            for (int x = 7; x <= 12; x++) level.setBlock(o.offset(x, -1, 0), Blocks.STONE.defaultBlockState(), 2); // (platform 2, a 2-wide gap 11 deep between)
+            for (int x = -2; x <= 14; x++) for (int z = -3; z <= 3; z++) level.setBlock(o.offset(x, -11, z), Blocks.BEDROCK.defaultBlockState(), 2);
+            BlockPos pen = o.offset(0, 0, 3); for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int y = -1; y <= 2; y++) if (dx != 0 || dz != 0 || y == -1 || y == 2) level.setBlock(pen.offset(dx, y, dz), Blocks.BARRIER.defaultBlockState(), 2); // (a barrier pen off the platform: no lip walk from there)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(pen.getX() + 0.5, pen.getY(), pen.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, o.offset(1, 0, 0), o.offset(10, 0, 0), 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            var lp = plan == null ? null : plan.acts().stream().filter(a0 -> a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Leap).map(a0 -> (com.claudemod.entity.nav.ActionPath.Act.Leap) a0).findFirst().orElse(null);
+            check(lp != null, "setup: no jump over the gap in the plan from platform 1 (" + (plan == null ? "no plan" : plan.acts()) + ")");
+            s1608Before = lp.from().toShortString() + " -> " + lp.land().toShortString();
+            c.tasks.add(new Task.Leap(lp.from(), lp.land(), lp.kind(), lp.down(), lp.hp())); s1608At = t[0]; // (the way's jump, run with him somewhere its lip can't be walked to)
+        }
+        if (s1608At > 0 && t[0] - s1608At > 20 * 3 && c.currentTask == null && c.tasks.isEmpty() || s1608At > 0 && t[0] - s1608At > 20 * 20) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, o.offset(1, 0, 0), o.offset(10, 0, 0), 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            String again = plan == null ? null : plan.acts().stream().filter(a0 -> a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Leap).map(a0 -> { var l0 = (com.claudemod.entity.nav.ActionPath.Act.Leap) a0; return l0.from().toShortString() + " -> " + l0.land().toShortString(); }).filter(x -> x.equals(s1608Before)).findFirst().orElse(null);
+            String before = s1608Before;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); c.attempts.clear(); s1608At = 0;
+            for (int x = -2; x <= 14; x++) for (int z = -3; z <= 3; z++) for (int y = -11; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY() - 10, o.getZ() + 0.5);
+            check(again == null, "the jump " + before + " failed (the walk to its lip ended off it) and the next plan takes the same jump again");
+            pass(stage, t, "the failed jump " + before + " not planned again: " + (plan == null ? "no way" : plan.acts().toString()));
         }
         return true;
     }

@@ -6250,7 +6250,9 @@ public class WorkGoal extends Goal {
     }
 
     private int cfEatTick = -100000; // (coverFight: when it chose a meal where he stands)
-    private double cfBackBest = Double.MAX_VALUE; private int cfBackTick = -1; // (coverFight: the nearest he got to the cover on the way back, and when)
+    private double cfBackBest = Double.MAX_VALUE; private int cfBackTick = -1; private BlockPos cfBackCell; // (coverFight: the nearest he got to the cover on the way back, and when)
+    public void coverBackForTest(BlockPos cell, double best, int ticksAgo) { cfBackCell = cell; cfBackBest = best; cfBackTick = g.tickCount - ticksAgo; } // (tests: the way back as an earlier fight's cover left it)
+    public String coverBackForTest() { return cfBackTick < 0 ? "none" : String.format("%.1f", cfBackBest) + " off, " + (g.tickCount - cfBackTick) + " ticks"; }
     private boolean coverGap; // the last digInFromArrows said no for now: a melee mob too close to finish the cover (the cover proximity rule), so he runs for the gap
     private boolean noCoverGap(String why) { coverGap = true; return noCover(why); }
     /** The last no-cover was the gap kind (a mob too close to finish it, or the edge): run for the gap, cover after. */
@@ -7323,7 +7325,7 @@ public class WorkGoal extends Goal {
         }
         if (backing && !inCover) { // the way back measured: a walk that isn't bringing him nearer is no way back (D2D death-220, live 21:52:43-21:53:18 11-09: "back into cover" 35 s while Controls refused the step to it, 10 -> 5 -> dead with 7 salmon on him and [Eat] queued behind the held attack; stage 1321)
             double dc = Math.sqrt(g.distanceToSqr(cv.cover().getX() + 0.5, cv.cover().getY(), cv.cover().getZ() + 0.5));
-            if (cfBackTick < 0 || dc < cfBackBest - 0.5 || g.tickCount - cfBackTick > 20 * 30) { cfBackBest = dc; cfBackTick = g.tickCount; }
+            if (cfBackTick < 0 || !cv.cover().equals(cfBackCell) || dc < cfBackBest - 0.5 || g.tickCount - cfBackTick > 20 * 30) { cfBackBest = dc; cfBackTick = g.tickCount; cfBackCell = cv.cover(); } /* a new cover is measured on its own: the last one's nearest (0.4 off) read the new one 7.7 off as no nearer at once, shield up where he stood (stage 1611 after 1612) */
             if (g.tickCount - cfBackTick > com.claudemod.entity.life.Weights.w("cover.back_stuck_ticks", 40)) { // no nearer in 2 s: the fight where he stands
                 net.minecraft.world.item.Item meal = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;
                 String why = "the way back to cover hasn't brought him nearer in " + (g.tickCount - cfBackTick) / 20 + " s (" + String.format("%.1f", dc) + " off)";
@@ -7334,6 +7336,10 @@ public class WorkGoal extends Goal {
         } else if (inCover) cfBackTick = -1;
         if (backing) { // (an expert backs off with health to spare and heals all the way: food's plenty)
             cfHealing = true;
+            if (!inCover && blaze && g.getAttackStrengthScale(0.5f) >= 0.95f) { // a blaze in reach on the way back: hit as he goes, the walk not stopped (a player swings on the move; the hit knocks it back out of its touch) (D2D death 07:13:08 11-12: "can hit true ... charge 1.00", 2 off, held for the walk, its touch 1 -> 0; stage 1612)
+                net.minecraft.world.entity.monster.Blaze inReach = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive)) if (b2.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(b2) && (inReach == null || b2.distanceTo(g) < inReach.distanceTo(g))) inReach = b2;
+                if (inReach != null && cfSwing(inReach)) cfSay("hitting the blaze on the way back", String.format("%.1f", inReach.distanceTo(g)) + " off, in reach, health " + (int) hp + ": the swing as he goes, on to cover");
+            }
             if (!inCover && due != null && shield) { // the shield blocks the one in front at a fifth of his pace; the others see his side the whole slow way: priced against the sprint (D2D death 07:13:08 11-12: 14.6 to cover behind the shield with 9+ blazes about, 12 -> 1 in 10 s; stage 1611)
                 int seeing = Math.max(1, com.claudemod.entity.life.FortressFight.blazesSeeing(g, level, feet)); double dc = Math.sqrt(g.distanceToSqr(cv.cover().getX() + 0.5, cv.cover().getY(), cv.cover().getZ() + 0.5));
                 double tWalk = dc / com.claudemod.entity.life.Weights.w("cover.shield_walk_bps", 0.86), tRun = dc / com.claudemod.entity.life.Weights.w("cover.sprint_bps", 5.6);

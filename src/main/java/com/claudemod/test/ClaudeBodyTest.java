@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1612: return st1612(stage, t, c, h, level, mock);
             case 1611: return st1611(stage, t, c, h, level, mock);
             case 1610: return st1610(stage, t, c, h, level, mock);
             case 1599: return st1599(stage, t, c, h, level, mock);
@@ -21776,8 +21777,9 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
         }
         if (t[0] == 29) for (int z : new int[] {-3, 0, 3}) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() - 7.5, o.getY() + 2, o.getZ() + z + 0.5, -90, 0); b.setPersistenceRequired(); nl.addFreshEntity(b); b.setTarget(c); s1611B.add(b); }
-        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(12); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1611B.get(1).getUUID(), 20 * 60)); s1611T = t[0]; }
+        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(12); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1611B.get(1).getUUID(), 20 * 60)); c.work.coverBackForTest(o.offset(-6, 0, 6), 0.4, 41); /* (an earlier fight's way back to another cover, 2 s ago, left unfinished: stage 1612 before this one) */ s1611T = t[0]; }
         if (s1611T > 0 && t[0] > s1611T) {
+            if (t[0] - s1611T == 10) { String bk = c.work.coverBackForTest(); check(bk.equals("none") || !bk.startsWith("0.4 off"), "the way back to his new cover measured by the last fight's cover (" + bk + "): read as no nearer from the start"); }
             boolean hid = c.getX() > o.getX() + 7.5 && c.onGround(); for (var b : s1611B) if (b.isAlive() && com.claudemod.entity.life.FortressFight.sees(nl, b, c.blockPosition())) hid = false;
             if (hid || t[0] - s1611T > 20 * 5 || !c.isAlive()) {
                 double s = (t[0] - s1611T) / 20.0; String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); String line = c.lastSkillLine;
@@ -21786,6 +21788,40 @@ public final class ClaudeBodyTest {
                 for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); nsHome(c, h, level);
                 check(hid, "health 12, three blazes behind him, his cover 8 off behind a wall: not there in 5 s (at +" + at + " from the start, " + line + ")");
                 pass(stage, t, "behind the wall in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1612 (D2D death 07:13:08 11-12 at 318,62,519: "attack tick 100: the Blaze at 317, 61, 521 (2 off) ... can hit true ... charge 1.00", "doAttack held by coverFight (false)", health 6 on the way back to cover; 1 swing in the 23 s fight; the blaze's touch 1 -> 0). Health 8, on his way back to cover 8 off, a blaze 2 off beside his way, his sword charged: he hits it as he goes and still gets to cover. */
+    private static net.minecraft.world.entity.monster.Blaze s1612B; private static int s1612T;
+    private static boolean st1612(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 64, 9020);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1612B = null; s1612T = -1; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] > 40 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1612B) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 18; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -1; z <= 1; z++) for (int y = 0; y <= 4; y++) nl.setBlock(o.offset(7, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall: his cover behind it, 7 east
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(8); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 2.0, o.getY(), o.getZ() + 2.2, 180, 0); b.setNoAi(true); b.setPersistenceRequired(); nl.addFreshEntity(b); s1612B = b; com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(8); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1612B.getUUID(), 20 * 60)); s1612T = t[0]; }
+        if (s1612T > 0 && t[0] > s1612T) {
+            boolean hit = s1612B.getHealth() < s1612B.getMaxHealth() || !s1612B.isAlive(); boolean there = c.getX() > o.getX() + 7.5 && c.onGround();
+            if (hit && there || t[0] - s1612T > 20 * 6 || !c.isAlive()) {
+                double s = (t[0] - s1612T) / 20.0; String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); String line = c.lastSkillLine; float bh = s1612B.getHealth();
+                s1612B.discard(); s1612B = null; c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (int x = -12; x <= 18; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); nsHome(c, h, level);
+                check(hit, "health 8 on his way back to cover, a blaze 2 off beside his way, his sword charged: never hit it (blaze " + bh + " HP, him at +" + at + ", " + line + ")");
+                check(there, "hit the blaze on the way back but not to cover in 6 s (at +" + at + ", " + line + ")");
+                pass(stage, t, "hit it on the way and behind the wall in " + s + " s");
             }
         }
         return true;

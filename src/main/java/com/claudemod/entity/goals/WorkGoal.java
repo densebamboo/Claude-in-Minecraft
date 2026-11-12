@@ -3374,6 +3374,11 @@ public class WorkGoal extends Goal {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {} is behind {} at {} and nothing on him mines it: not digging through for it, left (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), name(wayState), inWay.toShortString());
                 g.markGift(nearest); return true;
             }
+            { boolean holds = com.claudemod.entity.life.TempLedger.isPlug(g, inWay); BlockPos wet = null; // (water he knows of against it: his plug, or the rock holding a pocket back)
+              for (Direction d : Direction.values()) { BlockPos n0 = inWay.relative(d); if (level.getFluidState(n0).is(net.minecraft.tags.FluidTags.WATER) && com.claudemod.entity.life.Perception.knowsWater(g, n0)) { wet = n0; break; } }
+              if (!valuable && (holds || wet != null)) { // a drop past water: not worth letting it in (D2D review 035543-17, live 03:54-03:55 11-12: glow ink 9 down in water, each dig let it in, plugged, the plug dug for it again, 5 rounds; stage 1549)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {} is past {} at {} holding water back ({}): not opening it for that, left (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), name(wayState), inWay.toShortString(), holds ? "his own plug" : "water at " + wet.toShortString());
+                g.markGift(nearest); return true; } }
             g.tasks.addFirst(again);
             g.tasks.addFirst(new Task.Break(inWay));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {} is behind {} at {}: digging that out first (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), name(wayState), inWay.toShortString());

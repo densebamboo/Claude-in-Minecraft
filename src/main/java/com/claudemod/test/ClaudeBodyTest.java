@@ -11055,6 +11055,7 @@ public final class ClaudeBodyTest {
             case 1546: return st1546(stage, t, c, h, level, mock);
             case 1547: return st1547(stage, t, c, h, level, mock);
             case 1548: return st1548(stage, t, c, h, level, mock);
+            case 1549: return st1549(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23307,6 +23308,35 @@ public final class ClaudeBodyTest {
                 check(got >= 0, "iron ore in a flooded shaft's side 6 down, dry rock round it: not his in 25 s (mined " + mined + ", lowest air " + air + ")");
                 check(air >= 150, "the ore in the flooded shaft: his air down to " + air + " of 300 on the way (a dig under water, not the dry rock beside it)");
                 pass(stage, t, "the ore by the flooded shaft his in " + got / 20.0 + " s, lowest air " + air);
+            }
+        }
+        return true;
+    }
+    /** Stage 1549 (D2D review 035543-17, live 03:54:37-03:55:43 11-12 at -47,14..16,-500: 3 glow ink sacs in water 9 down; "behind stone: digging that out first", water, plugged; "behind cobblestone (his plug): digging that out first", water, plugged again, 5 rounds, ~1 min). Glow ink in a water pocket behind one stone: the wall opened once at most, never his plug dug back out for it. */
+    private static BlockPos s1549W; private static int s1549T, s1549Opens; private static boolean s1549Open; private static net.minecraft.world.entity.item.ItemEntity s1549I; private static Task s1549Last;
+    private static boolean st1549(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1549T = -1; s1549Opens = 0; s1549Open = false; if (s1549I != null) s1549I.discard(); s1549I = null; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -3; x <= 6; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), y == -1 || y == 3 || x >= 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (his room, stone east of it)
+            for (int x = 2; x <= 4; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); // (a water pocket behind one stone)
+            s1549W = o.offset(1, 0, 0).immutable();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+            s1549I = new net.minecraft.world.entity.item.ItemEntity(level, o.getX() + 3.5, o.getY() + 0.2, o.getZ() + 0.5, new ItemStack(Items.GLOW_INK_SAC, 3)); s1549I.setDeltaMovement(0, 0, 0); level.addFreshEntity(s1549I);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Pickup(400)); s1549T = t[0]; }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1549T > 0 && t[0] > s1549T) {
+            Task cur = c.currentTask; if (cur != s1549Last && cur instanceof Task.Break b && level.getBlockState(b.pos()).is(Blocks.COBBLESTONE) && b.pos().getX() >= s1549W.getX()) s1549Opens++; s1549Last = cur; // (each dig at one of his cobblestone plugs on the water side)
+            if (t[0] - s1549T >= 20 * 15) {
+                int opens = s1549Opens;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); if (s1549I != null) s1549I.discard(); s1549I = null;
+                for (int x = -3; x <= 6; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(opens == 0, "glow ink in a water pocket behind one stone: his own water plugs dug " + opens + " times in 15 s for it");
+                pass(stage, t, "his water plugs left standing, the glow ink left");
             }
         }
         return true;

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1651: return st1651(stage, t, c, h, level, mock);
             case 1650: return st1650(stage, t, c, h, level, mock);
             case 1617: return st1617(stage, t, c, h, level, mock);
             case 1616: return st1616(stage, t, c, h, level, mock);
@@ -21987,6 +21988,31 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(s1650Eat > 0, "12 HP, food 16, Wither on him, a walk queued, a wither skeleton 12 off and none in reach: no meal in 4 s (" + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
             pass(stage, t, "a meal " + (s1650Eat - 14) + " ticks in");
+        }
+        return true;
+    }
+    /** Stage 1651 (D2D death 09:37:20 11-12: from 292,68,527 the walk to 287,65,527, 5 blocks off on the fortress, went "along his highway to its doorway into the fortress at 242,60,509 (open), in", 50 blocks west past the wither skeletons that killed him; with a highway doorway on record, Route.expand never priced his own few steps against it, stage 1518's check skipped). 5 off a deck, nothing in the way, his highway's doorway into it 20+ off: his own walk, not round by the doorway. */
+    private static boolean st1651(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12500, 64, 7720);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.nav.FortressEnds.picked = null; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -70; x <= 30; x++) for (int z = -12; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -15; x <= 15; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a bridge deck on the ground, 3 wide
+            for (int z = -2; z <= 2; z++) for (int y = 0; y <= 2; y++) nl.setBlock(o.offset(-17, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a fortress wall where his highway meets it: its doorway
+            for (int x = -60; x <= -20; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(-60, -1, 0), o.offset(-20, -1, 0), net.minecraft.core.Direction.Axis.X, 3);
+            nsKit(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() - 5.5, 0f, 0f);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.nav.FortressEnds.picked = null;
+            var door = com.claudemod.entity.nav.FortressEnds.highwayDoor(c, nl, o.below());
+            var r = com.claudemod.entity.nav.Route.expand(c, nl, o, 1); var p = com.claudemod.entity.nav.FortressEnds.picked;
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            for (int x = -70; x <= 30; x++) for (int z = -12; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(door != null, "the stage's highway doorway not read as one");
+            check(p == null, "5 off the deck, nothing in the way: sent round by his highway's doorway at " + (p == null ? "-" : p.deck().toShortString()) + ": " + r);
+            nsHome(c, h, level); pass(stage, t, "onto the deck on his own walk, the doorway at " + door.end().deck().toShortString() + " left be (" + r + ")");
         }
         return true;
     }

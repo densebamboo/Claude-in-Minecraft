@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1663: return st1663(stage, t, c, h, level, mock);
             case 1662: return st1662(stage, t, c, h, level, mock);
             case 1661: return st1661(stage, t, c, h, level, mock);
             case 1660: return st1660(stage, t, c, h, level, mock);
@@ -22357,6 +22358,37 @@ public final class ClaudeBodyTest {
             flatBox(h);
             check(!(usesHis && saidOwn), "his furnace 5 off through rock: the decision set his own down here, the smelt went to his anyway (" + q + ")");
             pass(stage, t, "one furnace named: " + q);
+        }
+        return true;
+    }
+    /** Stage 1663 (D2D death 13:12:11 11-12, fortress 250,65,507): broke off with a wither skeleton 4 off at 9 HP, "got clear of them (21 ticks of running)", and 50 ms on "the walk to 273, 65, 495 (48 off)": his enter_portal legs went straight back south past the skeletons he'd run from, 9 HP and withered, food 20; hit 7 -> 2 at 273,65,494, dead 7 s on. healUp waited only for mobs he still knew of within 16. At 9 HP, food 18, clear of a wither skeleton 17+ off with his queued walk leading back past it: he heals before walking back. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1663W; private static int s1663Clear; private static double s1663Far, s1663Min; private static float s1663Hp;
+    private static boolean st1663(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; if (s1663W != null) s1663W.discard(); s1663W = null; s1663Clear = -1; s1663Far = 0; s1663Min = 99; s1663Hp = 0; }
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 10) {
+            for (int x = -6; x <= 14; x++) for (int z = -40; z <= 14; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(0); c.setHealth(9); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1663W = EntityType.WITHER_SKELETON.create(level); s1663W.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 2.5, 180, 0); s1663W.setNoAi(true); s1663W.setInvulnerable(true); s1663W.setPersistenceRequired(); level.addFreshEntity(s1663W); s1663W.setTarget(c);
+            c.tasks.add(new Task.Flee(160)); c.tasks.add(new Task.GoTo(o.offset(0, 0, 8), 1.0)); c.currentTask = null; c.dropCurrent = false; /* (the run, then his job's next walk: back south past it, as live; nothing to fight it with) */
+        } // (the run, then his job's next walk: back south past it, as live)
+        if (t[0] > 14 && s1663W != null) {
+            double d = c.distanceTo(s1663W); s1663Far = Math.max(s1663Far, d);
+            boolean fleeing = c.currentTask instanceof Task.Flee || c.tasks.stream().anyMatch(q -> q instanceof Task.Flee);
+            if (s1663Clear < 0 && !fleeing && t[0] > 20) s1663Clear = t[0];
+            if (s1663Clear > 0 && d < s1663Min) { s1663Min = d; s1663Hp = c.getHealth(); }
+            if (s1663Clear > 0 && (t[0] - s1663Clear > 20 * 10 || s1663Min < 8 && s1663Hp < 16) || t[0] > 14 + 20 * 30) {
+                int clear = s1663Clear; double far = s1663Far, min = s1663Min; float hp = s1663Hp; String q = c.currentTask + " " + c.tasks.stream().limit(3).toList();
+                s1663W.discard(); s1663W = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getInventory().clearContent(); c.prefs.remove("stay_close");
+                for (int x = -6; x <= 14; x++) for (int z = -40; z <= 14; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); flatBox(h);
+                check(clear > 0, "never got clear of it in 30 s (farthest " + String.format("%.1f", far) + "; " + q + ")");
+                check(far > 16, "set up: the run ended " + String.format("%.1f", far) + " off it at most");
+                check(!(min < 8 && hp < 16), "clear of the wither skeleton at 9 HP, food 20: his walk took him back " + String.format("%.1f", min) + " off it at health " + hp + " (" + q + ")");
+                pass(stage, t, "healing before the walk back past it: nearest " + String.format("%.1f", min) + " in 10 s (" + q + ")");
+            }
         }
         return true;
     }

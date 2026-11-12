@@ -5649,7 +5649,7 @@ public class WorkGoal extends Goal {
     }
 
     private Vec3 fleeDir; // the way he's running: picked once, kept till it's blocked
-    private final java.util.List<Vec3> fleeDead = new java.util.ArrayList<>(); private double fleeLastD = -1; private final java.util.Set<java.util.UUID> fleeFromIds = new java.util.HashSet<>(); private java.util.UUID fleeSeed; // headings that didn't gain him distance this run
+    private final java.util.List<Vec3> fleeDead = new java.util.ArrayList<>(); private double fleeLastD = -1; private final java.util.Set<java.util.UUID> fleeFromIds = new java.util.HashSet<>(); private java.util.UUID fleeSeed; private java.util.Map<java.util.UUID, Object[]> fledSpots; /* what he ran from: where he last knew it, when, its name (lazy: fields added live start null) */ // headings that didn't gain him distance this run
 
     /** The way to run: away from them, with footing (no drop over 3), clear ahead, best where terrain hides him from them by 8 out. */
     /** HP the shooters' arrows cost him running 16 out on this heading: each step in a shooter's sight (its eye to his) at a sprint, flee.shots_per_s at flee.shot_hit_chance; a wall in the way leaves him standing there in view (flee.stuck_exposed_s). Behind rock it's none: the run that breaks their sight (World 17 09:40, 10:19; stage 773). */
@@ -6047,6 +6047,7 @@ public class WorkGoal extends Goal {
         if (ticks == 1) { fleeDead.clear(); fleeLastD = -1; fleeFromIds.clear(); for (var m : mobs) fleeFromIds.add(m.getUUID()); if (fleeSeed != null) fleeFromIds.add(fleeSeed); fleeSeed = null; }
         for (var m : ((ServerLevel) level()).getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && fleeFromIds.contains(m.getUUID()) && (m.distanceTo(g) < 24 || huntsHim(m)))) if (!mobs.contains(m)) mobs.add(m); // (and past 24 while it still hunts him, up to its follow range: incident 256) // what he's running from stays what he's running from till he's clear of it (out of sight behind him is still on his heels: the run ended a second in and his walk took him back past the witch)
         { var lh = g.getLastHurtByMob(); if (lh instanceof net.minecraft.world.entity.Mob lm && lm.isAlive() && g.tickCount - g.getLastHurtByMobTimestamp() < 100 && farShooter(lm) && !mobs.contains(lm)) mobs.add(lm); } // what just shot him is on him, however far (a blaze 27-31 off burned him 13 -> 0 at a hide spot that only knew the ones 4-9 off, live 04:05 11-10, stage 1364)
+        if (fledSpots == null) fledSpots = new java.util.HashMap<>(); for (var m : mobs) if (com.claudemod.entity.life.Perception.aware(g, m)) fledSpots.put(m.getUUID(), new Object[] {m.position(), g.tickCount, m.getType().getDescription().getString()}); /* where each was as he ran: what he remembers of them once they drop out of his senses (healUp, walkBackPast) */
         // a lit creeper he can't outrun: the shield up, facing it, takes the blast (live 06:31 World 17: the run's way out went past it, 20 -> 0 with a shield in his off hand)
         if (g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) {
             net.minecraft.world.entity.monster.Creeper lit = null;
@@ -6147,7 +6148,7 @@ public class WorkGoal extends Goal {
             if (!clearOfHunters(mobs)) { if (g.horizontalCollision && g.onGround()) g.getJumpControl().jump(); return false; }
             g.setSprinting(false); if (g.urgentAttacker != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] clear of them: the hit he took while running is left behind, no fight for it (WorkGoal.doFlee)"); g.urgentAttacker = null;
             clearEscape();
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] got clear of them ({} ticks of running)", ticks);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] got clear of them ({} ticks of running; {}{})", ticks, mobs.isEmpty() ? "none of them known to him now" : mobs.stream().map(m -> m.getType().getDescription().getString() + " " + Math.round(m.distanceTo(g)) + (com.claudemod.entity.life.Perception.clear((ServerLevel) level(), m.getEyePosition(), g.getEyePosition()) ? " in sight" : " out of sight")).collect(java.util.stream.Collectors.joining(", ")), mobs.stream().filter(m -> fleeFromIds.contains(m.getUUID())).count() < fleeFromIds.size() ? "; " + (fleeFromIds.size() - mobs.stream().filter(m -> fleeFromIds.contains(m.getUUID())).count()) + " he ran from not in the list" : ""); /* (D2D death 13:12:11 11-12: "got clear (21 ticks)" a second after breaking off 4 from a wither skeleton, unproven why: each one's distance and sight said) */
             healUp();
             return true;
         }
@@ -6205,11 +6206,29 @@ public class WorkGoal extends Goal {
         if (current instanceof Task.Eat || current instanceof Task.Wait || g.tasks.peek() instanceof Task.Eat || g.tasks.peek() instanceof Task.Wait) return;
         net.minecraft.world.item.Item food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getFoodData().getFoodLevel() <= 6); // (starving means can't sprint, not "under 18": 16:08 a spider eye at hunger 7 and full health poisoned him)
         if (g.getHealth() < 10 && !hostilesNear(16).isEmpty() && !diggingIn()) { desperateNow = true; boolean dug = digInFromArrows(); desperateNow = false; if (dug) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] clear of them at health {} with mobs still about: under cover to heal", (int) g.getHealth()); if (food != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(food)); return; } } // (standing "a moment" in the open at 5 health, four zombies finished him in two seconds)
-        if (g.getHealth() < 10 && !hostilesNear(16).isEmpty() && g.getFoodData().getFoodLevel() >= 18) { // hurt with mobs still about and a full enough stomach to heal: a few seconds back here; otherwise standing heals nothing, he eats or gets food and gets on with it
+        { Object[] back = g.getHealth() < w("escape.plug_heal_hp", 16) && !(g.tasks.peek() instanceof Task.Wait) ? walkBackPast() : null; boolean fed = g.getFoodData().getFoodLevel() >= 20 && g.getFoodData().getSaturationLevel() > 0 || food != null && g.getFoodData().needsFood();
+            if (back != null && (fed || g.getFoodData().getFoodLevel() >= 18)) { /* his job's next walk goes back past what he just ran from: healed here first, like a player (D2D death 13:12:11 11-12: clear at 9 HP and withered, his enter_portal leg walked him back past the wither skeletons 1 s on, 7 -> 2, dead; healUp only waited on mobs still in his senses within 16; stage 1663) */
+                var wi = g.getEffect(net.minecraft.world.effect.MobEffects.WITHER);
+                int heal = (int) Math.min(20 * w("escape.plug_heal_s", 30), (w("escape.plug_heal_hp", 16) - g.getHealth()) * (fed ? 10 : 80) + (wi == null ? 0 : wi.getDuration())); /* vanilla regen: a HP each 10 ticks fed and saturated, each 80 at 18+; the Wither runs out first */
+                g.tasks.addFirst(new Task.Wait(Math.max(20, heal), false));
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] clear of them at health {}: his next walk to {} goes back past the {} he ran from at {} ({} s ago): healing here first, ~{} s (WorkGoal.healUp)", (int) g.getHealth(), ((BlockPos) back[0]).toShortString(), back[2], ((BlockPos) back[1]).toShortString(), back[3], Math.max(20, heal) / 20);
+            } }
+        if (g.getHealth() < 10 && !hostilesNear(16).isEmpty() && g.getFoodData().getFoodLevel() >= 18 && !(g.tasks.peek() instanceof Task.Wait)) { // hurt with mobs still about and a full enough stomach to heal: a few seconds back here; otherwise standing heals nothing, he eats or gets food and gets on with it
             g.tasks.addFirst(new Task.Wait(20 * 6, false));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] clear of them at health {}: a moment here before going back", (int) g.getHealth());
         }
         if (food != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(food)); // eat first, then the wait
+    }
+
+    /** His queued job's next walk (its first legs, 48 blocks at most), if it goes back past something he ran from (fledSpots, within flee.spot_memory_s): {where it ends, the spot, its name, seconds ago}. Null: none does. */
+    private Object[] walkBackPast() {
+        if (fledSpots == null) return null;
+        fledSpots.values().removeIf(v -> g.tickCount - (int) v[1] > 20 * w("flee.spot_memory_s", 120));
+        Vec3 a = g.position(); double went = 0; int legs = 0;
+        for (Task q : g.tasks) { if (!(q instanceof Task.GoTo gt)) continue; Vec3 b = Vec3.atBottomCenterOf(gt.pos()), ab = b.subtract(a); double len2 = ab.lengthSqr();
+            for (Object[] v : fledSpots.values()) { Vec3 p = (Vec3) v[0]; double k = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1, p.subtract(a).dot(ab) / len2)); if (a.add(ab.scale(k)).distanceTo(p) < w("flee.spot_pass_r", 10)) return new Object[] {gt.pos(), BlockPos.containing(p), v[2], (g.tickCount - (int) v[1]) / 20}; }
+            went += Math.sqrt(len2); a = b; if (++legs >= 4 || went > 48) break; }
+        return null;
     }
 
     /**
@@ -6980,7 +6999,7 @@ public class WorkGoal extends Goal {
                 if (g.tickCount - wsLateSaid > 100 || g.tickCount < wsLateSaid) { wsLateSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: {} would take ~{} s, the {} {} off is on him in ~{} s: no cover to make in time, the fight where he stands (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g), how, String.format("%.1f", buildS), first.getType().getDescription().getString().toLowerCase(java.util.Locale.ROOT), (int) first.distanceTo(g), String.format("%.1f", arrive)); }
                 return null; }
         }
-        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight" + (cap ? "" : " (no capped hole: one foe and health to spare)") + " (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g)); } return null; }
+        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: no wall 3 deep within 6 to tunnel into (bricks count) and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight" + (cap ? "" : " (no capped hole: one foe and health to spare)") + " (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g)); } return null; }
         g.getNavigation().stop(); g.xxa = 0; g.zza = 0; wsDug = in; wsDugTick = g.tickCount;
         g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(in, 0.3)); // (a hit mid-build knocks him off the spot: back to it, into the hole)
         for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1667: return st1667(stage, t, c, h, level, mock);
             case 1665: return st1665(stage, t, c, h, level, mock);
             case 1664: return st1664(stage, t, c, h, level, mock);
             case 1663: return st1663(stage, t, c, h, level, mock);
@@ -22456,6 +22457,37 @@ public final class ClaudeBodyTest {
                 s1665W.discard(); s1665W = null; s1665T = -1; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.prefs.remove("stay_close"); c.commandActive = false;
                 check(took <= 20 * 5, "in his gap, the wither skeleton shut in a pocket with no way to the gap's mouth: still waiting on it after " + took / 20 + " s (" + q + ")");
                 pass(stage, t, "done waiting on it in " + String.format("%.1f", took / 20.0) + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1667 (D2D review 130724-84, live 13:03:28-13:05:42 11-12): "no blaze in view: to the blaze spawner he found at 315, 63, 489 (581 off)", then "heard a Blaze 14 blocks off ... turning to it" and the walk to the spawner went on: blazeRods ran once for the walk, nothing weighed the blaze by him. On a blaze_rods step walking 40 off, a blaze he knows of 14 off behind a wall: the walk stops within 2 s. */
+    private static net.minecraft.world.entity.monster.Blaze s1667B; private static int s1667T; private static BlockPos s1667Far;
+    private static boolean st1667(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1667B != null) s1667B.discard(); s1667B = null; s1667T = -1; }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 20; x++) for (int z = -46; z <= 8; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -4; z <= 4; z++) for (int y = 0; y <= 5; y++) level.setBlock(o.offset(7, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a wall between him and it
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1667B = EntityType.BLAZE.create(level); s1667B.moveTo(o.getX() + 14.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1667B.setPersistenceRequired(); s1667B.setNoAi(true); level.addFreshEntity(s1667B);
+        }
+        if (t[0] == 14) {
+            s1667Far = o.offset(0, 0, -40);
+            c.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "")); c.tasks.add(new Task.GoTo(s1667Far, 4.0)); s1667T = t[0]; // (the step re-queued behind its walk to the spawner, as blazeRods leaves it)
+        }
+        if (s1667T > 0 && (t[0] - s1667T) % 20 == 1) com.claudemod.entity.life.Perception.noteSeenTest(c, s1667B); // (he hears it, again and again: known, not in view)
+        if (s1667T > 0 && t[0] > s1667T + 2) {
+            boolean walking = c.currentTask instanceof Task.GoTo g0 && g0.pos().equals(s1667Far) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g1 && g1.pos().equals(s1667Far));
+            if (!walking || t[0] > s1667T + 40) {
+                int took = t[0] - s1667T; double d = c.distanceTo(s1667B); String q = c.currentTask + " " + c.tasks.stream().limit(3).toList();
+                s1667B.discard(); s1667B = null; s1667T = -1; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.prefs.remove("stay_close");
+                for (int x = -6; x <= 20; x++) for (int z = -46; z <= 8; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); flatBox(h);
+                check(!walking, "on blaze_rods, a blaze he knows of " + Math.round(d) + " off behind a wall: still on the walk 40 off after " + took / 20.0 + " s (" + q + ")");
+                pass(stage, t, "the walk stopped for the blaze in " + took / 20.0 + " s");
             }
         }
         return true;

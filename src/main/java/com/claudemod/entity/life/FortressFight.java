@@ -62,6 +62,23 @@ public final class FortressFight {
     private static java.util.Map<java.util.UUID, long[]> crowds; // {centre, until server tick}: a crowd he left to hunt elsewhere
     /** The crowd of blazes he left, while he keeps away from it, or null. */
     public static BlockPos crowdLeft(ClaudeEntity g) { if (crowds == null) return null; long[] c = crowds.get(g.getUUID()); return c == null || serverT(g) > c[1] ? null : BlockPos.of(c[0]); }
+    private static Map<UUID, Object[]> walkStop; // (the blaze that last stopped his walk, and when: lazy, fields added live start null)
+    /** Each tick: on a blaze_rods step, a walk off elsewhere (its end 32+ off, the blaze not there) with a blaze he knows of within 24 (seen or heard, not a crowd let be) stops, so the step weighs it; each blaze once in 30 s. D2D review 130724-84, live 13:03:28-13:05:42 11-12: "to the blaze spawner he found at 315, 63, 489 (581 off)", a blaze heard 14 off, the walk went on. Stage 1667. */
+    public static void tick(ClaudeEntity g) {
+        if (g.tickCount % 10 != 0 || g.tasks.isEmpty() && g.currentTask == null || !(g.level() instanceof ServerLevel level)) return;
+        var head = g.skillQueue.peekFirst(); if (head == null || !"blaze_rods".equals(head.skill())) return;
+        BlockPos end = null; for (var t : g.tasks) { if (t instanceof Task.GoTo gt) end = gt.pos(); else if (!(t instanceof Task.Bore)) return; }
+        if (g.currentTask != null) { if (g.currentTask instanceof Task.GoTo gt) { if (end == null) end = gt.pos(); } else if (!(g.currentTask instanceof Task.Bore)) return; }
+        if (end == null || end.distSqr(g.blockPosition()) < 32 * 32) return;
+        for (Blaze b : Perception.known(g, Blaze.class, g.getBoundingBox().inflate(24), Entity::isAlive)) {
+            if (b.distanceTo(g) > 24 || b.blockPosition().distSqr(end) < 24 * 24 || byCrowd(g, b.blockPosition())) continue;
+            if (walkStop == null) walkStop = new HashMap<>(); Object[] last = walkStop.get(g.getUUID());
+            if (last != null && b.getUUID().equals(last[0]) && g.tickCount - (int) last[1] < 20 * 30) continue;
+            walkStop.put(g.getUUID(), new Object[] {b.getUUID(), g.tickCount});
+            ClaudeMod.LOGGER.info("[Claude fight] blaze_rods: a blaze {} off ({}) on his walk to {}: the walk stops, the rods step weighs it (FortressFight.tick)", (int) b.distanceTo(g), Perception.seesNow(g, b) ? "in view" : "known, out of view", end.toShortString());
+            g.tasks.clear(); g.dropCurrent = true; return;
+        }
+    }
     static boolean byCrowd(ClaudeEntity g, BlockPos p) { BlockPos c = crowdLeft(g); double r = Weights.w("blaze.crowd_keep_away_blocks", 32); return c != null && c.distSqr(p) <= r * r; }
     /** A cell to stand on about 40 off the crowd, out of their sight, the nearest to him; null: none. */
     static BlockPos awayFrom(ClaudeEntity g, ServerLevel level, BlockPos crowd, List<Blaze> them) {
@@ -560,7 +577,7 @@ public final class FortressFight {
               return "blocks first: " + (want - blocks) + " netherrack to wall in with if there's nowhere out of the blazes' sight (" + blocks + " on me)"; } } // (after the ready choice: blocks for the fight he's about to have, not before a trip home for armor: stage 844)
         observe(g, level);
         List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 32);
-        bl.removeIf(b -> !g.hasLineOfSight(b) && b.distanceTo(g) > 12); // in view, or close enough he hears it
+        bl.removeIf(b -> !g.hasLineOfSight(b) && b.distanceTo(g) > 12 && !Perception.aware(g, b)); // in view, close enough he hears it, or one he knows of (heard 14 off, live 13:05:39 11-12: dropped here, the spawner 581 off walked to; stage 1667)
         BlockPos spawner = blazeSpawner(g, level, 20);
         if (bl.isEmpty() && spawner == null) {
             { BlockPos known = null; for (BlockPos q : Atlas.spots(g, level, "blaze_spawner")) if ((!level.isLoaded(q) || level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SPAWNER)) && !byCrowd(g, q) && (known == null || q.distSqr(g.blockPosition()) < known.distSqr(g.blockPosition()))) known = q; // (one broken since: not that)

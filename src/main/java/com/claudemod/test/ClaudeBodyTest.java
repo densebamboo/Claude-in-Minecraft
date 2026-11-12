@@ -2215,6 +2215,7 @@ public final class ClaudeBodyTest {
         BlockPos m0 = h.absolutePos(new BlockPos(2, 2, 2)); mock.teleportTo(h.getLevel(), m0.getX() + 0.5, m0.getY(), m0.getZ() + 0.5, 0f, 0f);
     }
     private static void scenarioReset(ClaudeEntity c) {
+        c.work.forgetFight(); // (the last stage's wall-in spot: 1567's box read as his box in 1561)
         com.claudemod.entity.life.CombatLog.closeNow(c); // (the last stage's fight still open: its junk hold kept the next stage's pack full, stage 1504 after 1501)
         com.claudemod.director.Kit.forgetFoodAsk(c); // (the 40-tick food memo answered the next stage with the last one's pack)
         com.claudemod.entity.life.HuntPatrol.forgetReadied(c); // (the last stage's "get ready first" read as this one's go that brought no armor)
@@ -10550,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1567: return st1567(stage, t, c, h, level, mock);
             case 1566: return st1566(stage, t, c, h, level, mock);
             case 1565: return st1565(stage, t, c, h, level, mock);
             case 1564: return st1564(stage, t, c, h, level, mock);
@@ -20418,6 +20420,35 @@ public final class ClaudeBodyTest {
                 for (int x = -3; x <= 6; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 check(left == 0, "three iron in a row into the wall, the far ones' digs queued first: " + left + " left unmined (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
                 pass(stage, t, "the whole row in " + (t[0] - s1566T) / 20.0 + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1567 (D2D death 57, live 17:05:27-33 11-11 on the fortress deck at 313,63,487: health 9, burning, 6 blazes, "no cover, no cell out of 6 blaze(s)' sight within 24 steps and too few blocks to wall in: running", 9 -> 1 -> dead, with 2 cobblestone and 112 netherrack on him; the wall-in read one stack of the first block kind, cobblestone's 2). Hurt and burning on an open deck, three blazes, no hide anywhere, 2 cobblestone and 64 netherrack: walled in with the netherrack, not a run. */
+    private static net.minecraft.world.entity.monster.Blaze[] s1567B; private static int s1567T;
+    private static boolean st1567(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1567T = -1; if (s1567B != null) for (var b : s1567B) b.discard(); s1567B = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // an open deck: nowhere out of their sight
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COBBLESTONE, 2)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(9); c.getFoodData().setFoodLevel(20); c.setRemainingFireTicks(100); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1567B = new net.minecraft.world.entity.monster.Blaze[3];
+            for (int i = 0; i < 3; i++) { var b = EntityType.BLAZE.create(level); b.moveTo(o.getX() + 8.5, o.getY() + 3, o.getZ() + 0.5 + (i - 1) * 3, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1567B[i] = b; com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1567B[1].getUUID(), 20 * 60)); s1567T = t[0]; }
+        if (s1567T > 0 && t[0] > s1567T) {
+            java.util.function.Predicate<Task> wall = q -> q instanceof Task.Place p && p.pos().distManhattan(o) <= 3;
+            boolean walls = wall.test(c.currentTask) || c.tasks.stream().anyMatch(wall), ran = c.currentTask instanceof Task.Flee || c.tasks.stream().anyMatch(q -> q instanceof Task.Flee);
+            if (walls || ran || t[0] - s1567T > 20 * 3) {
+                String q = c.currentTask + " " + c.tasks;
+                for (var b : s1567B) b.discard(); s1567B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(walls && !ran, "health 9, burning, three blazes, nowhere out of their sight, 2 cobblestone and 64 netherrack on him: not walled in (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "walled in: " + (q.length() > 100 ? q.substring(0, 100) : q));
             }
         }
         return true;

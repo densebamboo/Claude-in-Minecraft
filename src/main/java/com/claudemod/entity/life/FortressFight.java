@@ -202,10 +202,13 @@ public final class FortressFight {
         List<BlockPos> out = new ArrayList<>(); for (BlockPos q : put) if (level.getBlockState(q).canBeReplaced()) out.add(q); return out;
     }
     /** What he walls with in the Nether, as WorkGoal.scaffoldBlock picks it there: cobblestone or deepslate first (ghast-proof), else netherrack or dirt. */
-    public static net.minecraft.world.item.Item wallItem(ClaudeEntity g) {
-        var s = FortressScout.ghastProof(g); if (!s.isEmpty()) return s.getItem();
-        for (var it : new net.minecraft.world.item.Item[] {Items.NETHERRACK, Items.DIRT, Items.SOUL_SOIL, Items.SOUL_SAND, Items.MAGMA_BLOCK}) if (g.inventory.count(x -> x.is(it)) > 0) return it; // (soul sand, soul soil, magma: a wall he stands behind, never on; live 21:39 11-09 'no blocks to build with' with 12 of each on him, D2D 189; stage 1322)
-        return null;
+    public static net.minecraft.world.item.Item wallItem(ClaudeEntity g) { return wallItem(g, (int) Weights.w("blaze.cover_build_max", 8)); }
+    private static final net.minecraft.world.item.Item[] WALLS = {Items.COBBLESTONE, Items.COBBLED_DEEPSLATE, Items.STONE, Items.DEEPSLATE, Items.BLACKSTONE, Items.ANDESITE, Items.DIORITE, Items.GRANITE, Items.TUFF, Items.STONE_BRICKS, Items.POLISHED_BLACKSTONE, Items.POLISHED_BLACKSTONE_BRICKS, Items.NETHER_BRICKS, Items.NETHERRACK, Items.DIRT, Items.SOUL_SOIL, Items.SOUL_SAND, Items.MAGMA_BLOCK};
+    /** The block for a wall of n: a ghast-proof one when he has n of it, else the kind he has most of (2 cobblestone and 112 netherrack: "too few blocks to wall in", ran in their sight and burned, live 17:05 11-11, D2D death 57; stage 1567). Counted over all his stacks. */
+    public static net.minecraft.world.item.Item wallItem(ClaudeEntity g, int n) {
+        net.minecraft.world.item.Item best = null; int bestN = 0;
+        for (int i = 0; i < WALLS.length; i++) { final var it = WALLS[i]; int c = g.inventory.count(x -> x.is(it)); if (i <= 12 && c >= n) return it; if (c > bestN) { best = it; bestN = c; } }
+        return best;
     }
     /** A cover his own walker reaches (no digging, a block put down where he has them); a way that puts one over lava is said, with the cells: D2D death-220 / Loops asked whether the cover at 326,61,497 (live 21:52:35 11-09) was reached only by bridging over the drop the bridge rule forbids under fire; the log there didn't show the way's acts, and no stage repro'd it (a 1-wide gap with lava 30 down: no way at all), so this says it next time. */
     static boolean reachNoLavaPut(ClaudeEntity g, ServerLevel level, BlockPos me, BlockPos c, int budget) {

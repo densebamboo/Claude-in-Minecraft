@@ -6959,7 +6959,7 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
         BlockPos hide = hidden.test(feet) ? feet : blazeHideCell(lv, feet, hidden, steps);
         int boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= 1; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(2)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
-        boolean box = hide == null && boxN > 0 && scaffoldBlock().getCount() >= boxN;
+        final int boxN0 = boxN; var boxIt = com.claudemod.entity.life.FortressFight.wallItem(g, boxN); boolean box = hide == null && boxN > 0 && boxIt != null && g.inventory.count(x -> x.is(boxIt)) >= boxN0; // (all his stacks of one kind: one stack of 2 cobblestone read as no blocks with 112 netherrack on him, death 57)
         double walk = hide != null ? steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint() : box ? boxN * w("cover.place_s", 0.35) / 2 : w("blaze.open_run_s", 15); // (a box: the build is the time in their sight, counted twice below as there-and-back)
         double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
         double leaveHp = n * walk * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
@@ -7031,7 +7031,9 @@ public class WorkGoal extends Goal {
         return false;
     }
     private BlockPos cfBoxAt; // the box blazeRetreat walled him into: his cover till he's healed (lazy: a field added live starts null)
-    private int blazeCoverSaid = -1; // (the cover-over-the-run line once per 5 s)
+    private int blazeCoverSaid = -1;
+    /** The last fight's wall-in spot forgotten (a test scenario: 1567's box at the spot 1561 starts on read as his box, cover skipped). */
+    public void forgetFight() { cfBoxAt = null; blazeCoverSaid = -1; } // (the cover-over-the-run line once per 5 s)
     private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob, com.claudemod.entity.life.FortressFight.Cover cv) {
         ServerLevel level = (ServerLevel) g.level();
         var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
@@ -7067,7 +7069,7 @@ public class WorkGoal extends Goal {
                 if (!faced) { Direction toward = Direction.getNearest(blazes.get(0).getX() - g.getX(), 0, blazes.get(0).getZ() - g.getZ()); box.add(roof.relative(toward)); }
                 box.add(roof);
             }
-            ItemStack blocks = scaffoldBlock();
+            final int need = box.size(); var wallIt = com.claudemod.entity.life.FortressFight.wallItem(g, need); ItemStack blocks = wallIt == null ? ItemStack.EMPTY : new ItemStack(wallIt, g.inventory.count(x -> x.is(wallIt))); // (the kind he has enough of, all its stacks: death 57, stage 1567)
             if (!box.isEmpty() && blocks.getCount() >= box.size()) {
                 net.minecraft.world.phys.AABB body = g.getBoundingBox().deflate(0.01);
                 boolean inAWallCell = false; for (BlockPos c : box) if (body.intersects(new net.minecraft.world.phys.AABB(c))) inAWallCell = true;

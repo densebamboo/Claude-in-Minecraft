@@ -125,7 +125,7 @@ public final class Attempts {
     private long kitSig() {
         if (g == null) return 0; long h = 7; int blocks = 0;
         for (int i = 0; i < g.getInventory().getContainerSize(); i++) { var s = g.getInventory().getItem(i); if (s.isEmpty()) continue;
-            if (s.getItem() instanceof net.minecraft.world.item.TieredItem || s.is(net.minecraft.world.item.Items.BUCKET) || s.is(net.minecraft.world.item.Items.WATER_BUCKET) || s.is(net.minecraft.world.item.Items.FLINT_AND_STEEL) || s.is(net.minecraft.world.item.Items.SHEARS)) h = h * 31 + net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(s.getItem());
+            if (s.getItem() instanceof net.minecraft.world.item.TieredItem || s.is(net.minecraft.world.item.Items.BUCKET) || s.is(net.minecraft.world.item.Items.WATER_BUCKET) || s.is(net.minecraft.world.item.Items.FLINT_AND_STEEL) || s.is(net.minecraft.world.item.Items.SHEARS)) h += net.minecraft.util.Mth.murmurHash3Mixer(net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(s.getItem()) + 1); // (summed: the same tools in any slot, a pick swapped into his hand read as new tools and every NO_FACE patch was back on 0.25 s later, D2D 201422-44; stage 1533)
             else if (s.getItem() instanceof net.minecraft.world.item.BlockItem) blocks += s.getCount(); }
         return h * 31 + (blocks == 0 ? 0 : blocks < 16 ? 1 : blocks < 64 ? 2 : 3); // (blocks by the handful: one more cobble is not a new situation, the first stack is)
     }

@@ -11014,6 +11014,7 @@ public final class ClaudeBodyTest {
             case 1530: return st1530(stage, t, c, h, level, mock);
             case 1531: return st1531(stage, t, c, h, level, mock);
             case 1532: return st1532(stage, t, c, h, level, mock);
+            case 1533: return st1533(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22068,6 +22069,22 @@ public final class ClaudeBodyTest {
             check(flint && iron, "the dragon run open, no flint and steel: flint kept " + flint + ", iron kept " + iron + " (next step " + next + ")");
             check(!flesh, "rotten flesh read as needed by the run");
             pass(stage, t, "flint and iron kept for the run's flint and steel, the flesh not (next step " + next + ")");
+        }
+        return true;
+    }
+    /** Stage 1533 (D2D NO_FACE family 72/74/141/201422-44, live 20:13:35 11-11 at -37,16,-470 by open water): a patch with no face in sight from anywhere he stands, "PLACE ... failed: NO_FACE", and 0.25 s later "back on: his tools or blocks changed": the kit's signature hashed his tools in slot order, a pick swapped into his hand read as new tools, and the patch was queued again and again. The same tools in other slots are the same kit. */
+    private static boolean st1533(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.attempts.clear(); }
+        if (t[0] == 10) { flatBox(h); BlockPos me = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            var inv = c.getInventory(); inv.clearContent(); inv.items.set(0, new ItemStack(Items.STONE_SWORD)); inv.items.set(5, new ItemStack(Items.IRON_PICKAXE)); inv.items.set(6, new ItemStack(Items.COBBLESTONE, 64)); inv.selected = 0; }
+        if (t[0] == 30) {
+            BlockPos p = h.absolutePos(new BlockPos(6, 4, 6)); var A = com.claudemod.entity.life.Attempts.Kind.PLACE;
+            c.attempts.fail(A, p, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_FACE, "no face in sight from anywhere he can stand");
+            var inv = c.getInventory(); var a0 = inv.items.get(0); inv.items.set(0, inv.items.get(5)); inv.items.set(5, a0); // (the pick swapped into his hand)
+            String ch = c.attempts.changed(A, p);
+            inv.clearContent(); c.attempts.clear();
+            check(ch == null, "the same tools in other slots read as a change: " + ch);
+            pass(stage, t, "the NO_FACE holds with the pick swapped into his hand");
         }
         return true;
     }

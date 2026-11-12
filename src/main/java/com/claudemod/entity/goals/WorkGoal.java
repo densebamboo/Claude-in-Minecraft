@@ -2823,8 +2823,9 @@ public class WorkGoal extends Goal {
     }
 
     /** Ground to stand on right under a block in the air (or beside its column), nearest to him; null if none. */
+    private String groundWhy = ""; // groundUnder's last look, each column's reason (for the "nowhere to stand" line)
     private BlockPos groundUnder(ServerLevel level, BlockPos pos) {
-        BlockPos best = null;
+        BlockPos best = null; StringBuilder why = new StringBuilder();
         double bestD = Double.MAX_VALUE;
         for (BlockPos col : new BlockPos[] {pos, pos.north(), pos.south(), pos.east(), pos.west()}) {
             BlockPos p = col.below();
@@ -2833,11 +2834,11 @@ public class WorkGoal extends Goal {
             for (int k = 0; k < 24 && level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty(); k++) p = p.below();
             boolean open = level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
                     && level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP) && level.getFluidState(p).isEmpty();
-            if (!open || p.getY() < g.getBlockY() - 3) continue; // a pit or cave mouth under a branch: no climbing down into it to tower back up
+            if (!open || p.getY() < g.getBlockY() - 3) { why.append(why.length() == 0 ? "" : "; ").append(p.toShortString()).append(": ").append(!level.getFluidState(p).isEmpty() ? "in " + level.getFluidState(p).getType().builtInRegistryHolder().key().location().getPath() : !level.getBlockState(p).getCollisionShape(level, p).isEmpty() || !level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty() ? "no room (" + level.getBlockState(p).getBlock().getName().getString() + "/" + level.getBlockState(p.above()).getBlock().getName().getString() + ")" : !level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP) ? "on " + level.getBlockState(p.below()).getBlock().getName().getString() : (g.getBlockY() - p.getY()) + " below him"); groundWhy = why.toString(); continue; } // a pit or cave mouth under a branch: no climbing down into it to tower back up
             double dd = p.distSqr(g.blockPosition()) + (col.equals(pos) ? 0 : 2); // right under it is best
             if (dd < bestD) { bestD = dd; best = p.immutable(); }
         }
-        return best;
+        groundWhy = why.toString(); return best;
     }
 
     /** A spot to stand that's in reach of the block with nothing in between, or null. */
@@ -3972,7 +3973,7 @@ public class WorkGoal extends Goal {
         if (!scaffold.isEmpty()) { chopDown = true; g.tasks.addFirst(t); return true; } // a bough out of reach from up here: down first, then in under it
         BlockPos under = groundUnder(level, q);
         Integer uf = under == null ? null : g.attempts.any.get(under);
-        if (under == null || uf != null && g.tickCount - uf < 20 * 60) { chopSkip.add(q); chopWhy = "nowhere to stand under the bough at " + q.toShortString(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] nowhere to stand under the bough at {}: leaving it for now", q.toShortString()); g.tasks.addFirst(t); return true; }
+        if (under == null || uf != null && g.tickCount - uf < 20 * 60) { chopSkip.add(q); chopWhy = "nowhere to stand under the bough at " + q.toShortString(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] nowhere to stand under the bough at {} (he's at {}; {}): leaving it for now", q.toShortString(), g.blockPosition().toShortString(), under == null ? groundWhy : "a walk there failed " + (g.tickCount - uf) / 20 + " s ago"); /* (live 05:23:53 11-12 four boughs left with 121 cobble on him and no reason said: logged first) */ g.tasks.addFirst(t); return true; }
         chopGoal = q; chopUnder = under;
         g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(under, 0.5)); return true;
     }

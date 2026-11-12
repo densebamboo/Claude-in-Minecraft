@@ -655,7 +655,10 @@ public class WorkGoal extends Goal {
     /** His way goes on past the cell he's to fill, to the side he's on: a walk queued to a cell beside him, further from it than he is (a cut he walked through, put back behind him; ActionPath.tasks). */
     private boolean goingOnPast(BlockPos fill) {
         BlockPos at = g.blockPosition();
-        return !at.equals(fill) && g.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distManhattan(at) <= 2 && go.pos().distManhattan(fill) >= at.distManhattan(fill) && go.pos().distManhattan(at) < go.pos().distManhattan(fill)); // (the next leg on his side: nearer him than the cut, and no nearer the cut than he is (the way's last leg can be his own cell, stage 935); the put-back runs 2 past the cut, its next leg 1-2 on and a step down: a leg 1 off and 2 from the cut sent him back into his mine to patch it from inside, shut in, a new cut 2 s later, live 12:59-13:05 11-09, stage 1268)
+        if (at.equals(fill)) return false;
+        if (g.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distManhattan(at) <= 2 && go.pos().distManhattan(fill) >= at.distManhattan(fill) && go.pos().distManhattan(at) < go.pos().distManhattan(fill))) return true;
+        Task.GoTo next = null; for (Task q : g.tasks) if (q instanceof Task.GoTo go) { next = go; break; } // (his next leg, however long: a straight run is one GoTo, 6+ off; within 2 only, the patch-from-inside rule sent him back in through the floor cell beside it and the walk on cut the first again, 31 min, D2D 154929-87)
+        return next != null && next.pos().distManhattan(fill) > at.distManhattan(fill) && next.pos().distManhattan(at) < next.pos().distManhattan(fill); // (the next leg on his side: nearer him than the cut, and no nearer the cut than he is (the way's last leg can be his own cell, stage 935); the put-back runs 2 past the cut, its next leg 1-2 on and a step down: a leg 1 off and 2 from the cut sent him back into his mine to patch it from inside, shut in, a new cut 2 s later, live 12:59-13:05 11-09, stage 1268)
     }
     private BlockPos stepOutSpot(BlockPos in) {
         ServerLevel level = (ServerLevel) g.level();

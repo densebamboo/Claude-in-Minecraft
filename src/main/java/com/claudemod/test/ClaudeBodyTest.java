@@ -10988,6 +10988,7 @@ public final class ClaudeBodyTest {
             case 1519: return st1519(stage, t, c, h, level, mock);
             case 1520: return st1520(stage, t, c, h, level, mock);
             case 1521: return st1521(stage, t, c, h, level, mock);
+            case 1522: return st1522(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21360,6 +21361,45 @@ public final class ClaudeBodyTest {
             check(r != null && r.contains("feathers are in my chest"), "the prep waiting on arrows, his feathers 160 off: " + r);
             pass(stage, t, "the prep's arrows the run's must: " + r); return true;
         }
+        return true;
+    }
+    /** Stage 1522 (D2D 154929-87, live 15:35:52-16:07:04 11-11 at -87,15,-457, 389 ways made): his tunnel's floor cut for the walk down to his furnace at -86,15,-467, put back "once past"; the walk on past it was one long leg (6+ off), so goingOnPast (a leg within 2 of him) missed it and the patch-from-inside rule sent him back into his mine, cutting the floor cell beside it; the walk down cut the first again, 31 min. Stage 935 with the way on past the wall a long corridor: through, patched behind him, on to its end. */
+    private static int s1522T; private static BlockPos s1522Wall, s1522To; private static net.minecraft.core.Direction s1522Dir; private static boolean s1522In; private static String s1522Why = "";
+    private static boolean st1522(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19800, 80, 20600);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); s1522T = -1;
+            for (int x = -12; x <= 24; x++) for (int z = -14; z <= 14; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 14; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            // a walkway cell mid-mine with his wall beside it and rock past that: a corridor 8 long on through the wall
+            BlockPos w = null, wall = null, to = null; net.minecraft.core.Direction dd = null; var rows = b.rows(); var mid = rows.get(rows.size() / 2).first();
+            for (var e : b.roles().entrySet()) { if (e.getValue() != com.claudemod.entity.life.MineBlueprint.Role.WALK || w != null) continue; BlockPos p = e.getKey(); if (Math.abs(p.getX() - mid.getX()) + Math.abs(p.getZ() - mid.getZ()) > 3 || b.isWalk(p.below()) || !b.isWalk(p.above())) continue;
+                for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos q = p.relative(d); if (!b.isShell(q) || !b.isShell(q.above())) continue; boolean clear = true; for (int k = 2; k <= 10; k++) { BlockPos r = p.relative(d, k); if (b.roleAt(r) != null || b.roleAt(r.above()) != null) clear = false; } if (clear) { w = p; wall = q; to = p.relative(d, 10); dd = d; break; } } }
+            check(w != null, "no walkway cell with his wall and rock beside it in the test mine");
+            for (int k = 2; k <= 10; k++) { BlockPos r = w.relative(dd, k); level.setBlock(r, Blocks.AIR.defaultBlockState(), 2); level.setBlock(r.above(), Blocks.AIR.defaultBlockState(), 2); }
+            s1522Wall = wall; s1522To = to; s1522Dir = dd; s1522Why = "from " + w.toShortString() + " wall " + wall.toShortString() + " dir " + dd;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, w.getX() + 0.5, w.getY(), w.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+        if (t[0] == 10) { // (as live: the wall cut and walked through, him 2 past it, the put-back queued, the way on one long leg)
+            level.setBlock(s1522Wall, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1522Wall.above(), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos past = s1522Wall.relative(s1522Dir, 2); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, past.getX() + 0.5, past.getY(), past.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.tasks.add(new com.claudemod.entity.life.Task.Place(s1522Wall, Items.COBBLESTONE, null, Blocks.COBBLESTONE.defaultBlockState())); c.tasks.add(new com.claudemod.entity.life.Task.Place(s1522Wall.above(), Items.COBBLESTONE, null, Blocks.COBBLESTONE.defaultBlockState())); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s1522To, 0.5)); s1522T = t[0]; s1522In = false; }
+        if (t[0] > 11 && c.blueprint != null && (c.blueprint.isWalk(c.blockPosition()) || c.blueprint.isWalk(c.blockPosition().above()))) s1522In = true;
+        if (t[0] > 10) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean there = t[0] > 10 && c.blockPosition().equals(s1522To), back = there && !level.getBlockState(s1522Wall).getCollisionShape(level, s1522Wall).isEmpty();
+        if (s1522T > 0 && (back && c.tasks.isEmpty() || t[0] >= s1522T + 20 * 30)) {
+            double s = (t[0] - s1522T) / 20.0; String at = c.blockPosition().toShortString(); boolean wallBack = !level.getBlockState(s1522Wall).getCollisionShape(level, s1522Wall).isEmpty();
+            c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.mineFace = null; c.dropCurrent = true;
+            for (int x = -12; x <= 24; x++) for (int z = -14; z <= 14; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            check(at.equals(s1522To.toShortString()), "a corridor on through his tunnel's wall: he's at " + at + " after " + s + " s, not at its end " + s1522To.toShortString() + " (" + s1522Why + ")");
+            check(wallBack, "his wall at " + s1522Wall.toShortString() + " not put back behind him");
+            check(!s1522In, "back into his mine to patch the wall he'd walked out through, his way on past it");
+            check(s <= 15, "through one block of his wall and on 9: " + s + " s (a player ~6)");
+            pass(stage, t, "through his wall, patched behind him, on to the corridor's end in " + s + " s"); }
         return true;
     }
     private static int s1511At = -1;

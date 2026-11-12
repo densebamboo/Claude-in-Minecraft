@@ -6217,7 +6217,7 @@ public class WorkGoal extends Goal {
     private static java.util.Map<java.util.UUID, Integer> lastFightTick() { if (lastFightTick == null) lastFightTick = new java.util.HashMap<>(); return lastFightTick; }
     private static java.util.Set<BlockPos> tunnelOut; // holes he's already tunnelled out of (static: fields added live start null)
     private static java.util.Set<BlockPos> tunnelOut() { if (tunnelOut == null) tunnelOut = new java.util.HashSet<>(); return tunnelOut; }
-    private java.util.List<Task> digInTasks = java.util.List.of();
+    private java.util.List<Task> digInTasks = java.util.List.of(); private int coverLeftSaid = -1000;
 
     /** Standing in (or at the top of) the hole he's digging: same column, up to two below where he started it. */
     private boolean inDigInHole() {
@@ -6231,6 +6231,7 @@ public class WorkGoal extends Goal {
     public boolean buildingCover() { return diggingIn() && !holdingCover(); }
     private boolean diggingIn() {
         if (digInAt == null || digInTasks == null) return false;
+        if (Math.hypot(g.getX() - digInAt.getX() - 0.5, g.getZ() - digInAt.getZ() - 0.5) > w("cover.at_blocks", 4)) { if (g.tickCount - coverLeftSaid > 200) { coverLeftSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his cover at {} is {} off: he left it another way, not building it now (its leftover tasks run as plain jobs) (WorkGoal.diggingIn)", digInAt.toShortString(), (int) Math.hypot(g.getX() - digInAt.getX(), g.getZ() - digInAt.getZ())); } return false; } /* (D2D death 09:37:20 11-12: walked off his skytower at 298,71,505 by escapeStuck's legs, its tasks still deep in a 64-task queue; buildingCover() stayed true 20+ blocks off and the Nether eat rule skipped every meal, Wither 13 -> 0 with 9 salmon on him; stage 1650) */
         for (Task t : digInTasks) if (t == current || g.tasks.contains(t)) return true; // its wait still running counts, however long (the 28 s cap below had the cover rules stack a second tower on the first)
         return false;
     }

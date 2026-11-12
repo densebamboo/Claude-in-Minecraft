@@ -8047,7 +8047,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1649) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1699) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1650: return st1650(stage, t, c, h, level, mock);
             case 1617: return st1617(stage, t, c, h, level, mock);
             case 1616: return st1616(stage, t, c, h, level, mock);
             case 1615: return st1615(stage, t, c, h, level, mock);
@@ -21953,6 +21954,39 @@ public final class ClaudeBodyTest {
                 check(shield || hid, "held at his back-off spot, a blaze 10 off seeing him, a shield on him: neither the shield up nor out of its sight in 1 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, shield ? "shield up toward it" : "out of its sight");
             }
+        }
+        return true;
+    }
+    /** Stage 1650 (D2D death 09:37:20 11-12 at 307,60,511: a wither skeleton's hit 17 -> 13 with Wither on him, then 20 s of 1 HP / 2 s on the recover_drops walk, food 15-16 and 9 cooked salmon in his pack, never eating; HEALTH FALLING "no flee or eat" at 09:36:58). In the Nether at 12 HP, food 16, Wither on, a walk of his queued (his old skytower's wait still deep in the queue), a wither skeleton 12 off and none in reach: a meal within 4 s. */
+    private static int s1650Eat;
+    private static boolean st1650(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5640);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s1650Eat = -1; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 16, 6, 6, 6); nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 9));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            level.setDayTime(6000); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            c.setHealth(12); c.getFoodData().setFoodLevel(16); c.getFoodData().setSaturation(0); c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 600, 0));
+            var ws = EntityType.WITHER_SKELETON.create(nl); ws.moveTo(o.getX() + 12.5, o.getY(), o.getZ() + 0.5, 90, 0); ws.setNoAi(true); ws.setPersistenceRequired(); nl.addFreshEntity(ws); ws.setTarget(c);
+            com.claudemod.entity.life.Perception.noteSeenTest(c, ws);
+            c.tasks.clear(); c.currentTask = null; c.skillQueue.clear();
+            for (int k = 1; k <= 4; k++) c.tasks.add(new Task.GoTo(o.offset(-3 * k, 0, 0), 0.5)); // (his recover_drops walk, leg by leg, away from it)
+            var tw = new Task.Wait(20 * 60, false); c.work.towerCoverForTest(o.offset(10, 0, 3), 6, tw); c.tasks.remove(tw); c.tasks.addLast(tw); // (his skytower 10 off left behind, its wait still deep in his queue: live, he walked off the tower at 298,71,505 by escapeStuck's legs, 64 tasks queued)
+        }
+        if (t[0] > 14 && t[0] % 10 == 0 && c.level() == nl) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new net.minecraft.world.phys.AABB(o).inflate(20))) { e.setNoAi(true); }
+        if (t[0] > 14 && s1650Eat < 0 && (c.currentTask instanceof Task.Eat || c.isUsingItem() && c.getUseItem().is(Items.COOKED_SALMON) || c.getFoodData().getFoodLevel() > 16)) s1650Eat = t[0];
+        if (t[0] > 14 && (s1650Eat > 0 || t[0] > 14 + 80)) {
+            String q = c.currentTask + " " + c.tasks + " hp " + (int) c.getHealth() + " food " + c.getFoodData().getFoodLevel();
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            c.removeAllEffects(); c.setHealth(20); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            nsHome(c, h, level);
+            check(s1650Eat > 0, "12 HP, food 16, Wither on him, a walk queued, a wither skeleton 12 off and none in reach: no meal in 4 s (" + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
+            pass(stage, t, "a meal " + (s1650Eat - 14) + " ticks in");
         }
         return true;
     }

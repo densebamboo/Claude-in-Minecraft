@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1571: return st1571(stage, t, c, h, level, mock);
+            case 1570: return st1570(stage, t, c, h, level, mock);
             case 1569: return st1569(stage, t, c, h, level, mock);
             case 1568: return st1568(stage, t, c, h, level, mock);
             case 1567: return st1567(stage, t, c, h, level, mock);
@@ -20505,6 +20507,71 @@ public final class ClaudeBodyTest {
                 check(through, "his portal 2 off: not through in 12 s (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
                 pass(stage, t, "through in " + s / 20.0 + " s, the zombie let be");
             }
+        }
+        return true;
+    }
+    /** Stage 1570 (D2D review 180433-46, live 18:02:52 11-11 at -126,16,-405 in his mine: "smelt iron_ingot wants the mine's furnace at -137, 14, -413 (14 blocks off)", the next tunnel over through the rock; the walk went ~100 blocks round by his rows, past his furnace at -104,18,-422 (~77 by them); the station was the nearest as the crow flies). A U of a mine, east then back west: his furnace at the U's far end 10 off through the rock, another 25 along his row: the one along his row. */
+    private static boolean st1570(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 7450);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 40; x++) for (int z = -4; z <= 16; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 3)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), net.minecraft.core.Direction.SOUTH, 10, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), net.minecraft.core.Direction.WEST, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance; c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            var rs = b.rows(); BlockPos me = rs.get(1).first(), near = rs.get(26).first(), far = rs.get(rs.size() - 1).first();
+            for (int x = -4; x <= 40; x++) for (int z = -4; z <= 16; z++) for (int y = -1; y <= 3; y++) level.setBlock(new BlockPos(o.getX() + x, me.getY() + y, o.getZ() + z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor under his rows: he stands in his mine)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0;
+            check(com.claudemod.director.ClaudeLife.inHisMine(c, c.blockPosition()), "setup: not in his mine at " + c.blockPosition().toShortString());
+            for (BlockPos f : new BlockPos[] {near, far}) { level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(f.immutable()); }
+            int sNear = (int) Math.sqrt(near.distSqr(me)), sFar = (int) Math.sqrt(far.distSqr(me)), rNear = com.claudemod.director.ClaudeLife.routeDist(c, me, near), rFar = com.claudemod.director.ClaudeLife.routeDist(c, me, far);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 3);
+            BlockPos went = null; for (Task q : c.tasks) if (q instanceof Task.GoTo go && (go.pos().equals(near) || go.pos().equals(far))) { went = go.pos(); break; }
+            String q = c.tasks.toString(); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.blueprint = null; c.prefs.remove("mine_model"); c.stairStart = null; c.myStations.clear(); c.mineShape = null; c.mineCells.clear();
+            for (BlockPos f : new BlockPos[] {near, far}) level.setBlock(f, Blocks.AIR.defaultBlockState(), 2);
+            check(sFar < sNear && rFar > rNear, "setup: the U's far end " + sFar + " straight / " + rFar + " by his rows, the row's furnace " + sNear + " / " + rNear);
+            check(near.equals(went), "his furnaces " + sFar + " off through the rock (" + rFar + " by his rows) and " + sNear + " along his row: went to " + (went == null ? "neither" : went.equals(far) ? "the one through the rock" : went.toShortString()) + " (" + r + "; " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            pass(stage, t, "the furnace along his row: " + r);
+        }
+        return true;
+    }
+    /** Stage 1571 (D2D review 180433-46, live 18:03:04-19 11-11: on his walk to the furnace his upkeep queued a patch at -100,17,-414 as he went past it; at the furnace 30 on he ate, then walked back for the one block, and the smelt went to another furnace from there). A patch of his mine's wall queued by his upkeep, now 30 behind him: kept for when he's back by it, no walk back. */
+    private static int s1571T; private static BlockPos s1571H; private static double s1571X;
+    private static boolean st1571(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 7550);
+        if (t[0] == 1) { scenarioReset(c); s1571T = -1; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 44; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 40, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance; c.prefs.put("torches_while_digging", "no"); // (his tunnel's torches are other upkeep: only the one patch measured)
+            var rs = b.rows(); BlockPos me = rs.get(35).first(), row = rs.get(5).first(), hole = null;
+            for (var e : b.roles().entrySet()) if (e.getValue() != com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getY() == row.getY() + 1 && Math.abs(e.getKey().getX() - row.getX()) == 0 && (hole == null || e.getKey().distSqr(row) < hole.distSqr(row))) hole = e.getKey();
+            if (hole == null) { check(false, "setup: no shell cell by row 5"); return true; }
+            for (int x = -4; x <= 44; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) { BlockPos q = new BlockPos(o.getX() + x, me.getY() + y, o.getZ() + z); level.setBlock(q, (y == -1 || !b.isWalk(q) && !q.equals(hole) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); } // (his tunnel as dug: floor, walls, roof, the one hole in it)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.pendingPatches.clear();
+            Task.Place p = new Task.Place(hole.immutable(), Items.COBBLESTONE); com.claudemod.entity.ClaudeEntity.ORIGIN.put(p, "ClaudeLife.bpIntegrity:1"); c.tasks.add(p);
+            s1571T = t[0]; s1571H = hole.immutable(); s1571X = c.getX();
+        }
+        if (s1571T > 0 && t[0] - s1571T == 40) {
+            BlockPos hole = s1571H; double moved = s1571X - c.getX();
+            boolean kept = c.pendingPatches.contains(hole); String q = c.currentTask + " " + c.tasks;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.stairStart = null; c.pendingPatches.clear(); c.getInventory().clearContent();
+            check(moved < 3, "a patch of his wall 30 behind him, queued by his upkeep: walked " + String.format("%.1f", moved) + " back toward it (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            check(kept, "the patch 30 behind him: not kept for when he's back by it");
+            pass(stage, t, "kept for later, " + String.format("%.1f", moved) + " walked");
         }
         return true;
     }

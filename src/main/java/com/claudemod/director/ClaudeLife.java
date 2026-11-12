@@ -9135,6 +9135,9 @@ public final class ClaudeLife {
         // the mine's own table/furnace (set into its wall, near enough to walk to): back to that one, not a new one in a branch
         if (inHisMine(g, g.blockPosition())) {
             BlockPos mineStation = findNear(level, g.blockPosition(), 32, b -> b.is(block));
+            { BlockPos me9 = g.blockPosition(), byFoot = null; int bestR = Integer.MAX_VALUE; for (BlockPos f : g.myStations) if (f.distSqr(me9) <= 32 * 32 && level.isLoaded(f) && level.getBlockState(f).is(block)) { int r = routeDist(g, me9, f); if (r < bestR) { bestR = r; byFoot = f; } } // his own, nearest along his rows: the nearest as the crow flies was 14 off through the rock and ~100 round by the tunnels, with another ~77 by them (live 18:02:52 11-11, D2D review 180433-46; stage 1570)
+              if (byFoot != null && mineStation != null && !byFoot.equals(mineStation)) ClaudeMod.LOGGER.info("[Claude life] the mine's {} at {} ({} off by his rows) over the one at {} ({} straight, {} by his rows) (ClaudeLife.goToStation)", Crafting.name(block.asItem()), byFoot.toShortString(), bestR, mineStation.toShortString(), (int) Math.sqrt(mineStation.distSqr(me9)), routeDist(g, me9, mineStation));
+              if (byFoot != null && (mineStation == null || bestR <= routeDist(g, me9, mineStation))) mineStation = byFoot; }
             if (block == Blocks.FURNACE && !allNooks(g).isEmpty()) { // his nooks' furnace walls: the one of the nook he's at (nearest by his tunnels), never a climb to another level's for a smelt
                 com.claudemod.entity.life.BaseNook at0 = nearestNook(g, g.blockPosition(), x -> true); BlockPos f0 = null;
                 if (at0 != null && routeDist(g, g.blockPosition(), at0.mouth()) <= 48) for (BlockPos f : at0.furnaceCells()) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) { f0 = f; break; }

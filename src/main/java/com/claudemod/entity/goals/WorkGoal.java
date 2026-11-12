@@ -518,7 +518,7 @@ public class WorkGoal extends Goal {
             current = g.tasks.poll();
             int dup = 0; while (current != null && !(current instanceof Task.Pillar) && current.equals(g.tasks.peek())) { Task nx = g.tasks.poll(); if (com.claudemod.entity.nav.Route.owns(g, nx) && !com.claudemod.entity.nav.Route.owns(g, current)) current = nx; dup++; } // (a route's own copy is the one kept: the other copy dropped took the route's end, and its old legs walked him back down, 12:31) // (two Pillar(-1)s are two towers to take down, not a copy: dropping one left a cobble block in his stair walkway) // the same task queued over and over (a route re-fired every few seconds): one copy is plenty
             if (dup > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} duplicate copies of {} dropped from his queue", dup, current);
-            while (current != null && (unseenOre(current) || !com.claudemod.entity.life.Watchdog.starting(g, current))) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
+            while (current != null && (unseenOre(current) || farPatch(current) || !com.claudemod.entity.life.Watchdog.starting(g, current))) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
             g.busy = current != null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; breakProgress = 0; bridged = 0;
             if (leanFor != null && !(current instanceof Task.Place pl0 && pl0.pos().equals(leanFor))) { g.setShiftKeyDown(false); leanFor = null; } // (a lean left for another task: off the sneak)
@@ -2966,6 +2966,13 @@ public class WorkGoal extends Goal {
     static boolean besideLava(ServerLevel level, BlockPos sp) { if (level.getFluidState(sp.above(2)).is(net.minecraft.tags.FluidTags.LAVA)) return true; for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = 0; dy <= 1; dy++) if (level.getFluidState(sp.relative(d).above(dy)).is(net.minecraft.tags.FluidTags.LAVA)) return true; return false; }
     /** A dig of ore he can't have seen (every face closed; the dig that opens it dropped or not yet done): not started, his lesson or their step naming the cell aside. The plan and the vein scan queue it again once a face is open. */
     private final java.util.Set<Long> unseenMoved = new java.util.HashSet<>() { @Override public boolean add(Long k) { if (size() > 256) clear(); return super.add(k); } }; // (pos x tick: each moved once a tick, so a cycle of buried ones ends in drops)
+    /** A patch of his mine's shell his upkeep queued as he went past, now 12+ behind him: kept for when he's back by it, not a walk back for one block (live 18:03:04-19 11-11, D2D review 180433-46: queued 30 short of his furnace, eaten at the furnace, walked back for it, the smelt then went to another furnace; stage 1571). */
+    private boolean farPatch(Task t) {
+        if (!(t instanceof Task.Place p) || g.blueprint == null || g.blueprint.isEmpty() || !g.blueprint.isShell(p.pos()) || p.pos().distSqr(g.blockPosition()) <= 12 * 12 || !com.claudemod.entity.ClaudeEntity.originOf(t).startsWith("ClaudeLife.bpIntegrity")) return false;
+        g.pendingPatches.add(p.pos().immutable());
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] the patch at {} is {} off now (queued as he went past it): kept for when he's back by it (WorkGoal.farPatch)", p.pos().toShortString(), (int) Math.sqrt(p.pos().distSqr(g.blockPosition())));
+        return true;
+    }
     private boolean unseenOre(Task t) {
         if (!(t instanceof Task.Break b) || !com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), b.pos())) return false;
         if (com.claudemod.entity.life.Consent.lesson(g) || com.claudemod.entity.life.Consent.theirStepNames(g, b.pos()) != null) return false;

@@ -117,6 +117,8 @@ public final class Leaps {
     static boolean solid(ServerLevel l, BlockPos p) { return !l.getBlockState(p).getCollisionShape(l, p).isEmpty() && !l.getBlockState(p).is(BlockTags.CLIMBABLE) && !l.getBlockState(p).is(Blocks.POWDER_SNOW); }
     static boolean water(ServerLevel l, BlockPos p) { return l.getFluidState(p).is(FluidTags.WATER); }
     static boolean lava(ServerLevel l, BlockPos p) { return l.getFluidState(p).is(FluidTags.LAVA); }
+    /** Lava in any cell his box would touch standing at p, with 0.1 to spare for his steering's overshoot. */
+    static boolean lavaByBox(ServerLevel l, Vec3 p) { double r = 0.3 + 0.1; for (int x = Mth.floor(p.x - r); x <= Mth.floor(p.x + r); x++) for (int z = Mth.floor(p.z - r); z <= Mth.floor(p.z + r); z++) for (int y = Mth.floor(p.y); y <= Mth.floor(p.y + 1.8); y++) if (lava(l, new BlockPos(x, y, z))) return true; return false; }
 
     /**
      * Walking (vy0 0) or jumping (vy0 0.42) off into the column whose top cell is {@code col}, his feet at {@code y0}: where he
@@ -287,6 +289,7 @@ public final class Leaps {
         boolean sprint = t.kind() == SPRINT_JUMP;
         if (s.phase == 0) { // lined up: on the lip, at the back of it for a run, still for a moment (vanilla's 10-tick jump delay is past)
             double want = t.kind() == DROP ? 0.0 : -0.25;
+            for (; want < 0 && lavaByBox(l, c0.add(dir.scale(want))); want = Math.min(0, want + 0.1)) {} // (the run-up's set-back never puts his box by lava beside the lip: live 23:57:17 11-11, review 235958-134, 0.25 back on a diagonal left 0.02 to a lava fall, a little overshoot and he was in it, 20 -> 12; stage 1584)
             Vec3 to = c0.add(dir.scale(want));
             Vec3 off = new Vec3(to.x - g.getX(), 0, to.z - g.getZ());
             if (off.length() > 0.06) { hands(g, off.normalize(), Mth.clamp(off.length() * 2.5, 0.15, 0.6), false, false); s.ground = 0; }

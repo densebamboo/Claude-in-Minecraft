@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1584: return st1584(stage, t, c, h, level, mock);
             case 1583: return st1583(stage, t, c, h, level, mock);
             case 1582: return st1582(stage, t, c, h, level, mock);
             case 1581: return st1581(stage, t, c, h, level, mock);
@@ -21127,6 +21128,38 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1584 (D2D review 235958-134, live 23:57:17 11-11 at 323,52,437 by his fortress: "sprint-jump from 323, 52, 437 to 325, 52, 439", his box lined up at 323.32, 437.28 for the run (0.25 back along the diagonal), its edge 436.98 in the falling lava at 323,52,436 beside the lip: 20 -> 12, fire past 300 ticks). A 1-wide lip, falling lava in the cell north of it, a sprint-jump south-east over 2: he lines up and jumps without touching it. */
+    private static int s1584T; private static boolean s1584Burnt; private static double s1584Gap;
+    private static boolean st1584(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(8150, 90, 7650), lip = o, land = o.offset(2, 0, 2), col = lip.north();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1584T = -1; s1584Burnt = false; s1584Gap = 9; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 6; z++) for (int y = -5; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -5 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int y = -4; y <= -1; y++) { level.setBlock(lip.above(y), Blocks.STONE.defaultBlockState(), 2); level.setBlock(land.above(y), Blocks.STONE.defaultBlockState(), 2); }
+            for (int y = -4; y <= 3; y++) for (BlockPos w : new BlockPos[] {col.west(), col.east(), col.north()}) level.setBlock(w.above(y), Blocks.STONE.defaultBlockState(), 2); // (the lava's shaft: it falls past the lip and pools at its foot, walled in)
+            level.setBlock(col.below(4), Blocks.STONE.defaultBlockState(), 2); level.setBlock(col.above(3), Blocks.STONE.defaultBlockState(), 2);
+            for (int y = -3; y <= 2; y++) level.setBlock(col.above(y), net.minecraft.world.level.material.Fluids.FLOWING_LAVA.getFlowing(8, true).createLegacyBlock(), 2); // (a lava fall, as live: flow 8 in the cells beside the lip)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            c.teleportTo(lip.getX() + 0.5, lip.getY(), lip.getZ() + 0.5); c.fallDistance = 0; c.clearFire();
+        }
+        if (t[0] == 60) { check(level.getFluidState(col).is(net.minecraft.tags.FluidTags.LAVA) && level.getFluidState(lip).isEmpty(), "setup: the lava not falling beside the lip"); c.clearFire(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Leap(lip, land, com.claudemod.entity.nav.Leaps.SPRINT_JUMP, 0, 0f)); s1584T = t[0]; }
+        if (s1584T > 0 && t[0] > s1584T) {
+            if (c.isInLava() || c.isOnFire()) s1584Burnt = true;
+            if (c.getY() < lip.getY() + 0.5) s1584Gap = Math.min(s1584Gap, c.getBoundingBox().minZ - lip.getZ()); // (his box's north edge against the lava cell's side while he's on the lip: live it was 0.02 short of it at rest and in it after 0.04 of overshoot)
+            boolean landed = c.onGround() && c.blockPosition().equals(land);
+            if (landed || t[0] - s1584T > 20 * 6) {
+                boolean burnt = s1584Burnt; double gap = s1584Gap; BlockPos at = c.blockPosition(); String q = c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.setHealth(20); c.getInventory().clearContent();
+                for (int x = -4; x <= 6; x++) for (int z = -4; z <= 6; z++) for (int y = -5; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0;
+                check(!burnt, "lining up a sprint-jump on a lip with lava falling beside it: in the lava (at " + at.toShortString() + ")");
+                check(gap >= 0.05, "lining up a sprint-jump with lava falling beside the lip: his box came within " + String.format("%.3f", gap) + " of it (0.04 of overshoot put him in it live)");
+                check(landed, "the sprint-jump to " + land.toShortString() + " not made in 6 s (at " + at.toShortString() + ", " + q + ")");
+                pass(stage, t, "lined up and over, " + String.format("%.2f", gap) + " clear of the lava beside the lip");
+            }
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -22784,7 +22817,8 @@ public final class ClaudeBodyTest {
         c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); double withFood = com.claudemod.entity.nav.Leaps.hpPrice(c);
         c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); double fed = com.claudemod.entity.nav.Leaps.hpPrice(c);
         check(starving >= want * 0.99 && starving > 4, "hunger 6, nothing to eat: an HP of falling priced x" + String.format("%.1f", starving) + ", its regen says x" + String.format("%.1f", want));
-        check(withFood <= 1.5 && fed <= 1.5, "with food on him x" + String.format("%.1f", withFood) + ", fed x" + String.format("%.1f", fed) + ": should be about 1");
+        double foodPart = com.claudemod.entity.life.Weights.w("leaps.hp_food_points", 1.5) * com.claudemod.entity.life.Weights.w("leaps.food_point_s", 4) / com.claudemod.entity.life.Weights.w("leaps.hp_s_ref", 4); // (the food an HP burns coming back, priced on top since 1ea9de53, review 244)
+        check(withFood <= 1.5 + foodPart && fed <= 1.5 + foodPart, "with food on him x" + String.format("%.1f", withFood) + ", fed x" + String.format("%.1f", fed) + ": should be about 1 plus the food part " + String.format("%.1f", foodPart));
         pass(stage, t, "an HP of falling: x" + String.format("%.1f", starving) + " starving with nothing, x" + String.format("%.1f", withFood) + " with beef on him, x" + String.format("%.1f", fed) + " fed");
         return true;
     }

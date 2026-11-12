@@ -24464,15 +24464,15 @@ public final class ClaudeBodyTest {
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.lastStep = null; throw e; }
     }
     private static String s829Calm = ""; private static java.util.List<net.minecraft.world.entity.Mob> s829Mobs = new java.util.ArrayList<>();
-    /** Stage 829 (review 178, World 17 20:50: 1-6 HP falls one after another, ungeared in the Nether with piglins heard): a 9-block cliff (6 HP off its lip) and a way round down 3-block ledges 12 north. Alone, the drop (as before: HP that comes back); two piglins he sees and no gold on him, the ledges. The walk planner, no digging or placing. */
+    /** Stage 829 (review 178, World 17 20:50: 1-6 HP falls one after another, ungeared in the Nether with piglins heard): a 6-block cliff (3 HP off its lip) and a way round down 3-block ledges 24 north (re-pitched 11-12: 9 blocks' 6 HP stopped paying once falls were priced with their food, 1ea9de53). Alone, the drop (as before: HP that comes back); two piglins he sees and no gold on him, the ledges. The walk planner, no digging or placing. */
     private static boolean st829(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
-        BlockPos o = new BlockPos(9100, 64, 5800), top = o.offset(0, 9, 0), to = o.offset(3, 0, 0);
+        BlockPos o = new BlockPos(9100, 64, 5800), top = o.offset(0, 6, 0), to = o.offset(3, 0, 0); /* (a 6-block cliff, 3 HP, and the ledges 24 north: since 1ea9de53 an HP of falling carries its food, x2.5 alone, and 9 blocks' 6 HP never beat a 12-north detour again) */
         if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s829Calm = ""; for (var m : s829Mobs) m.discard(); s829Mobs.clear(); }
         if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40), e -> !s829Mobs.contains(e))) e.discard(); } // (nsTick, sparing the stage's own piglins)
         if (t[0] == 10) {
-            for (int x = -14; x <= 20; x++) for (int z = -16; z <= 14; z++) for (int y = -2; y <= 14; y++) {
-                boolean ground = y <= -1, cliff = x <= 0 && y <= 8, ledge = z == -12 && (x == 1 && y <= 5 || x == 2 && y <= 2);
+            for (int x = -14; x <= 20; x++) for (int z = -28; z <= 14; z++) for (int y = -2; y <= 14; y++) {
+                boolean ground = y <= -1, cliff = x <= 0 && y <= 5, ledge = z == -24 && x == 1 && y <= 2;
                 nl.setBlock(o.offset(x, y, z), ground || cliff || ledge ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             }
             nsKit(c); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); // (ungeared, no gold: as live) c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;

@@ -736,12 +736,15 @@ public final class ClaudeLife {
     private static java.util.Map<java.util.UUID, java.util.Map<BlockPos, Notch>> notchMap;
     static java.util.Map<BlockPos, Notch> notches(ClaudeEntity g) { if (notchMap == null) notchMap = new java.util.HashMap<>(); return notchMap.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>()); }
     /** A shell cut on a way out of his mine to dest: put back behind him, or held open as his way back (priced: the cut and patch again on the way back against an open hole while he's out). */
+    private static final java.util.Map<BlockPos, List<Integer>> NOTCH_CUTS = new java.util.HashMap<>(); // a cell of his shell cut for a way (either way through it) -> when
     public static boolean holdNotch(ClaudeEntity g, ServerLevel level, BlockPos cut, BlockPos dest) {
+        NOTCH_CUTS.computeIfAbsent(cut.immutable(), k -> new ArrayList<>()).add(g.tickCount); NOTCH_CUTS.values().forEach(l -> l.removeIf(t0 -> g.tickCount - t0 > 20 * 120 || t0 > g.tickCount)); NOTCH_CUTS.values().removeIf(List::isEmpty);
+        int trips = 0; for (var e : NOTCH_CUTS.entrySet()) if (e.getKey().distManhattan(cut) <= 1) trips += e.getValue().size(); // (his ways through here in the last 2 min, this one too; the cell beside counts, the way up took the one next to it: live 22:19-22:20 11-11, -39 and -38,15,-445 each cut and put back, 6 ways in 33 s; stage 1581)
         if (dest == null || inMineSide(g, dest) || cut.distSqr(dest) > 16 * 16) return false; // (only a way out to work near the cut; into his mine it's a patch as before)
         if (!returnQueued(g, g.tasks)) return false; // (no way back into his mine queued: he isn't coming back through it soon, it's put back behind him as before, stage 935)
         int mobs = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(cut).inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).size();
         var pick = com.claudemod.entity.life.Decide.choose(g, "mine.notch", cut.toShortString() + " to " + dest.toShortString(), true, List.of(
-            com.claudemod.entity.life.Decide.Option.of("patch it now", com.claudemod.entity.life.Weights.w("mine.notch_reopen_s", 6), "the way back cuts it again and puts it back again"),
+            com.claudemod.entity.life.Decide.Option.of("patch it now", com.claudemod.entity.life.Weights.w("mine.notch_reopen_s", 6) * trips, "the way back cuts it again and puts it back again (" + trips + " way(s) through here in 2 min)"),
             com.claudemod.entity.life.Decide.Option.of("hold it open", com.claudemod.entity.life.Weights.w("mine.notch_open_s", 3) + mobs * com.claudemod.entity.life.Weights.w("mine.notch_mob_s", 4), "a hole in his shell while he's out, " + mobs + " hostile(s) within 16, sealed after")));
         if (pick == null || !pick.name().startsWith("hold")) return false;
         com.claudemod.entity.life.Gate.rule(g, cut, false, "his access notch, held open while his work out at " + dest.toShortString() + " lasts"); // (one owner: no patch or other fill goes in while it's held; the seal unrules it; audit 1)

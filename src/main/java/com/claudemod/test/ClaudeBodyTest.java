@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1581: return st1581(stage, t, c, h, level, mock);
             case 1580: return st1580(stage, t, c, h, level, mock);
             case 1579: return st1579(stage, t, c, h, level, mock);
             case 1578: return st1578(stage, t, c, h, level, mock);
@@ -20959,6 +20960,41 @@ public final class ClaudeBodyTest {
                 check(far <= 8, "a block 8 off, 2 stone past his stub: walked " + String.format("%.1f", far) + " out round the U to it (" + s / 20.0 + " s)");
                 pass(stage, t, "broken in " + s / 20.0 + " s, " + String.format("%.1f", far) + " out at most");
             }
+        }
+        return true;
+    }
+    /** Stage 1581 (Loops via ActionPath.putBackRepeat, live 22:19:36-22:20:09 11-11 at -40,16,-445: back and forth between his row and a pocket 4 under it, each way cutting a floor cell of the row (-39 or -38,15,-445) and putting it back; 22:20:09 "mine.notch: patch it now ~6 s (the way back cuts it again and puts it back again); hold it open ~15 s (3 hostile(s) within 16)": patch, the 3rd time in 28 s). His row's floor cell cut on his way down to the pocket, 3 hostiles known within 16, a way back queued: by the 3rd cut in a minute it's held open, not put back again. */
+    private static java.util.List<net.minecraft.world.entity.monster.Zombie> s1581Z = new java.util.ArrayList<>(); private static BlockPos s1581C, s1581D, s1581R; private static int s1581Y;
+    private static boolean st1581(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 8050);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); for (var z : s1581Z) z.discard(); s1581Z.clear(); }
+        if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance;
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            BlockPos row = b.rows().get(14).first(); int fy = row.getY();
+            for (int x = -4; x <= 40; x++) for (int z = -6; z <= 6; z++) for (int y = -7; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, row.getZ() + z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            BlockPos cut = row.below(), dest = row.offset(-2, -4, 2);
+            for (BlockPos q : BlockPos.betweenClosed(dest.offset(-2, 0, -1), dest.offset(2, 1, 1))) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // the pocket under his row
+            c.teleportTo(row.getX() + 0.5, row.getY(), row.getZ() + 0.5); c.fallDistance = 0;
+            for (int k = 0; k < 3; k++) { var z = EntityType.ZOMBIE.create(level); z.moveTo(row.getX() + 6.5 + k, row.getY(), row.getZ() + 0.5, 0, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); s1581Z.add(z); com.claudemod.entity.life.Perception.noteSeenTest(c, z); }
+            s1581C = cut.immutable(); s1581D = dest.immutable(); s1581R = row.immutable(); s1581Y = fy;
+        }
+        if (t[0] == 60) {
+            BlockPos cut = s1581C, dest = s1581D, row = s1581R; int fy = s1581Y;
+            check(com.claudemod.entity.life.Perception.known(c, net.minecraft.world.entity.monster.Zombie.class, new net.minecraft.world.phys.AABB(cut).inflate(16)).size() == 3, "setup: the 3 zombies not known to him");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(dest, 1.0)); c.tasks.add(new Task.Place(dest.above(3), Items.COBBLESTONE)); c.tasks.add(new Task.GoTo(row, 1.0)); // (work down there, then back into his row: a way back queued)
+            String said = ""; boolean held = false;
+            for (int k = 1; k <= 3 && !held; k++) { held = com.claudemod.director.ClaudeLife.holdNotch(c, level, cut, dest); said += " cut " + k + ": " + (held ? "held" : "patch"); }
+            for (var z : s1581Z) z.discard(); s1581Z.clear();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.stairStart = null; c.mineShape = null; c.mineCells.clear(); c.pendingPatches.clear(); c.getInventory().clearContent();
+            for (int x = -4; x <= 40; x++) for (int z = -6; z <= 6; z++) for (int y = -7; y <= 5; y++) level.setBlock(new BlockPos(o.getX() + x, fy + y, row.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.Gate.unrule(c, cut);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0;
+            check(held, "his row's floor cut 3 times in a minute on his way down, 3 hostiles about:" + said);
+            pass(stage, t, said.trim());
         }
         return true;
     }

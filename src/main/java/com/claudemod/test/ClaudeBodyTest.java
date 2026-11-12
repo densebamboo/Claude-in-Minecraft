@@ -10550,6 +10550,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1566: return st1566(stage, t, c, h, level, mock);
+            case 1565: return st1565(stage, t, c, h, level, mock);
+            case 1564: return st1564(stage, t, c, h, level, mock);
             case 1563: return st1563(stage, t, c, h, level, mock);
             case 1562: return st1562(stage, t, c, h, level, mock);
             case 1561: return st1561(stage, t, c, h, level, mock);
@@ -20304,6 +20307,82 @@ public final class ClaudeBodyTest {
                 for (int x = -4; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 check(got >= 5, "5 redstone 4 down a 1-wide hole beside him, into a pocket: not got in 10 s (" + got + " on him, at " + at.toShortString() + ", " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
                 pass(stage, t, "down for the redstone in " + (t[0] - s1563T) / 20.0 + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1564 (D2D review 162904-22, live 16:27:40-46 11-11 at -114,16,-433 in his mine: a patch at -119,16,-442 in the next tunnel over, the way there round through a cave he had just come by; "slow walk ... path=none", 8 s against the wall, "BLOCKED_BLOCK stone at -114, 16, -434", the spot skipped, the same again on diorite; a walk to put a block (walkNoDig) never asked his planner for a way, only the vanilla path). Two tunnels, a hole in the far one's wall, the way between them over a 2-high block: he gets to it and patches it. */
+    private static int s1564T;
+    private static boolean st1564(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)), hole = o.offset(2, 0, 5);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1564T = -1; level.setDayTime(6000); c.blueprint = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(24), e -> !(e instanceof ClaudeEntity) && !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -8; x <= 8; x++) for (int z = -2; z <= 7; z++) for (int y = -1; y <= 5; y++) {
+                boolean tunnel = (z == 0 || z == 4) && x >= -6 && x <= 6 && y >= 0 && y <= 1, link = x == -6 && z >= 1 && z <= 3 && y >= 0 && y <= 3 && !(z == 2 && y <= 1);
+                level.setBlock(o.offset(x, y, z), (tunnel || link || o.offset(x, y, z).equals(hole) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(o.getX() + 2.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Place(hole, Items.COBBLESTONE)); s1564T = t[0]; }
+        if (s1564T > 0 && t[0] > s1564T) {
+            boolean done = level.getBlockState(hole).is(Blocks.COBBLESTONE);
+            if (done || t[0] - s1564T > 20 * 30) {
+                String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition(); int dug = 0;
+                for (int x = -8; x <= 8; x++) for (int z = -2; z <= 7; z++) for (int y = -1; y <= 5; y++) { boolean tunnel = (z == 0 || z == 4) && x >= -6 && x <= 6 && y >= 0 && y <= 1, link = x == -6 && z >= 1 && z <= 3 && y >= 0 && y <= 3 && !(z == 2 && y <= 1); if (!tunnel && !link && !o.offset(x, y, z).equals(hole) && level.getBlockState(o.offset(x, y, z)).isAir()) dug++; }
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.teleportTo(o.getX() + 0.5, o.getY() + 6, o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20);
+                for (int x = -8; x <= 8; x++) for (int z = -2; z <= 7; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(done, "a hole in the next tunnel's wall, the way round over a 2-high block: not patched in 30 s (at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                check(dug == 0, "the way to a patch dug " + dug + " block(s) of rock: a walk to put a block never digs");
+                pass(stage, t, "round to the patch in " + (t[0] - s1564T) / 20.0 + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1565 (D2D review 162904-23, live 16:27:38-16:28:12 11-11 at -115,16,-433: smelt's walk to his mine's furnace at -110,16,-432, GoTo within 2.5, ended "in reach" 5 off as walkTo ends a walk to a block; the watchdog's "got there" was within + 1.5, so each end counted "without getting there", 3 in 34 s tripped it, the furnace written off and a new one set down 2 off). His furnace 5 off down a tunnel, in his reach: a walk to it that ends there counts as got there. */
+    private static boolean st1565(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)), fur = o.offset(4, 0, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 7; x++) for (int z = -2; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (z == 0 && y >= 0 && y <= 1 && x <= 6 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 2);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(fur));
+        }
+        if (t[0] == 14) {
+            boolean reach = c.work.inReachOf(fur); double d = Math.sqrt(fur.distToCenterSqr(c.position()));
+            Boolean got = com.claudemod.entity.life.Watchdog.achieved(c, new Task.GoTo(fur, 2.5));
+            for (int x = -2; x <= 7; x++) for (int z = -2; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(reach, "setup: the furnace " + String.format("%.1f", d) + " off isn't in his reach");
+            check(Boolean.TRUE.equals(got), "his furnace " + String.format("%.1f", d) + " off and in his reach, a walk to it within 2.5 ended there (as walkTo ends it): counted as not got there (" + got + ")");
+            pass(stage, t, "in reach " + String.format("%.1f", d) + " off is there");
+        }
+        return true;
+    }
+    /** Stage 1566 (D2D review 163404-39, live 16:32:38-43 11-11 at -36,10,-445: a seen vein of 8 iron, its Breaks queued; -39,10,-447, -39,9,-447 mined, then "not digging the iron_ore at -40, 9, -446: every face of it closed ... dropped till a dig opens it" one dig before -39,9,-446 opened it; 5 of 8 left and off to his branch). Three iron in a row into the wall, only the first in sight, their digs queued the far one first: all three mined. */
+    private static int s1566T;
+    private static boolean st1566(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)), a = o.offset(2, 0, 0), b = a.east(), d = b.east();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1566T = -1; level.setDayTime(6000); c.blueprint = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(16), e -> !(e instanceof ClaudeEntity) && !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -3; x <= 6; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (z == 0 && y >= 0 && y <= 1 && x <= 1 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            for (BlockPos p : new BlockPos[] {a, b, d}) level.setBlock(p, Blocks.IRON_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(d)); c.tasks.add(new Task.Break(b)); c.tasks.add(new Task.Break(a)); s1566T = t[0]; }
+        if (s1566T > 0 && t[0] > s1566T) {
+            int left = 0; for (BlockPos p : new BlockPos[] {a, b, d}) if (level.getBlockState(p).is(Blocks.IRON_ORE)) left++;
+            boolean idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1566T > 40;
+            if (left == 0 || idle || t[0] - s1566T > 20 * 15) {
+                String q = c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(12))) e.discard();
+                for (int x = -3; x <= 6; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(left == 0, "three iron in a row into the wall, the far ones' digs queued first: " + left + " left unmined (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+                pass(stage, t, "the whole row in " + (t[0] - s1566T) / 20.0 + " s");
             }
         }
         return true;

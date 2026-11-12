@@ -126,7 +126,7 @@ public final class Watchdog {
     public static Boolean achieved(ClaudeEntity g, Task t) {
         var level = g.level();
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-        if (t instanceof Task.GoTo x) return Math.sqrt(x.pos().distToCenterSqr(g.position())) <= x.within() + 1.5;
+        if (t instanceof Task.GoTo x) return Math.sqrt(x.pos().distToCenterSqr(g.position())) <= x.within() + 1.5 || !level.getBlockState(x.pos()).getCollisionShape(level, x.pos()).isEmpty() && g.work != null && g.work.inReachOf(x.pos()); // (a walk to a block, his furnace: in his reach is there, as walkTo ends it; 3 such ends at 5 off tripped it and a new furnace went down 2 off, live 16:28:12 11-11, D2D review 162904-23; stage 1565)
         if (t instanceof Task.Break x) { var s = level.getBlockState(x.pos()); return s.isAir() || s.canBeReplaced(); }
         if (t instanceof Task.Place x) { var b = net.minecraft.world.level.block.Block.byItem(x.item()); return b == net.minecraft.world.level.block.Blocks.AIR ? null : level.getBlockState(x.pos()).is(b); }
         if (t instanceof Task.Leap x) return Math.abs(feet.getX() - x.land().getX()) + Math.abs(feet.getZ() - x.land().getZ()) <= 1 && Math.abs(feet.getY() - x.land().getY()) <= 1;

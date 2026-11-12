@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1598: return st1598(stage, t, c, h, level, mock);
             case 1597: return st1597(stage, t, c, h, level, mock);
             case 1596: return st1596(stage, t, c, h, level, mock);
             case 1595: return st1595(stage, t, c, h, level, mock);
@@ -21658,6 +21659,38 @@ public final class ClaudeBodyTest {
             c.teleportTo(o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5); c.fallDistance = 0; c.getInventory().clearContent();
             check(!floats, "a copper ore 6 down a flooded shaft, ~19 s to dig floating on 15 s of air: the way ends floating in the water (" + said + ")");
             pass(stage, t, "the way to it: " + said);
+        }
+        return true;
+    }
+
+    /** Stage 1598 (D2D urgent, live 06:53:09-06:56+ 11-12 at 314,66,502 by the fortress spawner, rods 0/7: "walled in at 314, 66, 502 with the Blaze 18 off on him: waiting in cover, the walk after" every 10 s, STUCK 180 s, healed to 20 a minute before; blazes keep to their spawner, so "till it's gone" never comes). Walled in at full health, a blaze 18 off on him: his walk isn't held for it to leave. */
+    private static net.minecraft.world.entity.monster.Blaze s1598B;
+    private static boolean st1598(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12600, 64, 8500);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1598B != null) s1598B.discard(); s1598B = null; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            for (int x = -4; x <= 22; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            for (int y = 0; y <= 5; y++) nl.setBlock(o.offset(0, y, 0), Blocks.COBBLESTONE.defaultBlockState(), 2); // his tower, 6 high
+            for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) for (int y = 6; y <= 7; y++) nl.setBlock(o.offset(0, y, 0).relative(d), Blocks.COBBLESTONE.defaultBlockState(), 2); // walled in on top
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY() + 6, o.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.commandActive = false;
+        }
+        if (t[0] == 61) { var b = EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 12.5, o.getY() + 1, o.getZ() + 3.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); b.setTarget(c); s1598B = b; /* (~14 off on the slant, as live's 18 was: within the walled-in check's 16-box) */ com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        if (t[0] == 65 && s1598B != null) {
+            c.setHealth(20); boolean inNl = c.level() == nl; BlockPos at = c.blockPosition();
+            var legs = com.claudemod.entity.nav.Route.expand(c, nl, o.offset(20, 0, 3), 1.0);
+            String q = String.valueOf(legs); boolean holds = legs != null && !legs.isEmpty() && legs.get(0) instanceof Task.Wait;
+            s1598B.discard(); s1598B = null; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (int x = -4; x <= 22; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(inNl && at.getY() == o.getY() + 6, "setup: not walled in on his tower in the Nether (at " + at.toShortString() + ")");
+            check(!holds, "walled in at full health, a blaze 18 off by its spawner: the walk held for it to leave (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+            pass(stage, t, "the walk not held for the blaze: " + (q.length() > 100 ? q.substring(0, 100) : q));
         }
         return true;
     }

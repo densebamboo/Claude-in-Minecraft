@@ -6127,12 +6127,15 @@ public class WorkGoal extends Goal {
      * his job walked him back into it, 20 -> 10.) One still on him: back to his job (it follows him there: flee.hunted_hits of its
      * hits) against running on till he's past its follow range (the gap at his pace less its chase pace), priced and said.
      */
+    public boolean clearOfHuntersForTest(net.minecraft.world.entity.Mob m) { return clearOfHunters(java.util.List.of(m)); } // (tests: true = back to his job)
     private boolean clearOfHunters(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         net.minecraft.world.entity.Mob h = null; for (var m : mobs) if (huntsHim(m) && (h == null || m.distanceTo(g) < h.distanceTo(g))) h = m;
         if (h == null) return true;
         double d = h.distanceTo(g), range = h.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
         double pace = (g.getFoodData().getFoodLevel() > 6 ? com.claudemod.entity.life.Decide.sprint() : w("move.walk_blocks_per_s", 4.3)) - w("flee.chase_blocks_per_s", 2.5);
-        var back = com.claudemod.entity.life.Decide.Option.of("back to his job", com.claudemod.entity.life.Decide.hpS(g, 0, w("flee.hunted_hits", 2) * mobHit(h), mobHit(h)), "it follows him there");
+        double huntHp = w("flee.hunted_hits", 2) * mobHit(h), perHit = mobHit(h); String followNote = "it follows him there";
+        if (h instanceof net.minecraft.world.entity.monster.Creeper) { perHit = w("creeper.blast_hp", 22) * (1 - Math.min(20, g.getArmorValue()) / 25.0); double pb = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.45) : w("creeper.blast_chance_unarmed", 0.8); huntHp = pb * perHit; followNote = String.format("it follows him there: its blast ~%.0f HP, %.0f%% it goes off", perHit, pb * 100); } // (a creeper's hit is its blast, not its melee attribute: live 08:02:51 11-12, priced ~1 HP, it followed him and went off, 20 -> 7; stage 1614)
+        var back = com.claudemod.entity.life.Decide.Option.of("back to his job", com.claudemod.entity.life.Decide.hpS(g, 0, huntHp, perHit), followNote);
         var on = pace <= 0.1 ? com.claudemod.entity.life.Decide.Option.out("run on", "it keeps his pace")
                 : com.claudemod.entity.life.Decide.Option.of("run on", (range - d) / pace, Math.round(range - d) + " blocks to its follow range " + Math.round(range));
         boolean say = g.tickCount - fleeHuntSaid >= 100; if (say) fleeHuntSaid = g.tickCount;

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1614: return st1614(stage, t, c, h, level, mock);
             case 1613: return st1613(stage, t, c, h, level, mock);
             case 1612: return st1612(stage, t, c, h, level, mock);
             case 1611: return st1611(stage, t, c, h, level, mock);
@@ -21860,6 +21861,27 @@ public final class ClaudeBodyTest {
             check(left, "8 blazes about the spawner 8 off, a wall to get behind: not away to hunt them elsewhere (" + r + "; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
             check(!back, "away from the crowd: the job walked him back to it (" + r + ")");
             nsHome(c, h, level); pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 1614 (D2D, live 08:02:51 11-12 at -36,68,-168, armor 15: "flee.clear (Creeper 10 off still after him, health 20): back to his job ~1 s (it follows him there); run on ~2 s (6 blocks to its follow range 16): back to his job"; it followed and went off at 08:02:59, 20 -> 7; "it follows him there" priced at two of its melee hits, ~1 HP, never its blast). Health 20, iron armor, a creeper 10 off still after him: not back to his job as if it were harmless. */
+    private static net.minecraft.world.entity.monster.Creeper s1614C;
+    private static boolean st1614(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1614C != null) s1614C.discard(); s1614C = null; level.setDayTime(18000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 3));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var cr = EntityType.CREEPER.create(level); BlockPos sp = me.east(10); cr.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); s1614C = cr;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, cr);
+        }
+        if (t[0] == 14) {
+            boolean back = c.work.clearOfHuntersForTest(s1614C);
+            s1614C.discard(); s1614C = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(!back, "health 20, iron armor, a creeper 10 off still after him: back to his job as if it followed him there harmless (" + c.lastSkillLine + ")");
+            pass(stage, t, "runs on past its follow range");
         }
         return true;
     }

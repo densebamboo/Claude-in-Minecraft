@@ -11025,6 +11025,7 @@ public final class ClaudeBodyTest {
             case 1531: return st1531(stage, t, c, h, level, mock);
             case 1532: return st1532(stage, t, c, h, level, mock);
             case 1533: return st1533(stage, t, c, h, level, mock);
+            case 1534: return st1534(stage, t, c, h, level, mock);
             case 1535: return st1535(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -22428,6 +22429,32 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 28; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(!queued, "a torch slot whose wall is air queued ahead of its wall's patch (queued from an earlier sweep): " + q);
             nsHome(c, h, level); pass(stage, t, "the torch after its wall's patch: " + q);
+        }
+        return true;
+    }
+    /** Stage 1534 (D2D review 131, live 23:58:27-23:59:26 11-11 in the Nether at 320,60,430: setting off for his storage, TempLedger.leaving sent him back for bridge blocks above him; the way to each put a block down (WorkGoal.approach "made one (0 digs, 1 blocks put down)"), that block was the next round's to take up: 8 restarts in 90 s, no closer). His bridge block 6 up over open floor, a tower the only way to it: a block of his isn't worth putting another down for, it stays. */
+    private static int s1534T;
+    private static boolean st1534(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(5, 2, 5)), blk = me.offset(1, 8, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1534T = 0; flatBox(h); level.setDayTime(6000); }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            level.setBlock(blk, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, blk, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(blk)); s1534T = t[0]; }
+        if (s1534T > 0 && t[0] > s1534T) {
+            int puts = 32 - c.getInventory().countItem(Items.COBBLESTONE);
+            boolean idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1534T > 20;
+            if (puts > 0 || idle || t[0] - s1534T > 20 * 8) {
+                String q = c.currentTask + " " + c.tasks; boolean gone = level.getBlockState(blk).isAir();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close");
+                for (int y = 0; y <= 10; y++) for (int x = -1; x <= 2; x++) for (int z = -1; z <= 1; z++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(puts <= 0, "his bridge block 8 up: " + puts + " block(s) put down to take it up (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                check(idle && !gone, "his bridge block 8 up: neither left nor done in 8 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "his bridge block 8 up, a tower the only way: left standing, nothing put down");
+            }
         }
         return true;
     }

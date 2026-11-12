@@ -1931,6 +1931,11 @@ public class WorkGoal extends Goal {
                     tmp.blocked = "the way to it drops " + down + " for " + dropHp + " HP";
                     failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his " + tmp.why + " block: the way to it drops " + down + " for " + dropHp + " HP");
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] his {} ({}) at {}: the way to it drops {} for {} HP, a block to take up isn't worth that: left standing (WorkGoal.approach)", tmp.item, tmp.why, pos.toShortString(), down, dropHp);
+                    return true; }
+                if (tmp != null && plan.puts() > w("temp.takeup_puts", 0)) { // a block of his to take up isn't worth putting another down for: that one is the next to take up (D2D review 131, live 23:58-23:59 11-11: 8 restarts in 90 s, each back-up's way put the next one; stage 1534)
+                    tmp.blocked = "the way to it puts " + plan.puts() + " block(s) down";
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his " + tmp.why + " block: the way to it puts " + plan.puts() + " block(s) down");
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] his {} ({}) at {}: the way to it puts {} block(s) down, each one more to take up: left standing (WorkGoal.approach)", tmp.item, tmp.why, pos.toShortString(), plan.puts());
                     return true; } }
             if (plan != null) {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, 3.2, level);

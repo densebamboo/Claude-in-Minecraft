@@ -11136,6 +11136,7 @@ public final class ClaudeBodyTest {
             case 1640: return st1640(stage, t, c, h, level, mock);
             case 1641: return st1641(stage, t, c, h, level, mock);
             case 1642: return st1642(stage, t, c, h, level, mock);
+            case 1643: return st1643(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25652,6 +25653,29 @@ public final class ClaudeBodyTest {
             check(fa != null && "cook his raw".equals(pick), "15 cooked and 5 raw salmon on him, 3 furnaces 2 off: the kit's pick " + pick + " -> " + fa);
             check(fa.item() == Items.COOKED_SALMON && fa.count() == 5, "the kit cooks his raw: asked " + fa.count() + " " + fa.item() + " with 5 raw on him and 3 furnaces free (the rest left raw, the same wait for them later)");
             pass(stage, t, "all his raw in the one batch: " + fa);
+        }
+        return true;
+    }
+    /** Stage 1643 (D2D review 185601-52 (and 175645-179), live 18:54:48-18:55:15 11-12 in the Nether: kit.food picked "hunt hoglins -> 11 cooked_porkchop" (~194 s), the plan went for the porkchop; 4 s on "cook his raw ~482 s" beat "hunt hoglins ~486 s" and the pick flipped to 1 cooked cod; collect stood the porkchop hunt down as "done", the step never met, re-planned). A cow and 1 raw cod, his furnace by him: two options a few seconds apart; the pick standing keeps unless the other is clearly better. */
+    private static String s1643Said = "", s1643Kept = "";
+    private static boolean st1643(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = c.blockPosition().immutable();
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.attempts.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 24; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos f = me.offset(-1, 0, 2); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable());
+            var cow = EntityType.COW.create(level); cow.moveTo(me.getX() + 12.5, me.getY(), me.getZ() + 0.5, 0, 0); cow.setNoAi(true); cow.setPersistenceRequired(); level.addFreshEntity(cow);
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.items.set(1, new ItemStack(Items.COD, 1)); inv.items.set(2, new ItemStack(Items.COAL, 8)); inv.items.set(3, new ItemStack(Items.COOKED_BEEF, 2));
+            c.getFoodData().setFoodLevel(18); c.getFoodData().setSaturation(0); level.setDayTime(3000);
+        }
+        if (t[0] == 60) { com.claudemod.director.Kit.foodPickTest(c, "cook his raw"); com.claudemod.director.Kit.foodAsk(c); s1643Said = com.claudemod.director.Kit.foodSaidTest(c); s1643Kept = com.claudemod.director.Kit.foodPick(c); }
+        if (t[0] == 62) { com.claudemod.director.Kit.foodPickTest(c, "fish"); com.claudemod.director.Kit.foodAsk(c); String gone = com.claudemod.director.Kit.foodPick(c);
+            BlockPos f = me.offset(-1, 0, 2); level.setBlock(f, Blocks.AIR.defaultBlockState(), 3); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, c.getBoundingBox().inflate(40))) m.discard();
+            c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20);
+            check("cook his raw".equals(s1643Kept), "his pick \"cook his raw\" standing, the hunt a few seconds cheaper: flipped to " + s1643Kept + " (" + s1643Said + ")");
+            check("hunt cow".equals(gone), "a standing pick no longer an option (fish): not switched to the best, " + gone);
+            pass(stage, t, "the standing pick kept against a near tie, switched when it's gone: " + s1643Said);
         }
         return true;
     }

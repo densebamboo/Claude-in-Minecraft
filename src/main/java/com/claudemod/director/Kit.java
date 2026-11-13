@@ -262,6 +262,8 @@ public final class Kit {
                 + ", " + (wheat >= 3 ? wheat + " wheat (bread)" : "no wheat (bread needs a grown farm first: minutes, not food now)") + (char) 10;
     }
     private static final java.util.Map<java.util.UUID, String> foodPick = new java.util.HashMap<>();
+    /** Stages: the pick standing from before, the memo cleared; and the options as last weighed. */
+    public static void foodPickTest(ClaudeEntity g, String name) { foodPick.put(g.getUUID(), name); foodAskMemo.remove(g.getUUID()); }
     /** The kit is short and its pick is cooking the raw food he carries (smelt's "cooks at home" gives way only to that). */
     /** The kit's food pick is fishing with a rod (the collect of cod runs the fish skill for it). */
     /** The kit's food pick by name ("cook his raw", "hunt hoglins", "search for animals", ...), null when it's not short. */
@@ -387,6 +389,9 @@ public final class Kit {
         else { int k = (int) Math.ceil(shortP / (2 * pts(Items.COOKED_BEEF)));
           opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", searchS.applyAsDouble(shortP), k + " cows' worth" + (emptyS > w("kit.search_s", 120) ? ", a herd priced at the " + (int) emptyS + " s his search has gone without one" : "") + (nether ? ", through the portal and back ~" + Math.round(home) + " s" : ""))); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
+        { String prev = foodPick.get(g.getUUID()); /* the pick standing keeps unless the new one is clearly cheaper: a near tie flipped it (hunt hoglins ~486 s to cook his raw ~482 s), collect then stood the planned hunt down as done and re-planned (D2D 185601-52, stage 1643) */
+          if (pick != null && prev != null && !prev.equals(pick.name())) for (var o : opts) if (o.name().equals(prev) && o.no() == null && asks.containsKey(prev) && o.s() - pick.s() < Math.max(w("kit.switch_s", 20), w("kit.switch_ratio", 0.15) * o.s())) {
+              com.claudemod.ClaudeMod.LOGGER.info("[Claude decide] kit.food keeps {} (~{} s) over {} (~{} s): not clearly cheaper, a new plan costs more", prev, Math.round(o.s()), pick.name(), Math.round(pick.s())); pick = o; break; } }
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
         FoodAsk fa = pick == null ? null : asks.get(pick.name()); foodPick.put(g.getUUID(), pick == null ? null : pick.name()); foodPickS.put(g.getUUID(), pick == null ? Double.NaN : pick.s());
         foodSaid.put(g.getUUID(), (int) shortP + " food points short (" + (int) carried + " on him): " + said + "; the pick: " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " more " + Crafting.name(fa.item()) + " (obtain " + Crafting.name(fa.item()) + " " + (fa.count() + g.inventory.count(x -> x.is(fa.item()))) + ": a step's count is what he holds, " + g.inventory.count(x -> x.is(fa.item())) + " on him)")); /* (the planner wrote "obtain cooked_salmon x3" off "-> 3", done at once on the 10 he had, the kit still short: fish, beef, smelt in a minute, live 21:23 11-09, review 141, stage 1281) */

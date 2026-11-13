@@ -10097,8 +10097,11 @@ public final class ClaudeLife {
         boolean fish = e instanceof net.minecraft.world.entity.animal.WaterAnimal;
         if (Math.max(Math.abs(at.getX() - me.getX()), Math.abs(at.getZ() - me.getZ())) <= com.claudemod.entity.nav.Route.FAR) {
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, me, at, fish ? 4.0 : 3.0, false, 2500, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
-            len = plan == null ? -1 : plan.acts().size();
-            if (plan != null) { int wet = 0; for (var a0 : plan.acts()) if (a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w0 && (level.getFluidState(w0.feet()).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(w0.feet().below()).is(net.minecraft.tags.FluidTags.WATER))) wet++; len += wet * Math.max(0, com.claudemod.entity.life.Weights.w("path.swim_cell_s", 0.5) * com.claudemod.entity.life.Decide.sprint() - 1); } // a cell swum is no step walked: priced as the walk it's worth in time (a salmon 23 off, 22 of it swum, read as 23 blocks at a sprint; D2D 175208-176, 180152-192; stage 1641)
+            len = plan == null ? -1 : 0;
+            if (plan != null) { double swimX = Math.max(1, com.claudemod.entity.life.Weights.w("path.swim_cell_s", 0.5) * com.claudemod.entity.life.Decide.sprint()); BlockPos prev = me;
+                for (var a0 : plan.acts()) { BlockPos q0 = a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w0 ? w0.feet() : a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Leap l0 ? l0.land() : null; if (q0 == null) continue;
+                    boolean wet = level.getFluidState(q0).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(q0.below()).is(net.minecraft.tags.FluidTags.WATER);
+                    len += Math.sqrt(prev.distSqr(q0)) * (wet ? swimX : 1); prev = q0; } } // the way's own length, a stretch swum at swim time: a step count read 4 for 12 blocks, 11 of them lake (a salmon 23 off, 22 of it swum, fit a 29 s batch; D2D 175208-176, 180152-192; stage 1641)
         } else len = com.claudemod.entity.nav.Route.walkLength(g, level, me, at, limit, fish ? 6 : 2);
         if (len > limit) len = -1;
         if (len < 0) ClaudeMod.LOGGER.info("[Claude life] no short way on foot to the {} at {} ({} across)", e.getType().getDescription().getString(), at.toShortString(), (int) d);

@@ -52,7 +52,7 @@ public final class Decide {
         double rate = w("danger.hits_per_s_per_hostile", 0.15) * hostiles * s;
         if (level.dimension() == net.minecraft.world.level.Level.NETHER) rate += w("danger.hits_per_s_nether", 0.02) * s;
         else if (!level.dimensionType().hasFixedTime()) { double toDark = Math.max(0, darkAt(level, tod) - tod) / 20.0, toDawn = tod > 23460 ? 0 : (23460 - tod) / 20.0; rate += Math.max(0, Math.min(s, toDawn) - toDark) * w("danger.hits_per_s_open_night", 0.05); }
-        return hitHp() * armorF(g) * rate;
+        return throughArmor(g, hitHp()) * rate;
     }
     /**
      * HP lost, as seconds of his time. Sure damage (fire left, a fall) comes off his health first; the hits are a chance, each
@@ -107,19 +107,19 @@ public final class Decide {
         return (rods + powder / 2.0 + eyes / 2.0) * w("danger.rod_s", 300) + (pearls + eyes) * w("danger.pearl_s", 200);
     }
     /** Hits at hitHp() each (a zombie's, Normal) through his armor. */
-    public static double hpS(ClaudeEntity g, double hits) { return hpS(g, 0, hits, hitHp() * armorF(g)); }
+    public static double hpS(ClaudeEntity g, double hits) { return hpS(g, 0, hits, throughArmor(g, hitHp())); }
     /**
      * The creeper in a night out's hits: hpS prices every hit as a zombie's (hitHp), but a share of them (night.creeper_share: 69 of
      * 1107 overworld night-mob hits on him at y 55+ since 11-05) is a blast of creeper.blast_hp through his armor, death at armor 0
      * from 17-20 HP (14 creeper deaths since 11-05). Priced as the chance of one such blast times what it does: death, or under his floor.
      */
     public static double creeperTailS(ClaudeEntity g, double hp) {
-        double per = hitHp() * armorF(g); if (hp <= 0 || per <= 0) return 0;
+        double per = throughArmor(g, hitHp()); if (hp <= 0 || per <= 0) return 0;
         return blastS(g, hp / per * w("night.creeper_share", 0.07));
     }
     /** lamC creeper blasts expected (creeper.blast_hp through his armor), as his time: the chance of one, times death or a fall under his floor. */
     public static double blastS(ClaudeEntity g, double lamC) {
-        double blast = w("creeper.blast_hp", 22) * armorF(g), h = g.getHealth();
+        double blast = throughArmor(g, w("creeper.blast_hp", 22)), h = g.getHealth();
         double cost = blast >= h ? deathS(g) : h - blast < w("danger.min_hp_left", 4) ? w("danger.under_floor_s", 300) : 0;
         return atLeast(lamC, 1) * cost;
     }
@@ -139,7 +139,8 @@ public final class Decide {
         return walkS + hpS(g, danger(g, level, tod, walkS, hostiles)); // (the hits priced by their chances, hpS: a price, not a refusal) // (no walk that may take half his health or leave him under 2 hearts: a hard limit at 10 HP kept a 3-heart player from an 11 s walk with nothing about)
     }
     /** The share of a hit his armor lets through (armor points over danger.armor_full: vanilla's own curve, roughly). */
-    public static double armorF(ClaudeEntity g) { return 1.0 - Math.min(20, g.getArmorValue()) / w("danger.armor_full", 25); }
+    /** A hit of dmg as it lands through his armor: vanilla's own rule (CombatRules), a big hit losing less of itself to the same armor than a small one (8 through armor 15: 4.5, not the flat armor/25's 3.2; D2D death 22:46:06 11-12, stage 1699). */
+    public static double throughArmor(ClaudeEntity g, double dmg) { return dmg <= 0 ? 0 : net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(g, (float) dmg, g.damageSources().generic(), g.getArmorValue(), (float) g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)); }
     public static double hitHp() { return w("danger.hit_hp", 3); }
     /** Known hostiles that could meet him on the walk from a to b: within danger.walk_side of the line and danger.walk_dy of its height (live 06:17 World 17: 9 known, creepers in the caves under him, priced a 4 s walk to his lit mine at ~650 s; he dug a hole). */
     public static int hostilesAlong(ClaudeEntity g, BlockPos a, BlockPos b) {
@@ -255,10 +256,10 @@ public final class Decide {
             boolean gold = false; for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) if (g.getItemBySlot(sl).getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().equals(net.minecraft.world.item.ArmorMaterials.GOLD)) gold = true;
             if (!gold && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().equals(net.minecraft.world.item.ArmorMaterials.GOLD)) > 0) gold = true; // (on him: his wear puts it on)
             if (!gold) {
-                double there = (runS < 0 ? w("recovery.nether_run_s_unknown", 60) : runS) * 2, armorF = armorF(g), dmg = there * w("recovery.piglin_hits_per_s_no_gold", 0.05) * w("recovery.piglin_hit_hp", 7) * armorF; // (~a piglin hit every 20 s in the open Nether without gold, 7 HP: a player's rough odds; shortcut: the route's own biomes and the piglins Perception knows of, once travel() prices them)
+                double there = (runS < 0 ? w("recovery.nether_run_s_unknown", 60) : runS) * 2, dmg = there * w("recovery.piglin_hits_per_s_no_gold", 0.05) * throughArmor(g, w("recovery.piglin_hit_hp", 7)); // (~a piglin hit every 20 s in the open Nether without gold, 7 HP: a player's rough odds; shortcut: the route's own biomes and the piglins Perception knows of, once travel() prices them)
                 int goldHere = com.claudemod.director.ClaudeLife.haveFor(g, level, net.minecraft.world.item.Items.GOLD_INGOT); // (his pack and his chests)
-                var gp = goldHere < 4 ? null : choose(g, "recovery.gold_piece", "", false, java.util.List.of(Option.of("golden boots first", w("recovery.gold_boots_craft_s", 15), ""), Option.of("straight there", hpS(g, 0, dmg, w("recovery.piglin_hit_hp", 7) * armorF), ""))); // (the boots' craft against the piglin hits priced as his time, hpS)
-                if (gp != null && gp.name().equals("golden boots first")) { first.add(new Skills.Step("craft", "golden_boots", 1)); said.add("golden boots first (" + goldHere + " gold to hand: a craft): no gold piece, ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s there and back, ~" + (int) hpS(g, 0, dmg, w("recovery.piglin_hit_hp", 7) * armorF) + " s of his time at " + (int) g.getHealth() + " health (armor " + g.getArmorValue() + "), against the boots' ~" + (int) w("recovery.gold_boots_craft_s", 15) + " s"); }
+                var gp = goldHere < 4 ? null : choose(g, "recovery.gold_piece", "", false, java.util.List.of(Option.of("golden boots first", w("recovery.gold_boots_craft_s", 15), ""), Option.of("straight there", hpS(g, 0, dmg, throughArmor(g, w("recovery.piglin_hit_hp", 7))), ""))); // (the boots' craft against the piglin hits priced as his time, hpS)
+                if (gp != null && gp.name().equals("golden boots first")) { first.add(new Skills.Step("craft", "golden_boots", 1)); said.add("golden boots first (" + goldHere + " gold to hand: a craft): no gold piece, ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s there and back, ~" + (int) hpS(g, 0, dmg, throughArmor(g, w("recovery.piglin_hit_hp", 7))) + " s of his time at " + (int) g.getHealth() + " health (armor " + g.getArmorValue() + "), against the boots' ~" + (int) w("recovery.gold_boots_craft_s", 15) + " s"); }
                 else said.add("no gold piece" + (goldHere >= 4 ? "" : " and none to hand") + ": ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s if he fights; straight there, no fights till he's in what fell (the user 11-05: \"avoiding combat altogether until you get suited with your pickups\")");
             } else said.add("a gold piece on him: the piglins let him be");
         }
@@ -268,7 +269,7 @@ public final class Decide {
             double fr = w("recovery.fortress_r", 192); // (a fortress runs ~200 across and his atlas holds one sighting of it: both live piles were ~120 off it, on its own bridges)
             if (fort != null && fort.distSqr(dn.at) <= fr * fr) {
                 boolean sword = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.SwordItem sw && sw.getTier() != net.minecraft.world.item.Tiers.WOOD && sw.getTier() != net.minecraft.world.item.Tiers.GOLD) > 0;
-                double armorF = armorF(g), hits = w("recovery.fortress_hits", 4) * (sword ? 1 : w("recovery.fortress_no_sword_x", 1.5)), perHit = w("recovery.fortress_hit_hp", 6) * armorF; // (fireballs and wither swords round a fortress pile: a few hits there and back, more with nothing to kill them fast)
+                double hits = w("recovery.fortress_hits", 4) * (sword ? 1 : w("recovery.fortress_no_sword_x", 1.5)), perHit = throughArmor(g, w("recovery.fortress_hit_hp", 6)); // (fireballs and wither swords round a fortress pile: a few hits there and back, more with nothing to kill them fast)
                 double expect = hits * perHit, keep = w("recovery.fortress_hp_keep", 6); // (what he'd take against what he has, keeping a margin to get out: 36 HP at 20 health read "he can take it" priced in seconds)
                 if (expect > g.getHealth() - keep) { first.add(new Skills.Step("gear_up", "", 1)); said.add("gear up first: the pile is by the fortress at " + fort.toShortString() + " (blazes and wither skeletons): ~" + (int) (hits * perHit) + " HP of their hits in armor " + g.getArmorValue() + (sword ? "" : " with no real sword") + ", " + (int) g.getHealth() + " health"); }
                 else said.add("the fortress at " + fort.toShortString() + " by the pile: ~" + (int) (hits * perHit) + " HP of its mobs' hits in armor " + g.getArmorValue() + ", he can take it");
@@ -296,8 +297,8 @@ public final class Decide {
         if (val.isEmpty() || junk.isEmpty()) return new Grab(all, null, "");
         int hostiles = 0; for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32).minmax(new net.minecraft.world.phys.AABB(spot).inflate(16)), x -> x.isAlive())) hostiles++;
         long tod = level.getDayTime() % 24000; boolean night = !level.dimensionType().hasFixedTime() && (level.isThundering() || tod >= (level.isRaining() ? 12969 : 13188) && tod <= 23460) && level.canSeeSky(spot.above());
-        double armorF = armorF(g), tJunk = w("recovery.s_per_junk_stack", 1.5) * junk.size();
-        double dmg = hitHp() * armorF * (w("danger.hits_per_s_per_hostile", 0.15) * hostiles + (night ? w("danger.hits_per_s_open_night", 0.05) : 0)) * tJunk;
+        double tJunk = w("recovery.s_per_junk_stack", 1.5) * junk.size();
+        double dmg = throughArmor(g, hitHp()) * (w("danger.hits_per_s_per_hostile", 0.15) * hostiles + (night ? w("danger.hits_per_s_open_night", 0.05) : 0)) * tJunk;
         double stay = hpS(g, dmg), worth = com.claudemod.director.ClaudeLife.dropsWorth(junk) * w("recovery.s_per_worth_point", 1);
         if (stay <= worth) return new Grab(all, null, "a plain pickup: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s, the ~" + (int) tJunk + " s on them ~" + (int) stay + " s of hits (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ")");
         BlockPos to = null; String toName = null; double bd = Double.MAX_VALUE;

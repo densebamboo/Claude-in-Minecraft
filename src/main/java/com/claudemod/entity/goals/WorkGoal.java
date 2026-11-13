@@ -1163,7 +1163,8 @@ public class WorkGoal extends Goal {
                     }
                     if (!blockers.isEmpty() && armed()) { // no way round them: clearing them priced against waiting for them to move off (review 536, live 03:29: three magma cubes across his highway in his diamond kit, the walk written off and the route stalled; stage 940)
                         blockers.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
-                        shouldFlee(blockers.get(0), false); double fightS = pricedFightS; // shortcut: prices the nearest blocker and the hostiles within 10 of him, not blockers further on the way; they come in as he closes
+                        java.util.List<net.minecraft.world.entity.Mob> wayCrowd = new java.util.ArrayList<>(); for (var m : hostilesNear(w("walk.blocked_crowd_r", 16))) if (!pest(m) && !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6) && (m.distanceTo(g) <= 10 || m.getTarget() == g && m.distanceTo(g) <= w("walk.blocked_crowd_r", 16))) wayCrowd.add(m); /* (shouldFlee's crowd, and every hostile already after him he knows of within 16: it joins a fight he starts here; a third wither skeleton 14 off was left out of "clear them", D2D death 22:46:06 11-12, stage 1699) */
+                        fleePriced(blockers.get(0), wayCrowd, underground((ServerLevel) g.level(), g.blockPosition()), false); double fightS = pricedFightS; wayFightOdds = fightOdds; // shortcut: prices the nearest blocker and the hostiles within 10 of him, not blockers further on the way; they come in as he closes
                         if (!Double.isNaN(fightS)) {
                             var pick = com.claudemod.entity.life.Decide.choose(g, "walk.blocked", onRoute + " hostile(s) on the way to " + pos.toShortString() + " and no way round them, health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
                                 com.claudemod.entity.life.Decide.Option.of("clear them", fightS, "the fight as fight.flee prices it" + (fightOdds == null ? "" : " (" + fightOdds + ")") + ", then on"),
@@ -5418,7 +5419,7 @@ public class WorkGoal extends Goal {
     /** HP he can expect to lose out among n hostiles over cover.look_ahead_s (Decide.danger at his armor). */
     private double onHp(int n) { ServerLevel lv = (ServerLevel) g.level(); return com.claudemod.entity.life.Decide.danger(g, lv, lv.getDayTime() % 24000, w("cover.look_ahead_s", 10), Math.max(1, n)); }
     /** That HP as seconds of his time at his health and food (Decide.hpS: regen, the floor, the death odds). */
-    private double backAmongS(int n) { return com.claudemod.entity.life.Decide.hpS(g, 0, onHp(n), com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g)); }
+    private double backAmongS(int n) { return com.claudemod.entity.life.Decide.hpS(g, 0, onHp(n), com.claudemod.entity.life.Decide.throughArmor(g, com.claudemod.entity.life.Decide.hitHp())); }
     /** Under cover now, or on with what he's doing among n hostiles (cover.dig_in): the HP he can expect to lose out here over cover.look_ahead_s (Decide.danger at his armor, priced by hpS: his health, food, the death odds) against building cover and waiting it out. True: cover. Logged when cover wins. */
     /** Two down and a lid can go in here: the cells under him dig with what he has, no water by them, no cave under. */
     private boolean holeOkAt(ServerLevel level, BlockPos feet) {
@@ -5442,7 +5443,7 @@ public class WorkGoal extends Goal {
     }
     private boolean coverPays(String why, int n) {
         ServerLevel lv = (ServerLevel) g.level(); long tod = lv.getDayTime() % 24000;
-        double perHit = com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g);
+        double perHit = com.claudemod.entity.life.Decide.throughArmor(g, com.claudemod.entity.life.Decide.hitHp());
         double onHp = onHp(n);
         double build = w("cover.build_s", 2.5), buildHp = 0; // (the hits while he builds it: shooters with a line on him keep firing at a tower, melee within 4 swing; 596, two skeletons in the day: a tower under their fire)
         for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy)) {
@@ -5565,7 +5566,7 @@ public class WorkGoal extends Goal {
         for (var m : them) {
             if (m instanceof net.minecraft.world.entity.monster.Creeper cr) { // (its blast, not a swing: the chance it goes off in the fight, armed he knocks it out of its fuse; on the run, near or lit it may still catch him. Was "armed and over 10 HP: hit it, else run", audit)
                 int k = hitsToKill(m); swings += k; t += k * swing;
-                double blast = w("creeper.blast_hp", 22) * (1 - Math.min(20, g.getArmorValue()) / 25.0);
+                double blast = com.claudemod.entity.life.Decide.throughArmor(g, w("creeper.blast_hp", 22));
                 double pf = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.45) : w("creeper.blast_chance_unarmed", 0.8), pr = cr.distanceTo(g) < 3 || cr.getSwellDir() > 0 ? w("creeper.blast_chance_close_run", 0.4) : w("creeper.blast_chance_run", 0.05); // (0.45: 52 of 111 armed creeper fights 11-05..11-09 ended in its blast; 0.15 priced ~3 HP and he fought it bare, 12:20 11-09 18 -> 5)
                 hits += pf; hp += pf * blast; most += 1; runHits += pr * blast; allBurn = false; continue; }
             boolean witch = m instanceof net.minecraft.world.entity.monster.Witch; // (harming: 6 at Normal, armor no help)
@@ -5583,7 +5584,7 @@ public class WorkGoal extends Goal {
                 java.util.ArrayDeque<Integer> kids = new java.util.ArrayDeque<>(); for (int i = 0; i < n; i++) kids.add(sl.getSize() / 2);
                 while (!kids.isEmpty() && splitBorn < 60) { int ks = kids.poll(); splitBorn++; if (ks >= 2) for (int i = 0; i < n; i++) kids.add(ks / 2);
                     int kk = (int) Math.ceil(ks * ks / perSwing); swings += kk; t += kk * swing; // (its health is its size squared)
-                    double kd = magma ? (ks + 2) * (1.0 - Math.min(20, g.getArmorValue()) / 25.0) : ks == 1 ? 0 : ks * (1.0 - Math.min(20, g.getArmorValue()) / 25.0); // (vanilla: a slime hits for its size, a small one not at all; a magma cube for its size + 2)
+                    double kd = magma ? com.claudemod.entity.life.Decide.throughArmor(g, ks + 2) : ks == 1 ? 0 : com.claudemod.entity.life.Decide.throughArmor(g, ks); // (vanilla: a slime hits for its size, a small one not at all; a magma cube for its size + 2)
                     double ks0 = meleeDeaths.size() >= atOnce ? meleeDeaths.get(meleeDeaths.size() - atOnce) : 0, kh = (t - ks0) * rate;
                     meleeDeaths.add(t); hits += kh; hp += kh * Math.max(magma ? 1 : 0, kd); most += (int) Math.ceil(t / cool); } }
             boolean pace = !sprint || m instanceof net.minecraft.world.entity.monster.EnderMan || m instanceof net.minecraft.world.entity.FlyingMob || m.isNoGravity() || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby()); // (a flier keeps pace with any run: phantoms, ghasts, an evoker's vexes, which hit 9 through iron; bench 1110: 'running west from [Vex 1 east, Vex 1 east ...]', dead)
@@ -5622,6 +5623,7 @@ public class WorkGoal extends Goal {
     }
 
     private String fightOdds = ""; // the last sizing-up, for the log
+    private String wayFightOdds = ""; // the last fight walk.blocked priced (fightOdds is the hazard's every tick)
 
     private java.util.UUID golemRetryFor; private int golemRetries; // re-towering beside a golem that strolled off
     private int reachWaitStart = -1, reachWaitTicks;
@@ -5697,7 +5699,7 @@ public class WorkGoal extends Goal {
         boolean archer = shoots(mob); // (its arrows, not its melee: World 17 05:18, a skeleton priced at 2 a hit, arrows of 5 and 3 in his back; stage 766)
         double raw = archer ? (mob instanceof net.minecraft.world.entity.monster.Drowned ? w("fight.trident_hit_hp", 8) : w("fight.arrow_hit_hp", 4)) : mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
                 ? mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3.0;
-        return Math.max(1.0, raw * (1.0 - Math.min(20, g.getArmorValue()) / 25.0));
+        return Math.max(1.0, com.claudemod.entity.life.Decide.throughArmor(g, raw)); /* (vanilla's armor rule: stage 1699) */
     }
 
     private Vec3 fleeDir; // the way he's running: picked once, kept till it's blocked
@@ -6226,7 +6228,7 @@ public class WorkGoal extends Goal {
         double d = h.distanceTo(g), range = h.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
         double pace = (g.getFoodData().getFoodLevel() > 6 ? com.claudemod.entity.life.Decide.sprint() : w("move.walk_blocks_per_s", 4.3)) - w("flee.chase_blocks_per_s", 2.5);
         double huntHp = w("flee.hunted_hits", 2) * mobHit(h), perHit = mobHit(h); String followNote = "it follows him there";
-        if (h instanceof net.minecraft.world.entity.monster.Creeper) { perHit = w("creeper.blast_hp", 22) * (1 - Math.min(20, g.getArmorValue()) / 25.0); double pb = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.45) : w("creeper.blast_chance_unarmed", 0.8); huntHp = pb * perHit; followNote = String.format("it follows him there: its blast ~%.0f HP, %.0f%% it goes off", perHit, pb * 100); } // (a creeper's hit is its blast, not its melee attribute: live 08:02:51 11-12, priced ~1 HP, it followed him and went off, 20 -> 7; stage 1614)
+        if (h instanceof net.minecraft.world.entity.monster.Creeper) { perHit = com.claudemod.entity.life.Decide.throughArmor(g, w("creeper.blast_hp", 22)); double pb = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.45) : w("creeper.blast_chance_unarmed", 0.8); huntHp = pb * perHit; followNote = String.format("it follows him there: its blast ~%.0f HP, %.0f%% it goes off", perHit, pb * 100); } // (a creeper's hit is its blast, not its melee attribute: live 08:02:51 11-12, priced ~1 HP, it followed him and went off, 20 -> 7; stage 1614)
         var back = com.claudemod.entity.life.Decide.Option.of("back to his job", com.claudemod.entity.life.Decide.hpS(g, 0, huntHp, perHit), followNote);
         var on = pace <= 0.1 ? com.claudemod.entity.life.Decide.Option.out("run on", "it keeps his pace")
                 : com.claudemod.entity.life.Decide.Option.of("run on", (range - d) / pace, Math.round(range - d) + " blocks to its follow range " + Math.round(range));
@@ -6880,7 +6882,7 @@ public class WorkGoal extends Goal {
             if (shoots) return false; // out of its sight (or nowhere better): wait for it to come round, the fight's clock ends it
             if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { // the dig down and the fight, priced against his health (World 17 20:41:00: dug down 17 to one at 11 HP with 300 fire ticks, no water, dead 16 s later)
                 double fire = g.isOnFire() && !g.isInWater() && !g.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE) ? g.getRemainingFireTicks() / 20.0 : 0; // (1 HP a second while it burns)
-                double hits = com.claudemod.entity.life.Weights.w("enderman.hits_expected", 0.7) * com.claudemod.entity.life.Weights.w("enderman.hit_hp", 7) * com.claudemod.entity.life.Decide.armorF(g);
+                double hits = com.claudemod.entity.life.Weights.w("enderman.hits_expected", 0.7) * com.claudemod.entity.life.Decide.throughArmor(g, com.claudemod.entity.life.Weights.w("enderman.hit_hp", 7));
                 // the way down as a player reads it: the line to it, the blocks on it to dig, off at bedrock or lava touching it (D2D review 243, World 17 08:41: 38 below priced 38 x 1 s with lava at the bottom; the walk ended at once, 30 short)
                 if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, mob.blockPosition(), g.tickCount, 200)) { if (g.tickCount % 100 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is {} below at {}: no way down to it from here already ({}): leaving it", (int) -dy, mob.blockPosition().toShortString(), g.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, mob.blockPosition())); return true; }
                 int digs = 0; String shut = null; java.util.Set<BlockPos> seen = new java.util.HashSet<>(); Vec3 from = g.position(), to = mob.position();
@@ -6895,8 +6897,8 @@ public class WorkGoal extends Goal {
                 if (shut != null) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, mob.blockPosition(), g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "the way down to an enderman " + (int) -dy + " below: " + shut, mob.getUUID()); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is {} below, out of sight; the way down to it meets {}: leaving it", (int) -dy, shut); return true; }
                 double digS = digs * com.claudemod.entity.life.Weights.w("move.dig_down_s_per_block", 1.0) + horiz / com.claudemod.entity.life.Weights.w("move.sprint_blocks_per_s", 5.6);
                 var pick = com.claudemod.entity.life.Decide.choose(g, "enderman.dig_down", "it's " + (int) -dy + " below; health " + (int) g.getHealth() + (fire > 0 ? ", " + (int) fire + " s of fire left" : "") + ", armor " + g.getArmorValue(), true, java.util.List.of(
-                    com.claudemod.entity.life.Decide.Option.of("dig down to it", digS + com.claudemod.entity.life.Decide.hpS(g, fire, hits, com.claudemod.entity.life.Weights.w("enderman.hit_hp", 7) * com.claudemod.entity.life.Decide.armorF(g)), (int) digS + " s (" + digs + " blocks to dig), ~" + (int) hits + " HP of its hits" + (fire > 0 ? " on " + (int) fire + " of fire" : "")),
-                    com.claudemod.entity.life.Decide.Option.of("leave it", com.claudemod.entity.life.Weights.w("enderman.next_one_s", 180) + com.claudemod.entity.life.Decide.hpS(g, fire, 0, 1) + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hits, com.claudemod.entity.life.Weights.w("enderman.hit_hp", 7) * com.claudemod.entity.life.Decide.armorF(g), Integer.MAX_VALUE), "another one found, its fight at full health" + (fire > 0 ? ", the fire's " + (int) fire + " HP either way" : ""))));
+                    com.claudemod.entity.life.Decide.Option.of("dig down to it", digS + com.claudemod.entity.life.Decide.hpS(g, fire, hits, com.claudemod.entity.life.Decide.throughArmor(g, com.claudemod.entity.life.Weights.w("enderman.hit_hp", 7))), (int) digS + " s (" + digs + " blocks to dig), ~" + (int) hits + " HP of its hits" + (fire > 0 ? " on " + (int) fire + " of fire" : "")),
+                    com.claudemod.entity.life.Decide.Option.of("leave it", com.claudemod.entity.life.Weights.w("enderman.next_one_s", 180) + com.claudemod.entity.life.Decide.hpS(g, fire, 0, 1) + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hits, com.claudemod.entity.life.Decide.throughArmor(g, com.claudemod.entity.life.Weights.w("enderman.hit_hp", 7)), Integer.MAX_VALUE), "another one found, its fight at full health" + (fire > 0 ? ", the fire's " + (int) fire + " HP either way" : ""))));
                 if (pick == null || !pick.name().equals("dig down to it")) return true;
                 g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(mob.blockPosition(), 3)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is {} below, no way down on foot: digging down to it at {}, then the fight again", (int) -dy, mob.blockPosition().toShortString()); return true; } // ponytail: live 21:26/21:27 he left two endermen 12 and 8 below (one had hit him) mid pearl hunt; a player stairs down to the pearl
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the {} is {} below with no way down on foot: leaving it", mob.getType().getDescription().getString(), (int) -dy);
@@ -7617,7 +7619,7 @@ public class WorkGoal extends Goal {
         if (plan == null) { if (noWayIn().size() > 32) noWayIn().clear(); noWayIn().put(mob.getUUID(), new long[] {g.tickCount, to.asLong(), feet.asLong(), blocks0}); closeSay("no way in to the " + who + " (" + below + " below, " + off + " off) on foot, by digging or by blocks" + (wide.isEmpty() ? "" : " wide of the lava") + ": out of its sight instead"); return 0; }
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD);
         double secs = plan.walks() * 0.25 + plan.digs() * 0.6 + plan.puts() * 0.8;
-        double take = Math.floor(secs / 2.0) * 4.0 * (1 - Math.min(20, g.getArmorValue()) / 25.0) * (shield ? 0.3 : 1.0) + edgeHp; // (a shot every ~2 s on the way in, ~4 a bolt or arrow less his armor; a shield takes most; and the falls its edges risk)
+        double take = Math.floor(secs / 2.0) * com.claudemod.entity.life.Decide.throughArmor(g, 4.0) * (shield ? 0.3 : 1.0) + edgeHp; // (a shot every ~2 s on the way in, ~4 a bolt or arrow less his armor; a shield takes most; and the falls its edges risk)
         if (g.getHealth() - take < 8) { closeSay(String.format("the way in to the %s (%d below, %d off) is ~%.1f s under its fire (~%.0f damage) at health %d: out of its sight instead (fight.flee's last price: %s)", who, below, off, secs, take, (int) g.getHealth(), fightOdds)); return 0; } // (the two prices side by side: death 21:43 11-11 had fight "~2 HP" against a way in "~12 damage" 50 s apart, never on one tick; stage 1077)
         var acts = plan.acts();
         if (acts.isEmpty()) return 0;

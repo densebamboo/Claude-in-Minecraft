@@ -159,7 +159,7 @@ public final class HuntPatrol {
         return n;
     }
     /** Seconds of his time the hostiles he knows of round a spot cost over a stay of s there (Decide.danger: each one's hits while he's among them, up to pearls.hostile_exposure_s, the time to deal with them or get out; hpS at his health and food), and the words for it. */
-    static double hostileS(ClaudeEntity g, ServerLevel level, int n, double s) { if (n <= 0) return 0; double perHit = Decide.hitHp() * Decide.armorF(g); return Decide.hpS(g, 0, Decide.danger(g, level, level.getDayTime() % 24000, Math.min(s, w("pearls.hostile_exposure_s", 20)), n), perHit); }
+    static double hostileS(ClaudeEntity g, ServerLevel level, int n, double s) { if (n <= 0) return 0; double perHit = com.claudemod.entity.life.Decide.throughArmor(g, Decide.hitHp()); return Decide.hpS(g, 0, Decide.danger(g, level, level.getDayTime() % 24000, Math.min(s, w("pearls.hostile_exposure_s", 20)), n), perHit); }
 
     /** His melee: {damage a swing, seconds a swing} with the best sword on him (a fist: 1 a swing). */
     static double[] melee(ClaudeEntity g) {

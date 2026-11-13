@@ -387,7 +387,7 @@ public final class NetherRoute {
         }
         double minRate() { return Math.min(com.claudemod.entity.life.Weights.w("netherroute.hits_s_warped", 0.001), com.claudemod.entity.life.Weights.w("netherroute.hits_s_wastes", 0.003)); }
         /** One expected hit (a hoglin's, through his armor) at his health and food now, the rods and pearls on him in its death price: a few seconds fed and whole, most of an hour at 5 HP with nothing to eat. */
-        double hitS() { if (hitS < 0) hitS = com.claudemod.entity.life.Decide.hpS(g, 0, 1, com.claudemod.entity.life.Weights.w("netherroute.hit_hp", 6) * com.claudemod.entity.life.Decide.armorF(g)); return hitS; }
+        double hitS() { if (hitS < 0) hitS = com.claudemod.entity.life.Decide.hpS(g, 0, 1, com.claudemod.entity.life.Decide.throughArmor(g, com.claudemod.entity.life.Weights.w("netherroute.hit_hp", 6))); return hitS; }
         /** Seconds to dig it with the best tool on him, -1 never (bedrock, lava, a block entity, nothing that takes it). */
         double dig(int x, int y, int z) {
             BlockState s = bs(x, y, z); BlockPos p = new BlockPos(x, y, z);

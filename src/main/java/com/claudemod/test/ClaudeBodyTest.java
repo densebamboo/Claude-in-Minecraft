@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1699: return st1699(stage, t, c, h, level, mock);
             case 1697: return st1697(stage, t, c, h, level, mock);
             case 1696: return st1696(stage, t, c, h, level, mock);
             case 1695: return st1695(stage, t, c, h, level, mock);
@@ -23344,6 +23345,39 @@ public final class ClaudeBodyTest {
             check(last.contains("shield"), "the one GEAR GONE isn't the shield's: " + last);
             pass(stage, t, w); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 1699 (D2D death 22:46:06 11-12 at the fortress: walk.blocked "clear them ~68 s (kill in 8, ~8 HP of hits; counted Wither Skeleton 2, Wither Skeleton 5)", a third heard 14 off left out (the price took only what was within 10), each hit priced at 8 x (1 - 15/25) = 3.2 through his armor 15 where vanilla's armor takes a big hit's share off less (8 -> ~4.5); 20 -> 7 in two seconds). Armor 15, two wither skeletons on his way, a third 14 off in sight beside it (13 across: out of the old 10-block box): the fight counts all three, a hit priced as vanilla lands it. */
+    private static final java.util.List<net.minecraft.world.entity.monster.WitherSkeleton> s1699W = new java.util.ArrayList<>(); private static String s1699Odds;
+    private static boolean st1699(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var w0 : s1699W) w0.discard(); s1699W.clear(); s1699Odds = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = -4; x <= 26; x++) for (int z = -8; z <= 8; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (double[] at : new double[][] {{3, 0}, {6, 0}, {6, -13}}) { var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); ws.moveTo(o.getX() + at[0] + 0.5, o.getY(), o.getZ() + at[1] + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setNoAi(true); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c); s1699W.add(ws); }
+        }
+        if (t[0] == 14) c.tasks.add(new Task.GoTo(o.offset(22, 0, 0), 1.0));
+        if (t[0] > 14 && t[0] < 60) { for (var ws : s1699W) ws.setTarget(c); try { var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("wayFightOdds"); f.setAccessible(true); Object v = f.get(c.work); if (v != null && String.valueOf(v).contains("counted")) s1699Odds = String.valueOf(v); } catch (ReflectiveOperationException e) { s1699Odds = "threw " + e; } }
+        if (t[0] == 60) {
+            var ws0 = s1699W.get(0); double priced = -1, real = -1; String err = null;
+            try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("mobHit", net.minecraft.world.entity.LivingEntity.class); m.setAccessible(true); priced = (double) m.invoke(c.work, ws0);
+                float raw = (float) ws0.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+                real = net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(c, raw, c.damageSources().mobAttack(ws0), c.getArmorValue(), (float) c.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)); } catch (ReflectiveOperationException e) { err = String.valueOf(e); }
+            String odds = s1699Odds; int counted = odds == null ? 0 : odds.split("Wither Skeleton", -1).length - 1; int armor = c.getArmorValue();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var w0 : s1699W) w0.discard(); s1699W.clear(); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (int x = -4; x <= 26; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            String both = "a wither skeleton's hit through armor " + armor + " priced " + String.format("%.1f", priced) + ", vanilla " + String.format("%.1f", real) + "; the walk's fight counted " + counted + " of 3 (" + odds + ")";
+            check(err == null, "setup: " + err);
+            check(Math.abs(priced - real) <= 0.3, both);
+            check(counted == 3, both);
+            pass(stage, t, both);
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

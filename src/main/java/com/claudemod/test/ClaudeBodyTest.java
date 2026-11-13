@@ -11158,6 +11158,7 @@ public final class ClaudeBodyTest {
             case 1628: return st1628(stage, t, c, h, level, mock);
             case 1603: return st1603(stage, t, c, h, level, mock);
             case 1605: return st1605(stage, t, c, h, level, mock);
+            case 1606: return st1606(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26292,6 +26293,36 @@ public final class ClaudeBodyTest {
             for (BlockPos q : BlockPos.betweenClosed(lo, hi)) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); level.setBlock(perch, Blocks.AIR.defaultBlockState(), 2);
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, ItemStack.EMPTY); check(went, "the control: an iron sword, iron chestplate and leggings, 32 cobblestone on him, the same table not taken up");
             pass(stage, t, "the dark-cave table left while nothing ends a fight there; taken up armed with blocks");
+        }
+        return true;
+    }
+    private static final java.util.List<net.minecraft.world.entity.Entity> st1606F = new java.util.ArrayList<>();
+    /** Stage 1606 (D2D 220312-68, live 22:02:04-22:02:40 11-12: "fish ~226 s (1 of the school of 1 by the nearest (8 near the top in all), nearest 28 walk)" with the search ruled out for food in view; 6 s on "fish out (no short way to them on foot (the nearest 41 across))", search, beef, three legs walked, then fish again: the one cod in reach swims off). 3 salmon he can't walk to nearer, 1 he can: the fish priced by the chance one is still in reach (1 of the 4 looked at), the search no longer ruled out by it; all in reach, the fish picked. */
+    private static boolean st1606(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var f : st1606F) f.discard(); st1606F.clear(); level.setDayTime(6000); flatBox(h); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            for (int[] cxz : new int[][] {{7, 1}, {7, 5}, {7, 9}}) { // three pools up 4-high pillars: in sight, no way up on foot
+                for (int y = 2; y <= 6; y++) for (int x = cxz[0] - 1; x <= cxz[0] + 1; x++) for (int z = cxz[1] - 1; z <= cxz[1] + 1; z++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE);
+                h.setBlock(new BlockPos(cxz[0], 6, cxz[1]), Blocks.WATER); BlockPos pool = h.absolutePos(new BlockPos(cxz[0], 6, cxz[1]));
+                var f = EntityType.SALMON.create(level); f.moveTo(pool.getX() + 0.5, pool.getY() + 0.1, pool.getZ() + 0.5, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); st1606F.add(f); }
+            h.setBlock(new BlockPos(14, 1, 5), Blocks.WATER); BlockPos pool = h.absolutePos(new BlockPos(14, 1, 5)); // one in the ground, 12 off: in reach
+            var f = EntityType.SALMON.create(level); f.moveTo(pool.getX() + 0.5, pool.getY() + 0.1, pool.getZ() + 0.5, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); st1606F.add(f);
+        }
+        if (t[0] == 70) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodLine(c);
+            boolean fish = fa != null && (fa.item() == Items.COOKED_SALMON || fa.item() == Items.COOKED_COD);
+            check(!fish, "1 of the 4 fish looked at in reach: the fish picked, the search ruled out by it: " + (fa == null ? "null" : fa.count() + " " + fa.item()) + " | " + said);
+            for (int i = 0; i < 3; i++) st1606F.get(i).discard(); com.claudemod.director.Kit.forgetFoodAsk(c);
+        }
+        if (t[0] == 75) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodLine(c);
+            for (var f : st1606F) f.discard(); st1606F.clear();
+            check(fa != null && (fa.item() == Items.COOKED_SALMON || fa.item() == Items.COOKED_COD), "the control: the one fish there in reach, not picked: " + (fa == null ? "null" : fa.count() + " " + fa.item()) + " | " + said);
+            pass(stage, t, "the fish priced by the chance it's in reach: 1 of 4 the search, all in reach the fish");
         }
         return true;
     }

@@ -274,11 +274,15 @@ public final class Kit {
         return false; }
     /** What the kit's food pick costs, in seconds (NaN: none): the pearl hunt's "food first" is priced by it. */
     public static final java.util.Map<java.util.UUID, Double> foodPickS = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, Double> foodShortP = new java.util.HashMap<>();
+    /** Food points the trip is short as last weighed, whatever the pick ("as he is" asks for none and is still short). */
+    public static double foodShort(ClaudeEntity g) { foodAsk(g); return foodShortP.getOrDefault(g.getUUID(), 0.0); }
     public static FoodAsk foodAsk(ClaudeEntity g) {
         Object[] memo = foodAskMemo.get(g.getUUID()); if (memo != null && g.tickCount - (int) memo[0] >= 0 && g.tickCount - (int) memo[0] < 40) return (FoodAsk) memo[1];
         FoodAsk fa = foodAsk0(g); if (foodAskMemo.size() > 64) foodAskMemo.clear(); foodAskMemo.put(g.getUUID(), new Object[] {g.tickCount, fa}); return fa;
     }
     private static FoodAsk foodAsk0(ClaudeEntity g) {
+        foodShortP.remove(g.getUUID());
         ServerLevel level = (ServerLevel) g.level();
         var trip = new com.claudemod.entity.life.Food.Stretch(w("kit.trip_sprint_s", 900), 0, 0, 0, (int) w("kit.trip_digs", 2000), (int) w("kit.trip_hits", 60), w("kit.trip_hp", 60), 0);
         var fd = g.getFoodData(); double inHim = Math.max(0, fd.getFoodLevel() - 18) + fd.getSaturationLevel();
@@ -289,6 +293,7 @@ public final class Kit {
             else for (Item[] rc : rawToCooked) if (st.is(rc[0])) rawBy.merge(rc[1], st.getCount(), Integer::sum); }
         for (var e : rawBy.entrySet()) if (rawCooked == null || e.getValue() * pts(e.getKey()) > rawN * pts(rawCooked)) { rawCooked = e.getKey(); rawN = e.getValue(); } // the raw kind he has most food in, its own count (1 raw pork and 4 beef asked "4 cooked_porkchop": a pork errand from nothing, D2D live 14:16; stage 912)
         double need = com.claudemod.entity.life.Food.points(trip) + w("kit.reserve_points", 42) - inHim, shortP = need - carried;
+        foodShortP.put(g.getUUID(), Math.max(0, shortP));
         if (shortP <= 0) return null;
         double meal = w("food.meal_points", 20.8), shortS = w("kit.short_meal_s", 90), sprint = com.claudemod.entity.life.Decide.sprint(), cook = w("kit.cook_s", 5), kill = w("kit.kill_s", 6);
         boolean nether = level.dimensionType().ultraWarm();

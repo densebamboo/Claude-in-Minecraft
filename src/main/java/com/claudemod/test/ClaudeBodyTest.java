@@ -11154,6 +11154,7 @@ public final class ClaudeBodyTest {
             case 1648: return st1648(stage, t, c, h, level, mock);
             case 1649: return st1649(stage, t, c, h, level, mock);
             case 1609: return st1609(stage, t, c, h, level, mock);
+            case 1628: return st1628(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26166,6 +26167,25 @@ public final class ClaudeBodyTest {
             check(s1609R.isEmpty(), s1609R);
             check(after == before, "the hunt waits for first light, 5 meals on him: the dig set aside (" + before + " -> " + after + " tasks), the food trip queued again: " + (q.length() > 160 ? q.substring(0, 160) : q));
             pass(stage, t, "the dig carries on while the hunt waits on the clock (" + after + " tasks kept)");
+        }
+        return true;
+    }
+    /** Stage 1628 (D2D review 220814-80, live 22:05:48-22:06:57 11-12: kit.food "72 food points short ... as he is ~314 s (4 meal(s) short, found on the way)", then "threw out 1 stacks of junk: 29 minecraft:rotten_flesh": the flesh is kept only while the kit asks for food, and "as he is" asks for none). 8 cooked beef and 29 rotten flesh in a full pack, the kit short but going as he is: the flesh stays. */
+    private static boolean st1628(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.selected = 0; inv.items.set(5, new ItemStack(Items.ROTTEN_FLESH, 29)); inv.items.set(6, new ItemStack(Items.COOKED_BEEF, 8));
+            for (int i = 0; i < inv.items.size() - 1; i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64)); /* (one slot free, as live: 1 of the 2 he keeps for a craft) */
+            c.getFoodData().setFoodLevel(20);
+            c.attempts.counters.put("searchFrom", c.tickCount - 20 * 600); /* (his search 10 min empty already, as live: the walk for cows dearer than going as he is) */ var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodSaidTest(c);
+            check(fa == null && said.contains("food points short"), "setup: the kit not short and going as he is: " + fa + " / " + said);
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int flesh = c.getInventory().countItem(Items.ROTTEN_FLESH); boolean thrown = !level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16), e -> e.getItem().is(Items.ROTTEN_FLESH)).isEmpty();
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent(); c.tasks.clear();
+            check(flesh == 29 && !thrown, "rotten flesh thrown out as junk with the kit short, going as he is (" + flesh + " left on him; " + said + ")");
+            pass(stage, t, "the rotten flesh kept while the kit is short, whatever its pick");
         }
         return true;
     }

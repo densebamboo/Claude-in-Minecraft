@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1691: return st1691(stage, t, c, h, level, mock);
+            case 1690: return st1690(stage, t, c, h, level, mock);
             case 1689: return st1689(stage, t, c, h, level, mock);
             case 1688: return st1688(stage, t, c, h, level, mock);
             case 1687: return st1687(stage, t, c, h, level, mock);
@@ -23128,6 +23130,63 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(boxed, "three blazes up, health 16 burning, 46 cobblestone, the hide 13 steps off: not walled in where he stood (at " + at.subtract(o).toShortString() + " o-relative, health " + hp + ", " + secs + " s)");
             pass(stage, t, "walled in in " + secs + " s");
+        }
+        return true;
+    }
+    /** Stage 1690 (D2D 203000-review, live 19:38:43 11-12: dead at the blaze spawner, recover_drops "my things at 315, 63, 491 ... aren't worth the run from here ...: picked up if I pass them", his iron set, picks, shield and bucket on the pile; the rods job goes back to that same spawner, and blazeRods picks up only rods off the ground: nothing picks the pile up when he passes, its 5-min clock runs out under the fight). His pending pile 6 off, the rods job running, no blaze about: he has his iron back within 20 s. */
+    private static net.minecraft.world.entity.item.ItemEntity s1690A, s1690P; private static int s1690T;
+    private static boolean st1690(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)), pile = o.offset(6, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); com.claudemod.entity.life.FortressFight.reset(c); s1690T = -1; }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 10; x++) for (int z = -8; z <= 8; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1690A = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.IRON_CHESTPLATE)); s1690A.setPickUpDelay(10);
+            s1690P = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 1.5, new ItemStack(Items.IRON_PICKAXE, 1)); s1690P.setPickUpDelay(10);
+            level.addFreshEntity(s1690A); level.addFreshEntity(s1690P);
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, java.util.List.of(s1690A, s1690P));
+        }
+        if (t[0] == 14) { c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you")); s1690T = t[0]; }
+        if (s1690T > 0) c.nextPlanTick = c.tickCount + 20 * 600;
+        boolean back = c.getInventory().countItem(Items.IRON_CHESTPLATE) + (c.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE) ? 1 : 0) > 0 && c.getInventory().countItem(Items.IRON_PICKAXE) > 0;
+        if (s1690T > 0 && (back || t[0] >= s1690T + 20 * 20)) {
+            String doing = String.valueOf(c.currentTask) + " " + c.skillQueue + " last " + c.lastStep;
+            if (s1690A.isAlive()) s1690A.discard(); if (s1690P.isAlive()) s1690P.discard(); s1690A = null; s1690P = null;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c); com.claudemod.entity.life.FortressFight.reset(c);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -8; x <= 10; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(back, "his pending pile 6 off on the rods job, 20 s: his iron chestplate and pick still on the ground (" + doing + ")");
+            pass(stage, t, "back in " + (t[0] - s1690T) / 20 + " s");
+        }
+        return true;
+    }
+    /** Stage 1691 (D2D 203000-review 194015-127, live 19:38:43 11-12: dead at the blaze spawner at 315, 63, 489, his iron set on the pile 2 off it, 7 blazes known there; recover_drops "aren't worth the run from here (~2043 s to get them again, ~5350 s there and back): picked up if I pass them", the run priced alone, now, at armor 0; his plan goes back to that spawner for the rods, and that way to them was never an option). His Nether pile 2 off a blaze spawner he knows, the rods job in his plan, him in the overworld with nothing on: the pile goes with the rods trip, still pending, not written off. */
+    private static boolean st1691(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos pile = new BlockPos(13515, 63, 8091), spawner = pile.offset(0, 0, -2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            try { var k = com.claudemod.entity.life.DeathLog.Death.class.getDeclaredConstructor(String.class, BlockPos.class, long.class, String.class, String.class, int.class); k.setAccessible(true);
+                var d = k.newInstance("the_nether", pile, level.getGameTime(), "golden_boots, iron_axe, iron_boots, iron_chestplate, iron_leggings, iron_pickaxe 2, iron_sword, shield, torch 118, water_bucket", "pending", 0); d.threat = 7;
+                com.claudemod.entity.life.DeathLog.of(c).add(d); } catch (ReflectiveOperationException e) { check(false, "setup: " + e); }
+            com.claudemod.entity.life.Atlas.note(c, nl, "blaze_spawner", spawner);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("gear_up", "", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you"));
+        }
+        if (t[0] == 14) {
+            String r = null;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("runSkill", ClaudeEntity.class, ServerPlayer.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                r = String.valueOf(m.invoke(null, c, mock[0], new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1))); } catch (Exception e) { check(false, "runSkill: " + e); }
+            var d = com.claudemod.entity.life.DeathLog.of(c).isEmpty() ? null : com.claudemod.entity.life.DeathLog.of(c).get(com.claudemod.entity.life.DeathLog.of(c).size() - 1);
+            String status = d == null ? "none" : d.status;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c);
+            check("pending".equals(status), "his pile by the spawner: " + status + " | " + r);
+            check(r != null && r.contains("blaze_rods"), "his pile 2 off the spawner his rods trip goes to, from the overworld with nothing on: \"" + r + "\"");
+            pass(stage, t, r);
         }
         return true;
     }

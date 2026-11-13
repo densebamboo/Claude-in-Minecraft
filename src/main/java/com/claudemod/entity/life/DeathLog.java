@@ -193,6 +193,18 @@ public final class DeathLog {
         return s + Decide.hpS(g, Decide.danger(g, level, tod, s, 0) + Decide.danger(g, level, tod, pass, n) - Decide.danger(g, level, tod, pass, 0)) + pileS(g, dim, at);
     }
 
+    /** A step in his plan that takes him to the pile's place anyway (the rods job to a blaze spawner he knows within 32 of it, in its dimension): the pile goes with that trip. Null: none. shortcut: blaze_rods only, the one job with its site on record; others once theirs are. */
+    public static com.claudemod.entity.life.Skills.Step withJob(ClaudeEntity g, Death d) {
+        if (g.getServer() == null) return null; ServerLevel dl = null; for (ServerLevel l : g.getServer().getAllLevels()) if (l.dimension().location().getPath().equals(d.dim)) dl = l; if (dl == null) return null;
+        List<com.claudemod.entity.life.Skills.Step> steps = new ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep); steps.addAll(com.claudemod.director.ClaudeLife.dragonOpenSteps(g));
+        for (var s0 : steps) if (s0.skill().equals("blaze_rods")) for (BlockPos q : Atlas.spots(g, dl, "blaze_spawner")) if (q.distSqr(d.at) <= 32 * 32) return s0;
+        return null;
+    }
+    /** The blaze spawner by the pile that its job goes to (withJob's), or null. */
+    public static BlockPos jobSite(ClaudeEntity g, Death d) {
+        if (g.getServer() == null) return null; for (ServerLevel l : g.getServer().getAllLevels()) if (l.dimension().location().getPath().equals(d.dim)) for (BlockPos q : Atlas.spots(g, l, "blaze_spawner")) if (q.distSqr(d.at) <= 32 * 32) return q;
+        return null;
+    }
     /** The pending pile to go for: the one worth most over its run in this dimension, else the newest worth its run elsewhere; null when none. A pile with nothing worth it (worthTrip, by what fell) is never the run's target, here or elsewhere: it's picked up only if it lies on his way (Day to Day 11-05: a wooden pick and planks in the Nether, newest, chosen over the iron set). */
     public static Death next(ClaudeEntity g, String dim) {
         Death best = null; double most = 0;

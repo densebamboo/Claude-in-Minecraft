@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1684: return st1684(stage, t, c, h, level, mock);
             case 1683: return st1683(stage, t, c, h, level, mock);
             case 1682: return st1682(stage, t, c, h, level, mock);
             case 1681: return st1681(stage, t, c, h, level, mock);
@@ -22950,6 +22951,27 @@ public final class ClaudeBodyTest {
             check(bad.isEmpty(), "rows on record at the wrong height: " + (bad.length() > 200 ? bad.substring(0, 200) + "..." : bad) + " | " + why);
             check(road != null && !road.partial(), "the road from the portal along it doesn't reach its end: " + why);
             nsHome(c, h, level); pass(stage, t, why);
+        }
+        return true;
+    }
+    /** Stage 1684 (D2D review 190457, live 19:03:21 11-12 in the Nether: "sprint-jump from -94, 49, 26 to -92, 48, 28: not taken, he can't see the landing", the walk written off as failed; the plan judged the landing from his eye at the lip's edge, standing (Leaps.seesOver), the take-off from wherever his eye was in the cell, crouched or at its back). A walk-jump over 1 and down 3, the landing seen from the lip's edge, him crouched at the back of the lip: he jumps and lands, never refused for a landing his plan saw. */
+    private static boolean st1684(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 8, 8)), land = o.offset(2, -3, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 5; x++) for (int z = -2; z <= 2; z++) for (int y = -6; y <= 3; y++) level.setBlock(o.offset(x, y, z), (x <= 0 && y <= -1 || x >= 2 && y <= -4 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); /* his lip, a 1-wide gap, the landing 3 down */
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) e.discard();
+            c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            c.teleportTo(o.getX() + 0.12, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setShiftKeyDown(true); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { boolean edge = com.claudemod.entity.nav.Leaps.seesOver(level, o, o.east(), land); if (!edge) check(false, "setup: the landing isn't seen from the lip's edge either"); c.tasks.add(new Task.Leap(o.immutable(), land.immutable(), com.claudemod.entity.nav.Leaps.WALK_JUMP, 3, 0f)); }
+        if (t[0] > 14 && (c.blockPosition().equals(land) && c.onGround() || t[0] == 14 + 20 * 5)) {
+            BlockPos at = c.blockPosition(); boolean refused = c.attempts.toString().contains(land.toShortString()) || com.claudemod.entity.life.MindLog.class != null && at.equals(o);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setShiftKeyDown(false); c.prefs.remove("stay_close");
+            for (int x = -4; x <= 5; x++) for (int z = -2; z <= 2; z++) for (int y = -6; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
+            check(at.equals(land), "a walk-jump over 1, 3 down, its landing seen from the lip's edge, him crouched at the lip's back: at " + at.subtract(o).toShortString() + " (o-relative), not on the landing (refused: " + refused + ")");
+            pass(stage, t, "landed in " + (t[0] - 14) + " ticks");
         }
         return true;
     }

@@ -270,7 +270,12 @@ public final class Leaps {
                 int gap = gapOf(t), dy = t.land().getY() - t.from().getY();
                 if (jumpKind(gap, dy, g.getFoodData().getFoodLevel() > 6) < 0) why = "no jump over " + gap + " to " + (dy > 0 ? "+" : "") + dy + " now (food " + g.getFoodData().getFoodLevel() + ": no sprint)";
                 else if (!solid(l, t.land().below()) && !water(l, t.land()) && !l.getBlockState(t.land()).is(BlockTags.CLIMBABLE)) why = "nothing to land on at " + t.land().toShortString() + " now";
-                else if (!com.claudemod.entity.life.Perception.clear(l, g.getEyePosition(), Vec3.atBottomCenterOf(t.land()).add(0, 0.05, 0))) why = "he can't see the landing " + t.land().toShortString();
+                else if (!com.claudemod.entity.life.Perception.clear(l, g.getEyePosition(), Vec3.atBottomCenterOf(t.land()).add(0, 0.05, 0))) { /* judged as the plan judged it: standing at the lip's edge, looking over (seesOver); his eye where it happens to be, crouched at an edge or at the cell's back for the run-up, refused landings the plan saw (live 19:03:21 11-12, D2D review 190457; stage 1684) */
+                    BlockPos col = t.from().offset(Integer.signum(t.land().getX() - t.from().getX()), 0, Integer.signum(t.land().getZ() - t.from().getZ()));
+                    String eyeAt = String.format("eye %.2f %.2f %.2f%s", g.getEyePosition().x, g.getEyePosition().y, g.getEyePosition().z, g.isShiftKeyDown() ? ", crouched" : "");
+                    if (seesOver(l, t.from(), col, t.land())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: the landing hidden from where he is ({}), seen from the lip's edge standing: looked over, on (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), eyeAt); s.plan = kindName(t.kind()) + " over " + gap + (dy == 0 ? "" : dy > 0 ? " up 1" : " down " + -dy) + ", " + fmt(t.hp()) + " HP, I'm at " + fmt(health(g)); }
+                    else why = "he can't see the landing " + t.land().toShortString() + " (" + eyeAt + "; not from the lip's edge either)";
+                }
                 else s.plan = kindName(t.kind()) + " over " + gap + (dy == 0 ? "" : dy > 0 ? " up 1" : " down " + -dy) + ", " + fmt(t.hp()) + " HP, I'm at " + fmt(health(g));
             }
             if (why != null) {

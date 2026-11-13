@@ -475,6 +475,17 @@ public final class TempLedger {
         List<Entry> batch = new ArrayList<>();
         for (Entry e : book(g).values()) if (e.pos.distSqr(at) <= 6 * 6 && level.isLoaded(e.pos) && !level.getBlockState(e.pos).canBeReplaced() && his(level, e) && doneWith(g, level, e, false) && takeable(g, level, e)) batch.add(e);
         batch.sort(Comparator.comparingInt((Entry e) -> -e.pos.getY())); // top down, like taking a tower apart
+        { // the trip priced against what the blocks are worth: the way there and back (down is walked, not fallen), the hostiles he knows on it or by them, a dark cave's hits through his armor (live 22:48:42 11-12, D2D 2250death: fresh from a respawn, armor 0, unarmed, a crafting table 35 below in a dark cave; shot dead there)
+          BlockPos me = g.blockPosition(); double way = Math.sqrt(Math.pow(at.getX() - me.getX(), 2) + Math.pow(at.getZ() - me.getZ(), 2)) + Math.abs(at.getY() - me.getY()), walk = 2 * way / Decide.sprint();
+          int foes = Math.max(Decide.hostilesAlong(g, me, at), Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(at).inflate(16), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy).size());
+          double take = Decide.walkS(g, level, level.getDayTime() % 24000, walk, foes); String risk = foes > 0 ? ", " + foes + " hostile(s) he knows on the way or by them" : "";
+          int light = 0; for (Direction d : Direction.values()) { BlockPos n = at.relative(d); if (level.getBlockState(n).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(n)); }
+          if (light < 8) { double perHit = Decide.hitHp() * Decide.armorF(g), cave = Decide.hpS(g, 0, perHit * Weights.w("danger.hits_per_s_dark_cave", 0.05) * walk, perHit); take += cave; risk += ", dark there (light " + light + ") ~" + Math.round(cave) + " s of hits (armor " + g.getArmorValue() + ", " + (g.getMainHandItem().isEmpty() ? "unarmed" : g.getMainHandItem().getItem().toString()) + ")"; }
+          double pts = 0; for (Entry e : batch) pts += com.claudemod.director.ClaudeLife.worthEach(new net.minecraft.world.item.ItemStack(level.getBlockState(e.pos).getBlock().asItem()));
+          double leave = pts * Weights.w("recovery.trip_s_per_point", 3) + Weights.w("tidy.litter_s", 15) * batch.size();
+          var fetch = Decide.Option.of("take them up now", take, "~" + Math.round(walk) + " s there and back, " + Math.round(way) + " blocks" + risk);
+          var later = Decide.Option.of("leave them for now", leave, "their worth and the litter; weighed again in a minute");
+          if (Decide.choose(g, "tidy.fetch", batch.size() + " of his temporary blocks at " + at.toShortString() + ": " + batch, true, List.of(fetch, later)) != fetch) { for (Entry e : batch) e.triedAt = g.tickCount + 20 * 60; return; } }
         for (Entry e : batch) { g.tasks.add(new Task.Break(e.pos)); e.triedAt = g.tickCount; e.awayAfterTry = false; e.now = line(g); }
         g.tasks.add(new Task.Pickup(80));
         g.noteDoing("taking up the blocks i put down at " + at.toShortString());

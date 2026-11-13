@@ -11155,6 +11155,7 @@ public final class ClaudeBodyTest {
             case 1649: return st1649(stage, t, c, h, level, mock);
             case 1609: return st1609(stage, t, c, h, level, mock);
             case 1628: return st1628(stage, t, c, h, level, mock);
+            case 1603: return st1603(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26186,6 +26187,42 @@ public final class ClaudeBodyTest {
             inv.clearContent(); c.tasks.clear();
             check(flesh == 29 && !thrown, "rotten flesh thrown out as junk with the kit short, going as he is (" + flesh + " left on him; " + said + ")");
             pass(stage, t, "the rotten flesh kept while the kit is short, whatever its pick");
+        }
+        return true;
+    }
+    /** Stage 1603 (D2D 2250death, live 22:48:42 11-12: fresh from a respawn, armor 0, unarmed, 2 salmon, "tidying up: 1 of his temporary blocks at -135, 30, 18 ... [crafting_table]" from -142, 65, 9: 35 down into a dark cave for one crafting table, a skeleton there, shot dead 22:50:29). The tidy prices the trip against the blocks' worth: the table in a dark cave 38 below stays; the same table in daylight 8 off is taken up. */
+    private static boolean st1603(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos lo = h.absolutePos(new BlockPos(5, 1, 5)), hi = h.absolutePos(new BlockPos(12, 6, 12)), deep = h.absolutePos(new BlockPos(10, 2, 10)), up = h.absolutePos(new BlockPos(2, 2, 10)), ground = h.absolutePos(new BlockPos(4, 2, 4)), perch = h.absolutePos(new BlockPos(4, 39, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; c.staying = false; flatBox(h); com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 5) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            level.setDayTime(6000);
+            for (BlockPos q : BlockPos.betweenClosed(lo, hi)) { boolean wall = q.getX() == lo.getX() || q.getX() == hi.getX() || q.getY() == lo.getY() || q.getY() == hi.getY() || q.getZ() == lo.getZ() || q.getZ() == hi.getZ(); level.setBlock(q, wall ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(9, new ItemStack(Items.COOKED_SALMON, 2)); c.getInventory().selected = 0;
+            level.setBlock(perch, Blocks.STONE.defaultBlockState(), 2); BlockPos me = perch.above(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 12) { level.setBlock(deep, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, deep, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.tempStations.add(deep); }
+        java.util.function.Consumer<String> tidy = tag -> { try { var m = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("tidy", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { check(false, tag + ": no call: " + e); } };
+        java.util.function.Predicate<BlockPos> queued = q -> c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && b.pos().equals(q)) || c.currentTask instanceof Task.Break b1 && b1.pos().equals(q);
+        if (t[0] == 30) {
+            var e = com.claudemod.entity.life.TempLedger.entry(c, deep); int light = level.getMaxLocalRawBrightness(deep.above());
+            check(e != null && "craft table".equals(e.why), "setup: the deep table not on his book: " + e);
+            check(light < 8, "setup: the cave not dark: light " + light);
+            tidy.accept("dark"); boolean went = queued.test(deep); String q = c.tasks.toString();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            level.setBlock(deep, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear();
+            for (BlockPos p0 : BlockPos.betweenClosed(lo, hi)) level.setBlock(p0, Blocks.AIR.defaultBlockState(), 2);
+            check(!went, "a crafting table in a dark cave 37 below, armor 0, unarmed: the tidy sent him for it: " + q);
+            level.setBlock(perch, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5);
+            level.setBlock(up, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, up, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.tempStations.add(up);
+        }
+        if (t[0] == 35) {
+            tidy.accept("day"); boolean went = queued.test(up); String q = c.tasks.toString();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setBlock(up, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); c.getInventory().clearContent();
+            check(went, "the control: the same table 6 off in daylight not taken up: " + q);
+            pass(stage, t, "the dark-cave table left for now (priced), the daylight one taken up");
         }
         return true;
     }

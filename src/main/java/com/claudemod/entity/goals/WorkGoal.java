@@ -407,7 +407,7 @@ public class WorkGoal extends Goal {
                 && coverPays("nothing to eat", enemiesNear(24).size())) { // (priced, cover.dig_in: was "health 4 or less")
             desperateTick = g.tickCount; // (once per 90s whether or not cover could be made: no second-by-second spam when it can't) // a heart or two, nothing to eat, something hunting him: under cover, now
             if (current != null) { clearCrack(); g.tasks.addFirst(current); }
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] at health {} with nothing to eat and {} hostile(s) about: holing up", (int) g.getHealth(), enemiesNear(24).size());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] at health {} with {} and {} hostile(s) about: holing up", (int) g.getHealth(), g.getFoodData().getFoodLevel() >= 18 ? "no food that would help (hunger " + g.getFoodData().getFoodLevel() + ", healing already)" : "nothing to eat", enemiesNear(24).size()); /* (hunger full read "nothing to eat" with 31 rotten flesh on him, D2D 215813-41) */
             desperateNow = true;
             boolean dug = digInFromArrows(); // straight to cover (a tower, or two down and a lid): no running first, nothing is on him yet
             desperateNow = false;

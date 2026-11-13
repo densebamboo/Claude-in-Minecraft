@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1710: return st1710(stage, t, c, h, level, mock);
             case 1709: return st1709(stage, t, c, h, level, mock);
             case 1708: return st1708(stage, t, c, h, level, mock);
             case 1707: return st1707(stage, t, c, h, level, mock);
@@ -23702,6 +23703,39 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(boxed, "three blazes up, health 16 burning, 46 cobblestone, the hide 13 steps off: half in a fence rail's cell: not walled in where he stood (at " + at.subtract(o).toShortString() + " o-relative, health " + hp + ", " + secs + " s)");
             pass(stage, t, "walled in in " + secs + " s");
+        }
+        return true;
+    }
+    /** Stage 1710 (D2D death 06:13:38 11-13, incident 061338-death-290: a blaze at 6 HP 0 off him, his iron sword one swing from the kill; blaze.retreat priced "fight on ~917 s" for a fresh blaze against out of their sight ~526 s "~0 HP of fireballs", the retreat walk with it on him, six 6.0 touches 16 -> 0 in 6 s, no swing). Health 16, armor 14, a shield, 28 cobblestone, on a bridge, the blaze at 6 HP beside him, a cell out of its sight 2 steps off behind a pillar: it's killed, he lives. */
+    private static int s1710T;
+    private static boolean st1710(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13460, 70, 8140);
+        if (t[0] == 1) { scenarioReset(c); s1710T = -1; com.claudemod.entity.life.Gate.reset(c); }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -6; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y == -1 && Math.abs(z) <= 1 && Math.abs(x) <= 10 || x == 0 && z == 1 && (y == 0 || y == 1) ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); /* a 3-wide bridge over a drop, a 2-high pillar on it beside him: 1, 0, 1 behind it is out of the blaze's sight, under 3 from it (the corner pick wants 3+) */
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 28)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(o.getX() - 0.6, o.getY(), o.getZ() + 0.5, 270, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nl.addFreshEntity(bz); bz.setHealth(5); } /* (5: one swing at the 0.95+ charge cfClose swings at, 5.5-6, kills it as live's full one would have its 6) */
+        if (t[0] == 17) { var b = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20)).get(0);
+            c.setHealth(16); c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+            c.tasks.add(new com.claudemod.entity.life.Task.Attack(b.getUUID(), 20 * 30));
+            s1710T = t[0]; }
+        if (s1710T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        var left = s1710T > 0 ? nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20), net.minecraft.world.entity.LivingEntity::isAlive) : java.util.List.<net.minecraft.world.entity.monster.Blaze>of();
+        if (s1710T > 0 && (left.isEmpty() || !c.isAlive() || c.getHealth() < 6 || t[0] >= s1710T + 20 * 8)) {
+            boolean killed = left.isEmpty(); float hp = c.getHealth(); int secs = (t[0] - s1710T) / 20; BlockPos at = c.blockPosition();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); com.claudemod.entity.life.Gate.reset(c); c.setHealth(20);
+            for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) b.discard();
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.projectile.SmallFireball.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -6; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(killed && secs <= 4 && hp >= 6, "a blaze at 5 HP beside him, his iron sword, health 16: " + (killed ? "killed" : "not killed") + " in " + secs + " s, health " + hp + " at " + at.subtract(o).toShortString() + " o-relative");
+            pass(stage, t, "killed in " + secs + " s at health " + hp);
         }
         return true;
     }

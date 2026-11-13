@@ -531,7 +531,7 @@ public class WorkGoal extends Goal {
             if (foe instanceof net.minecraft.world.entity.monster.Blaze bw && !(current instanceof Task.Attack) && (current instanceof Task.GoTo || g.tasks.peek() instanceof Task.GoTo) && bw.distanceTo(g) > 4 && !g.commandActive && (g.lastStep == null || !g.lastStep.skill().equals("blaze_rods")) && blazeWalkOnPays()) { // a blaze hit on a walk that isn't the blaze job: a player walks on out of its sight (D2D death 24, live 17:56-18:08 11-10: home for food, "fighting back: Blaze" 26 off, 14 min of cover fights, dead; stage 1471)
                 sdSay("blazewalkon", "[Claude fight] hit by a Blaze {} off on the way ({}, health {}): walking on out of its sight, not a fight off the job (WorkGoal.tick)", (int) bw.distanceTo(g), g.lastStep == null ? "no step" : g.lastStep.skill() + " " + g.lastStep.target(), (int) g.getHealth()); g.urgentAttacker = null; return;
             }
-            if (foe instanceof net.minecraft.world.entity.monster.Blaze && g.tickCount - blazeRetreatTick < 200 && !(current instanceof Task.Attack)) { // walking out of their sight: a fireball doesn't turn him back to fight (each hit re-armed the fight, the fight re-queued the walk; he stood on a fence burning 13 -> 0, World 15 12:40)
+            if (foe instanceof net.minecraft.world.entity.monster.Blaze && g.tickCount - blazeRetreatTick < 200 && !(current instanceof Task.Attack) && foe.distanceTo(g) > w("fight.on_him_blocks", 3)) { /* (one in his reach touching him follows him out of anyone's sight: the fight is re-priced, never walked on through it; D2D death 06:13:38 11-13, "still going" 3 times, 14 -> 2) */ // walking out of their sight: a fireball doesn't turn him back to fight (each hit re-armed the fight, the fight re-queued the walk; he stood on a fence burning 13 -> 0, World 15 12:40)
                 sdSay("blazewalk", "[Claude fight] hit by a Blaze while getting out of their sight (health {}): still going, the fight comes after (WorkGoal.tick)", (int) g.getHealth()); g.urgentAttacker = null; return;
             }
             if (g.tickCount - lastFightTick().getOrDefault(g.urgentAttacker, -100000) < 20 && g.tickCount >= lastFightTick().getOrDefault(g.urgentAttacker, -100000)) { sdSay("rearm", "[Claude life] hit by the {} again {} ticks after squaring up to it, doing {}: no new fight armed this tick (WorkGoal.tick)", foe.getType().getDescription().getString(), g.tickCount - lastFightTick().get(g.urgentAttacker), current == null ? "nothing" : current.getClass().getSimpleName()); g.urgentAttacker = null; return; } // (the same fight re-armed every 5 ticks: once a second is plenty) // ponytail: the map is static and his tickCount restarts on respawn: a stamp from his last body read "-51758 ticks ago", so no fight was ever armed (he died walking to a nook, enderman 20 -> 0, 17:18)
@@ -7168,9 +7168,12 @@ public class WorkGoal extends Goal {
         else { int k = hitsToKill(m); double t = k * w("fight.swing_s", 0.6); boolean back = m instanceof net.minecraft.world.entity.monster.Enemy || m instanceof net.minecraft.world.entity.NeutralMob;
             double hp = back ? t * w("fight.mob_hits_per_s", 0.8) * mobHit(m) : 0;
             hit = com.claudemod.entity.life.Decide.Option.of("hit it out", t + com.claudemod.entity.life.Decide.hpS(g, 0, hp, mobHit(m)) - (pearls ? w("walk.mob_in_cell_pearl_s", 60) : 0), k + " swings" + (back ? ", ~" + Math.round(hp) + " HP back" : "") + (pearls ? ", its pearl the job" : "")); }
+        double onHim = m instanceof net.minecraft.world.entity.Mob mm && mm.getTarget() == g && m.distanceTo(g) <= w("fight.on_him_blocks", 3) && !shoots(m) ? w("fight.mob_hits_per_s", 0.8) * mobHit(m) : 0; /* it's hitting him: waiting or going round, its hits go on (D2D death 06:13:38 11-13: a blaze in his step, "wait ~15 s" priced with none, 8 -> 0 waiting) */
+        java.util.function.DoubleUnaryOperator hitsFor = s0 -> onHim > 0 ? com.claudemod.entity.life.Decide.hpS(g, 0, onHim * s0, mobHit(m)) : 0;
+        String onHimWhy = onHim > 0 ? ", its hits on him meanwhile" : "";
         var wait = node.equals(mobWaited.get(m.getUUID())) ? com.claudemod.entity.life.Decide.Option.out("wait for it to move", "waited once, it stayed")
-                : com.claudemod.entity.life.Decide.Option.of("wait for it to move", w("walk.mob_wait_s", 15), "it wanders off");
-        var round = com.claudemod.entity.life.Decide.Option.of("another way", w("walk.mob_round_s", 45), "the walk to " + go.pos().toShortString() + " off till it moves");
+                : com.claudemod.entity.life.Decide.Option.of("wait for it to move", w("walk.mob_wait_s", 15) + hitsFor.applyAsDouble(w("walk.mob_wait_s", 15)), "it wanders off" + onHimWhy);
+        var round = com.claudemod.entity.life.Decide.Option.of("another way", w("walk.mob_round_s", 45) + hitsFor.applyAsDouble(w("walk.mob_round_s", 45)), "the walk to " + go.pos().toShortString() + " off till it moves" + onHimWhy);
         var pick = com.claudemod.entity.life.Decide.choose(g, "walk.mob_in_cell", in.size() + " " + what + (in.size() > 1 ? "s" : "") + " in his next step " + node.toShortString() + ", he at " + feet.toShortString(), true, java.util.List.of(hit, wait, round));
         if (pick == null) return false;
         g.getNavigation().stop(); g.setSprinting(false);
@@ -7212,9 +7215,15 @@ public class WorkGoal extends Goal {
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD), fed = com.claudemod.director.ClaudeLife.foodToEat(g, true) != null;
         double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
         double fire = g.isOnFire() ? g.getRemainingFireTicks() / 20.0 * w("blaze.burn_hp_per_s", 1) : 0; // (sure: the fire burns on either way)
-        double on = com.claudemod.entity.life.FortressFight.fightS(g, Math.max(0.5, g.getHealth() - fire), armor, tough, shield, fed, 0, n);
+        double on; /* (priced below, once the ones in his reach are known) */
         var all = lv.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere); // (the ones blazeRetreat goes out of the sight of)
         if (all.isEmpty()) return false; // (none within its 24: blazeRetreat has nothing to go out of the sight of; an empty list made every cell "hidden", 763's blaze 27 off)
+        var close = all.stream().filter(b -> b.distanceTo(g) <= w("fight.on_him_blocks", 3)).toList(); /* blazes in his sword's reach: the fight on them is their own swings, no walk to them; they touch him every second wherever he goes, out of the others' sight or not (D2D death 06:13:38 11-13: a blaze at 6 HP 0 off, "fight on ~917 s" priced as a fresh one far off, out of their sight ~526 s "~0 HP of fireballs", six 6.0 touches 16 -> 0, no swing; stage 1710) */
+        int nearK = 0; double touch = 0; for (var b : close) { nearK += hitsToKill(b); touch = Math.max(touch, mobHit(b)); }
+        double nearS = nearK * w("fight.swing_s", 0.6), nearHp = nearS * close.size() * w("blaze.touch_hits_per_s", 1.0) * touch;
+        double restN = blz.isEmpty() ? n - close.size() : 0; for (var b : blz) if (!close.contains(b)) restN += b.getHealth() / b.getMaxHealth(); /* the rest by the health they have left: one he's hit to 0.000001 is no fresh blaze (stage 1710: knocked 3.1 off by the swing, "fight on ~868 s", out of their sight again) */
+        double nowN = restN + (blz.isEmpty() ? close.size() : close.stream().mapToDouble(b -> b.getHealth() / b.getMaxHealth()).sum());
+        on = (close.isEmpty() ? 0 : nearS + com.claudemod.entity.life.Decide.hpS(g, fire, nearHp, touch)) + (restN > 0 ? com.claudemod.entity.life.FortressFight.fightS(g, Math.max(0.5, g.getHealth() - fire - nearHp), armor, tough, shield, fed, 0, restN) : 0);
         java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : all) if (com.claudemod.entity.life.FortressFight.sees(lv, b, c)) return false; return true; };
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
         BlockPos hide = hidden.test(feet) ? feet : blazeHideCell(lv, feet, hidden, steps);
@@ -7224,7 +7233,8 @@ public class WorkGoal extends Goal {
         double walk = hide != null ? steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint() : box ? boxN * w("cover.place_s", 0.35) / 2 : w("blaze.open_run_s", 15); // (a box: the build is the time in their sight, counted twice below as there-and-back)
         double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
         double leaveHp = n * walk * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
-        double back = 2 * walk + com.claudemod.entity.life.Decide.hpS(g, fire, leaveHp, perB) + com.claudemod.entity.life.Food.regenS(g, g.getMaxHealth() - Math.max(1, g.getHealth() - fire - leaveHp)) + com.claudemod.entity.life.FortressFight.fightS(g, g.getMaxHealth(), armor, tough, shield, fed, 0, n);
+        double back = 2 * walk + com.claudemod.entity.life.Decide.hpS(g, fire, leaveHp, perB) + com.claudemod.entity.life.Food.regenS(g, g.getMaxHealth() - Math.max(1, g.getHealth() - fire - leaveHp)) + com.claudemod.entity.life.FortressFight.fightS(g, g.getMaxHealth(), armor, tough, shield, fed, 0, nowN);
+        double walkTouch = close.size() * walk * w("blaze.touch_hits_per_s", 1.0) * touch; if (!close.isEmpty()) back += nearS + com.claudemod.entity.life.Decide.hpS(g, fire + leaveHp, walkTouch + nearHp, touch); /* the ones on him follow: their touches on the walk, and their fight at the hide all the same */
         boolean sameFight = g.tickCount - blazePickT < 20 * 30; blazePickT = g.tickCount; // (a pick 30 s after the last: a new fight, logged afresh)
         if (hide == null && !box && g.tickCount - noWayOutTick < 200) { // no hide, no box, and every way out seen closed: the open run is no option (death 57, 17:05 11-11: it won at ~5697 against ~5744, coverFight held his attack for it, the Flee held in place, 16 s in the fireballs to 0; stage 1070)
             if (!sameFight || !Boolean.FALSE.equals(blazePick)) com.claudemod.entity.life.Decide.choose(g, "blaze.retreat", n + " blaze(s) known, no cover, health " + (int) g.getHealth() + (fire > 0 ? ", on fire" : "") + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
@@ -7236,7 +7246,7 @@ public class WorkGoal extends Goal {
             return blazePick; } // logged when the pick changes (D2D 17:40 11-07: the retreat pick logged every tick, ~900 lines in 25 min)
         blazePick = on > back;
         com.claudemod.entity.life.Decide.choose(g, "blaze.retreat", n + " blaze(s) " + (feet.equals(hide) ? "known, none sees him where he stands" : "known, no cover") + ", health " + (int) g.getHealth() + (fire > 0 ? ", on fire" : "") + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
-            com.claudemod.entity.life.Decide.Option.of("fight on", on, feet.equals(hide) ? "from where he stands" : "in the open"), com.claudemod.entity.life.Decide.Option.of("out of their sight", back, (hide != null ? "to " + hide.toShortString() : box ? "boxed in where he stands, " + boxN + " blocks" : "in the open") + ", ~" + Math.round(leaveHp) + " HP of fireballs, healed, then the fight at full health")));
+            com.claudemod.entity.life.Decide.Option.of("fight on", on, (feet.equals(hide) ? "from where he stands" : "in the open") + (close.isEmpty() ? "" : ", " + nearK + " swing(s) on the " + close.size() + " in his reach, ~" + Math.round(nearHp) + " HP of touches")), com.claudemod.entity.life.Decide.Option.of("out of their sight", back, (hide != null ? "to " + hide.toShortString() : box ? "boxed in where he stands, " + boxN + " blocks" : "in the open") + ", ~" + Math.round(leaveHp) + " HP of fireballs" + (close.isEmpty() ? "" : ", " + close.size() + " in his reach following him, ~" + Math.round(walkTouch + nearHp) + " HP of touches") + ", healed, then the fight at full health")));
         return on > back;
     }
     /** A blaze hit on a walk off the blaze job: walking on (blaze.walk_on_sight_s in their sight, fireballs priced) against the fight now, less what the same kills cost later fed and at full health (the rods count either way). True: walk on. */
@@ -7403,6 +7413,11 @@ public class WorkGoal extends Goal {
         if (!mob.isAlive()) g.noteDoing("killed a " + BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath());
         return true;
     }
+    /** The nearest blaze he sees within his sword's reach (3), or null. */
+    private net.minecraft.world.entity.monster.Blaze blazeInReach(ServerLevel level) {
+        net.minecraft.world.entity.monster.Blaze near = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive)) if (b2.distanceTo(g) < 3.0 && g.hasLineOfSight(b2) && (near == null || b2.distanceTo(g) < near.distanceTo(g))) near = b2;
+        return near != null && near.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 ? near : null;
+    }
     /** A blaze in his reach: kept 2.4+ off (its touch is 2), hit when the swing's charged, the shield up between swings when a volley is due. */
     private void cfClose(ServerLevel level, net.minecraft.world.entity.monster.Blaze bz, net.minecraft.world.entity.LivingEntity due, boolean shield) {
         g.setSprinting(false); g.getLookControl().setLookAt(bz);
@@ -7424,7 +7439,7 @@ public class WorkGoal extends Goal {
         if (!com.claudemod.entity.life.FortressFight.coverMob(mob)) return null;
         ServerLevel level = (ServerLevel) g.level();
         boolean blaze = mob instanceof net.minecraft.world.entity.monster.Blaze;
-        if (ticks == 1 && !mob.getUUID().equals(cfTarget)) { cfTarget = mob.getUUID(); cfMode = ""; cfIdle = 0; } // (a fight carried on past its clock keeps its counters)
+        if (ticks == 1 && !mob.getUUID().equals(cfTarget)) { cfTarget = mob.getUUID(); cfMode = ""; cfIdle = 0; cfHealing = false; } /* (a new foe: the last fight's "healing" isn't this one's; it held him building cover with a blaze touching him, stage 1710 after 1709) */ // (a fight carried on past its clock keeps its counters)
         if (ticks >= t.maxTicks() - 1 && cfIdle < 20 * 20 && mob.distanceTo(g) < 24) { ticks = 2; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} is still on: the same fight goes on from cover past its {} s (WorkGoal.coverFight)", mob.getType().getDescription().getString(), t.maxTicks() / 20); } // (in place: a new task left a tick with no fight, and self-defence armed a second, plain one on the blaze) // (a fight from cover is slow by design: its clock running out left him idle in the gap and the follow rule walked him out)
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
         cfCoverCell = cv == null ? null : cv.cover();
@@ -7435,9 +7450,12 @@ public class WorkGoal extends Goal {
         if (cv == null && !blaze) { Boolean wp = witherHole(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: he digs a 2-high gap, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw
+        boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
+        float hp = g.getHealth();
+        boolean backing = hp <= 12 || (withered && hp <= 14) || (g.isOnFire() && hp <= 14) || (cfHealing && (hp < 18 || withered)); // hurt: back to cover to heal before anything else, the blaze at arm's length too (live 12:22: swinging at one at 3 hearts with 6 about, dead)
         if (blaze) { var put = com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv); var wallItem = com.claudemod.entity.life.FortressFight.wallItem(g); // cover with nothing to find (an open bridge): his blocks put up first, then the fight from behind them
             if (!put.isEmpty() && g.tasks.peek() instanceof Task.Place) { g.getNavigation().stop(); shieldDown(); cfSay("cover first", "his cover's blocks are queued behind this fight on the " + mob.getType().getDescription().getString() + " " + Math.round(mob.distanceTo(g)) + " off: they go in first, the fight from behind them"); return true; } /* (a hit armed a fresh fight in front of the build: it skipped building, Places queued, and held on the shield, the Places never ran: D2D review 124707-26, live 12:46:39-48 11-12, 9 s in the open burning, 20 -> 13; stage 1664) */
-            if (!put.isEmpty() && wallItem != null && g.inventory.count(x -> x.is(wallItem)) >= put.size() && g.tasks.stream().noneMatch(x -> x instanceof Task.Place)) {
+            if (!put.isEmpty() && wallItem != null && g.inventory.count(x -> x.is(wallItem)) >= put.size() && g.tasks.stream().noneMatch(x -> x instanceof Task.Place) && (backing || blazeInReach(level) == null)) { /* (a blaze in his reach is hit first, not left touching him while he builds: stage 1710) */
                 g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
                 for (int i = put.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(put.get(i), wallItem));
                 if (!com.claudemod.entity.life.FortressFight.at(g, cv.cover())) g.tasks.addFirst(new Task.GoTo(cv.cover(), 0.3));
@@ -7455,8 +7473,6 @@ public class WorkGoal extends Goal {
             if (to == null) to = cv.peek();
             shieldDown(); g.setSprinting(true); if (to.equals(feet)) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.3); } else cfMove(to, 1.3); cfSay("off the fire", "standing in fire at " + feet.toShortString() + ": to " + to.toShortString()); return false; }
         // hurt: into cover, Wither waited out (it outruns regen), milk if he has it, food
-        boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
-        float hp = g.getHealth();
         var due = blaze ? com.claudemod.entity.life.FortressFight.volleyDue(g, level) : null; // a blaze lit 44+ in sight of him, or a fireball his way
         if (g.tasks.peek() instanceof Task.Eat eatNext && due == null && (inCover || !blaze && !meleeInByMeal()) && g.getFoodData().getFoodLevel() < 20) { // (eating drops the shield: out of cover with a sword in reach it waits — World 15 02:04, a meal at hunger 19 with skeletons on him, shield down, 17 -> 0) // a meal queued behind this fight: it goes first, the fight after it (World 15 01:29: "next: [Eat]" 400+ ticks behind an Attack that kept renewing past its clock, 13 HP down to 1)
             g.tasks.pollFirst(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(eatNext);
@@ -7464,10 +7480,8 @@ public class WorkGoal extends Goal {
             return true;
         }
         if (!blaze && !inCover && com.claudemod.entity.life.FortressFight.standAndFight(g, mob, cv.cover())) { cfHealing = false; cfSay("fighting it here", "the wither skeleton " + String.format("%.1f", mob.distanceTo(g)) + " off keeps pace, the gap " + Math.round(Math.sqrt(g.distanceToSqr(cv.cover().getX() + 0.5, cv.cover().getY(), cv.cover().getZ() + 0.5))) + " off: sword and shield where he stands, priced (wither.cover_walk)"); return null; } // (D2D death 14:28 11-08: sprinting 12 for the gap with it 1 off, 0 swings, 5 hits, dead)
-        boolean backing = hp <= 12 || (withered && hp <= 14) || (g.isOnFire() && hp <= 14) || (cfHealing && (hp < 18 || withered)); // hurt: back to cover to heal before anything else, the blaze at arm's length too (live 12:22: swinging at one at 3 hearts with 6 about, dead)
         if (blaze && !backing) { // a blaze at arm's length (inside 2 it touches for 6 and sets him alight): hit it and keep it 2.4+ off; never his back to it, hurt or not
-            net.minecraft.world.entity.monster.Blaze near = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive)) if (b2.distanceTo(g) < 3.0 && g.hasLineOfSight(b2) && (near == null || b2.distanceTo(g) < near.distanceTo(g))) near = b2;
-            if (near != null && near.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { cfClose(level, near, due, shield); return false; }
+            var near = blazeInReach(level); if (near != null) { cfClose(level, near, due, shield); return false; }
         }
         if (backing && !inCover) { // the way back measured: a walk that isn't bringing him nearer is no way back (D2D death-220, live 21:52:43-21:53:18 11-09: "back into cover" 35 s while Controls refused the step to it, 10 -> 5 -> dead with 7 salmon on him and [Eat] queued behind the held attack; stage 1321)
             double dc = Math.sqrt(g.distanceToSqr(cv.cover().getX() + 0.5, cv.cover().getY(), cv.cover().getZ() + 0.5));

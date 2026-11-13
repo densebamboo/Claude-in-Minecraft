@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1704: return st1704(stage, t, c, h, level, mock);
             case 1703: return st1703(stage, t, c, h, level, mock);
             case 1702: return st1702(stage, t, c, h, level, mock);
             case 1750: return st1750(stage, t, c, h, level, mock);
@@ -23506,6 +23507,51 @@ public final class ClaudeBodyTest {
             check(kept, "the plan's flint_and_steel step went missing: " + q);
             check(made == 4, "2 flint on him and the plan's flint_and_steel still to come: the arrows took " + made / 4 + " flint (" + made + " arrows), not 1: " + ga + " | " + q);
             pass(stage, t, "the arrows left the plan's flint");
+        }
+        return true;
+    }
+    /** Stage 1704 (D2D death 00:41:25 11-13 at the fortress, incident 004125-death-43: 00:41:13 a run north "from [Wither Skeleton 14 south, Wither Skeleton 11 south]"; 3 s on, fight.flee from 4 blazes started a new run whose list was "[Blaze 6 north, below, Blaze 43 south-east]", the two still after him 14+ off forgotten, "running south to 272, 65, 484", into them: "Wither Skeleton 3 south", 8 -> 4, dead. A new flee cleared the ids the last run fled from). A crossing: two wither skeletons he fled, now 22 off south, a blaze north: the new run doesn't go back toward them. */
+    private static final java.util.List<net.minecraft.world.entity.Mob> s1704M = new java.util.ArrayList<>(); private static String s1704R, s1704F;
+    private static boolean st1704(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(20, 6, 20));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m0 : s1704M) m0.discard(); s1704M.clear(); s1704R = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = -20; x <= 4; x++) for (int z = -22; z <= 22; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -20; z <= 20; z++) for (int x = -1; x <= 1; x++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); /* the bridge north-south */
+            for (int x = -18; x <= -2; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); /* the crossing's arm west */
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 13));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(11); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int k = 0; k < 2; k++) { var ws = EntityType.WITHER_SKELETON.create(level); ws.moveTo(o.getX() + 0.5 - k, o.getY(), o.getZ() + 8.5 + k, 180, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setNoAi(true); ws.setPersistenceRequired(); level.addFreshEntity(ws); s1704M.add(ws); }
+            for (var m0 : s1704M) com.claudemod.entity.life.Perception.noteSeenTest(c, m0);
+        }
+        if (t[0] == 12) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(60)); }
+        if (t[0] > 10 && t[0] < 40) for (var m0 : s1704M) m0.setTarget(c);
+        if (t[0] == 15) { try { var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("escapeAt"); f.setAccessible(true); s1704F = c.work.escapeKind() + " at " + f.get(c.work) + ", now " + c.currentTask; } catch (ReflectiveOperationException e) { s1704F = String.valueOf(e); } }
+        if (t[0] == 16) { /* the first run: he fled them; now they're 22 off south (past their follow range 16), still after him, and a blaze north starts a new run */
+            for (int k = 0; k < s1704M.size(); k++) s1704M.get(k).moveTo(o.getX() + 0.5 - k, o.getY(), o.getZ() + 22.5, 180, 0);
+            var bz = EntityType.BLAZE.create(level); bz.moveTo(o.getX() + 0.5, o.getY() + 3, o.getZ() - 6.5, 0, 0); bz.setNoAi(true); bz.setPersistenceRequired(); level.addFreshEntity(bz); bz.setTarget(c); s1704M.add(bz); for (var m0 : s1704M) com.claudemod.entity.life.Perception.noteSeenTest(c, m0);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.getNavigation().stop(); c.tasks.clear(); c.currentTask = null;
+            try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("clearEscape"); m.setAccessible(true); m.invoke(c.work); } catch (ReflectiveOperationException e) { s1704R = String.valueOf(e); }
+            c.tasks.add(new Task.Flee(60));
+        }
+        if (t[0] > 16 && t[0] <= 22 && s1704R == null) {
+            BlockPos at = null; String kind = null;
+            try { var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("escapeAt"); f.setAccessible(true); at = (BlockPos) f.get(c.work); kind = c.work.escapeKind(); } catch (ReflectiveOperationException e) { s1704R = String.valueOf(e); }
+            if (at != null && s1704R == null) { double now = 1e9, then = 1e9; for (var m0 : s1704M) if (m0 instanceof net.minecraft.world.entity.monster.WitherSkeleton) { now = Math.min(now, m0.distanceTo(c)); if (at != null) then = Math.min(then, m0.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(at))); }
+                s1704R = "escape " + kind + " at " + (at == null ? "none" : at.subtract(o).toShortString()) + " (o-relative), nearest wither skeleton " + (int) now + " off now, " + (int) then + " off from there, he's at " + c.blockPosition().subtract(o).toShortString() + ", now " + c.currentTask + ", first run's " + s1704F;
+                if (at != null && then >= now) s1704R = "ok " + s1704R; }
+            ClaudeMod.LOGGER.info("[Claude test] stage 1704: {}", s1704R);
+        }
+        if (t[0] == 24) {
+            String r = s1704R;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var m0 : s1704M) m0.discard(); s1704M.clear(); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20);
+            for (int x = -20; x <= 4; x++) for (int z = -22; z <= 22; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(r != null && r.startsWith("ok "), "two wither skeletons he'd just fled, 22 off south, a blaze north: the new run went back toward them: " + r + " (first run " + s1704F + ")");
+            pass(stage, t, "the new run kept the ones he fled");
         }
         return true;
     }

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1705: return st1705(stage, t, c, h, level, mock);
             case 1704: return st1704(stage, t, c, h, level, mock);
             case 1703: return st1703(stage, t, c, h, level, mock);
             case 1702: return st1702(stage, t, c, h, level, mock);
@@ -23552,6 +23553,40 @@ public final class ClaudeBodyTest {
             flatBox(h);
             check(r != null && r.startsWith("ok "), "two wither skeletons he'd just fled, 22 off south, a blaze north: the new run went back toward them: " + r + " (first run " + s1704F + ")");
             pass(stage, t, "the new run kept the ones he fled");
+        }
+        return true;
+    }
+    /** Stage 1705 (D2D bandaids 011450-62, 012706-11, reviews 011613-64, 013319-44, live 01:14:41-50 and 01:28:45 11-13 in his iron tunnel at y16: the torch at -56, 17, -581 "goes in from -60, 16, -581"; then the Break of -55, 16 five off: "approach try 2 to -55, 16, -581: the walk to -57 (3 nodes, ends -58) again, the last one ended with him 3.0 off it", try 3 the same 0.3 s on, "gave up reaching -55, 17, -581", NO_PATH, the andesite left in his walkway). A 1-wide 2-high tunnel, him 5 back from its face, a torch due on the wall 4 ahead, then the face's two blocks: he walks up and digs them, no give-up. */
+    private static int s1705T, s1705Max; private static String s1705L;
+    private static boolean st1705(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(10, 2, 8)), face = o.offset(5, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1705T = -1; s1705L = null; s1705Max = 0; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int y = -1; y <= 4; y++) for (int z = -3; z <= 3; z++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -6; x <= 4; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(face, Blocks.ANDESITE.defaultBlockState(), 2); level.setBlock(face.above(), Blocks.ANDESITE.defaultBlockState(), 2);
+            level.setDayTime(6000); c.blueprint = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            c.teleportTo(o.getX() - 0.07, o.getY(), o.getZ() + 0.5); c.setYRot(-90); /* (live -60.07: just inside the cell behind the torch's stand, the torch walk a nudge) */ c.setYHeadRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.WallTorch(o.offset(4, 1, 0).immutable(), net.minecraft.core.Direction.SOUTH)); c.tasks.add(new Task.Break(face.immutable())); c.tasks.add(new Task.Break(face.above().immutable())); s1705T = t[0]; }
+        if (s1705T > 0 && t[0] > s1705T) {
+            try { var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("approachTries"); f.setAccessible(true); s1705Max = Math.max(s1705Max, f.getInt(c.work)); } catch (ReflectiveOperationException e) { s1705L = String.valueOf(e); }
+            boolean out = level.getBlockState(face).isAir() && level.getBlockState(face.above()).isAir();
+            Integer gave = c.attempts.last(com.claudemod.entity.life.Attempts.Kind.REACH, face); if (gave == null) gave = c.attempts.last(com.claudemod.entity.life.Attempts.Kind.REACH, face.above());
+            if (out || gave != null || t[0] - s1705T >= 200) {
+                BlockPos at = c.blockPosition().subtract(o); String tasks = c.tasks + " / " + c.currentTask; int took = t[0] - s1705T;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+                for (int x = -8; x <= 8; x++) for (int y = -1; y <= 4; y++) for (int z = -3; z <= 3; z++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
+                check(s1705L == null, "approachTries unread: " + s1705L);
+                check(s1705Max < 3, "the walk up his own open tunnel re-planned " + s1705Max + " times, him not moving (live: \"approach try 3 ... the last one ended with him 3.0 off it\"), him at " + at.toShortString() + " (o-relative), tasks " + tasks);
+                check(gave == null, "gave up reaching the tunnel's face 5 off down his own open tunnel (REACH failed), him at " + at.toShortString() + " (o-relative), tasks " + tasks);
+                check(out, "the tunnel's face not dug in 10 s, him at " + at.toShortString() + " (o-relative), tasks " + tasks);
+                check(took <= 120, "the face's 2 blocks out after " + took + " ticks (the torch, 3 steps and two digs: 6 s at most)");
+                pass(stage, t, "the torch, then the face dug in " + took + " ticks, him at " + at.toShortString());
+            }
         }
         return true;
     }

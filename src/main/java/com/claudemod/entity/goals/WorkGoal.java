@@ -567,6 +567,7 @@ public class WorkGoal extends Goal {
             while (current != null && (unseenOre(current) || farPatch(current) || !com.claudemod.entity.life.Watchdog.starting(g, current))) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
             g.busy = current != null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; breakProgress = 0; bridged = 0;
+            g.getMoveControl().clear(); /* a step the last task set is that task's: it doesn't pull him on into the next one (D2D bandaids 011450-62, 012706-11, live 01:14:50 11-13: the torch's nudge onto its stand drew him back half a block for 20 ticks after it, his tunnel's face flipped in and out of reach, "approach try 3 ... 3.0 off it", the dig given up; stage 1705) */
             if (leanFor != null && !(current instanceof Task.Place pl0 && pl0.pos().equals(leanFor))) { g.setShiftKeyDown(false); leanFor = null; } // (a lean left for another task: off the sneak)
             g.currentTask = current;
             if (current != null) com.claudemod.entity.life.Gate.started(g, current, exitWhy); // (the no-progress gate measures it from here)

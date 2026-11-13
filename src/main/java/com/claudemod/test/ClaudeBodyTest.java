@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1692: return st1692(stage, t, c, h, level, mock);
             case 1691: return st1691(stage, t, c, h, level, mock);
             case 1690: return st1690(stage, t, c, h, level, mock);
             case 1689: return st1689(stage, t, c, h, level, mock);
@@ -23187,6 +23188,27 @@ public final class ClaudeBodyTest {
             check("pending".equals(status), "his pile by the spawner: " + status + " | " + r);
             check(r != null && r.contains("blaze_rods"), "his pile 2 off the spawner his rods trip goes to, from the overworld with nothing on: \"" + r + "\"");
             pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 1692 (D2D 193501-102, live 19:32:48 and 19:33:12 11-12 at the fortress: two blazes killed on the rods job, one rod fell past y 61 into the lava, one lay on a nether brick fence and was never his; no JOB_ITEM_LOST either time: the detector (stage 1673) watched only his death piles, never what his own kills drop). A blaze rod by him on the rods job, no pile of his, despawned: JOB_ITEM_LOST names it. */
+    private static net.minecraft.world.entity.item.ItemEntity s1692R; private static int s1692N;
+    private static boolean st1692(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)), at = o.offset(4, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you"));
+            s1692R = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, new ItemStack(Items.BLAZE_ROD, 1)); s1692R.setPickUpDelay(32767); level.addFreshEntity(s1692R);
+            s1692R.lifespan = s1692R.getAge() + 10; s1692N = com.claudemod.entity.life.Watchdog.incidents;
+        }
+        if (t[0] == 30) {
+            boolean gone = !s1692R.isAlive(); String inc = com.claudemod.entity.life.Watchdog.incidents == s1692N ? "none" : com.claudemod.entity.life.Watchdog.lastIncident;
+            if (s1692R.isAlive()) s1692R.discard(); s1692R = null; c.skillQueue.clear(); com.claudemod.entity.life.DeathLog.reset(c);
+            check(gone, "setup: the rod didn't despawn");
+            check(inc.startsWith("JOB_ITEM_LOST") && inc.contains("blaze_rod"), "a blaze rod 4 off him on the rods job despawned, no pile of his: incident " + inc);
+            pass(stage, t, inc);
         }
         return true;
     }

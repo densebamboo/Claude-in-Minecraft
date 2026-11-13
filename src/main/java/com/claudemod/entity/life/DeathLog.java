@@ -100,11 +100,11 @@ public final class DeathLog {
 
     /** Logging only (11-10: his 7 rods' pile was "gone (nothing left there)" at 290 s counted, cause unproven): why an item off a pending pile left the world. */
     public static void onLeave(net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent e) {
-        if (all == null || !(e.getEntity() instanceof ItemEntity it) || !(e.getLevel() instanceof ServerLevel level)) return;
+        if (!(e.getEntity() instanceof ItemEntity it) || !(e.getLevel() instanceof ServerLevel level)) return;
         var r = it.getRemovalReason();
         if (r == null || r == net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_TO_CHUNK || r == net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_WITH_PLAYER || r == net.minecraft.world.entity.Entity.RemovalReason.CHANGED_DIMENSION) return;
         String dim = level.dimension().location().getPath(); BlockPos p = it.blockPosition();
-        for (var en : all.entrySet()) for (Death d : en.getValue()) if (d.pending() && d.dim.equals(dim) && d.at.distSqr(p) <= 8 * 8) {
+        if (all != null) for (var en : all.entrySet()) for (Death d : en.getValue()) if (d.pending() && d.dim.equals(dim) && d.at.distSqr(p) <= 8 * 8) {
             String why = it.getItem().isEmpty() ? "picked up (or merged)" : r == net.minecraft.world.entity.Entity.RemovalReason.KILLED ? "destroyed (fire, lava, cactus, explosion)" : it.getAge() >= it.lifespan ? "despawned" : "discarded (" + r + ")"; /* (lifespan: NeoForge's, 6000 unless a mod set it) */
             var pl = level.getNearestPlayer(it, -1);
             ClaudeMod.LOGGER.info("[Claude deaths] an item off his pile at {} left the world: {} ({}), age {} ticks ({} s counted on the pile), at {} in {} on {}, nearest player {}", d.at.toShortString(), BuiltInRegistries.ITEM.getKey(it.getItem().getItem()).getPath(), why, it.getAge(), d.loadedTicks / 20, p.toShortString(), level.getBlockState(p).getBlock().getName().getString() + (level.getFluidState(p).isEmpty() ? "" : " / " + level.getFluidState(p).getType()), level.getBlockState(p.below()).getBlock().getName().getString(), pl == null ? "none" : pl.getName().getString() + " " + (int) pl.distanceTo(it) + " off");
@@ -122,6 +122,12 @@ public final class DeathLog {
             }
             return;
         }
+        if (it.getItem().isEmpty()) return; // (picked up or merged)
+        String id = BuiltInRegistries.ITEM.getKey(it.getItem().getItem()).getPath(); // a job item off no pile of his, by him: what his own kills dropped (live 19:32:48 and 19:33:12 11-12: one rod into the lava, one left on a fence, no incident either time; stage 1692)
+        for (ClaudeEntity g : level.getEntitiesOfClass(ClaudeEntity.class, new AABB(p).inflate(32), x -> x.isAlive())) if (jobItem(g, id)) {
+            String why = r == net.minecraft.world.entity.Entity.RemovalReason.KILLED ? "destroyed (fire, lava, cactus, explosion)" : it.getAge() >= it.lifespan ? "despawned" : "discarded (" + r + ")";
+            Watchdog.incident(g, "JOB_ITEM_LOST", it.getItem().getCount() + " " + id + " on the ground by him (no pile of his) " + why + " at " + p.toShortString() + " in " + level.getBlockState(p).getBlock().getName().getString() + (level.getFluidState(p).isEmpty() ? "" : " / " + level.getFluidState(p).getType()) + " on " + level.getBlockState(p.below()).getBlock().getName().getString() + ", age " + it.getAge() + " ticks, him " + (int) Math.sqrt(g.blockPosition().distSqr(p)) + " off, step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+            return; }
     }
 
     /** The stages' reset. */

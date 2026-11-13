@@ -52,6 +52,8 @@ public final class NetherRoute {
         // his own trail, when it runs from him to the goal: a way he's walked, priced against the search (live 22:05 11-06: 661 cells to the portal unused, the search ran out of nodes and dug at the rock nearest the goal; stage 924)
         com.claudemod.entity.life.FarSight.lookAllRound(g, level); com.claudemod.entity.life.PortalMap.seeRoads(g, level); // (a look round, and the roads in it on record: his own and anyone's; stage 928)
         Plan tp = road(g, level, from, to);
+        if (tp != null && tp.partial() && !tp.legs().isEmpty()) { BlockPos e = tp.legs().get(tp.legs().size() - 1); double eh = Math.hypot(e.getX() - to.getX(), e.getZ() - to.getZ()), fh = Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ());
+            if (eh >= fh - 12) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: his own way stops part way at {}, {} off the goal against his {}: no headway, not a way (NetherRoute.plan)", from.toShortString(), to.toShortString(), e.toShortString(), (int) eh, (int) fh); tp = null; } } // (the search's own rule for a part-way end: 12 nearer. Its end beside where he stood was "planned again from there", the same plan every 4 s, 380 times, D2D 181625-14 live 18:12 11-12; stage 1640)
         double straight = h(from.getX(), from.getY(), from.getZ(), to);
         if (tp != null && tp.seconds() <= straight * com.claudemod.entity.life.Weights.w("nether.trail_ok_ratio", 1.5)) return tp;
         Plan sp = search(g, level, from, to, false);

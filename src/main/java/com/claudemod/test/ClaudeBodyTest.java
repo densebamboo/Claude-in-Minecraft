@@ -11111,6 +11111,7 @@ public final class ClaudeBodyTest {
             case 1629: return st1629(stage, t, c, h, level, mock);
             case 1630: return st1630(stage, t, c, h, level, mock);
             case 1631: return st1631(stage, t, c, h, level, mock);
+            case 1632: return st1632(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24952,6 +24953,32 @@ public final class ClaudeBodyTest {
             level.setBlock(box, Blocks.AIR.defaultBlockState(), 2); c.storageChests.clear(); c.skillQueue.clear(); inv.clearContent();
             check(r == null, "the trip stash asks to store the 2 iron ingots a queued step needs (the Deposit keeps them: round in circles): " + r);
             pass(stage, t, "the iron a queued step needs stays on him, no store asked");
+        }
+        return true;
+    }
+    /** Stage 1632 (D2D review 153837-13, THROW_LOOP 15:34:49, live 15:34:37-15:34:59 11-12 at -46,56,-248): digging his 32 cobble with a full pack and few building blocks: the andesite the digs dropped was taken in (under 64 building blocks: not junk to the pickup), thrown out as junk by the full-pack toss, taken in again. With the pack full the junk the toss throws is no pickup. */
+    private static int s1632Max; private static BlockPos s1632Me;
+    private static boolean st1632(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard(); }
+        if (t[0] == 10) {
+            s1632Me = c.blockPosition().immutable(); s1632Max = 0;
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(s1632Me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(s1632Me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; int k = 0;
+            net.minecraft.world.item.Item[] pack = { Items.IRON_PICKAXE, Items.IRON_SWORD, Items.IRON_AXE, Items.BOW, Items.SHIELD, Items.FISHING_ROD, Items.FLINT_AND_STEEL, Items.WATER_BUCKET, Items.STONE_SHOVEL, Items.CRAFTING_TABLE, Items.CHEST, Items.TORCH, Items.TORCH, Items.COAL,
+                Items.COOKED_COD, Items.COOKED_SALMON, Items.APPLE, Items.OAK_LOG, Items.OAK_LOG, Items.BIRCH_LOG, Items.BLAZE_ROD, Items.ARROW, Items.LEATHER, Items.NAME_TAG, Items.LILY_PAD, Items.OAK_SAPLING, Items.BIRCH_SAPLING, Items.WARPED_ROOTS, Items.IRON_BOOTS, Items.COBBLESTONE, Items.STICK, Items.SALMON, Items.CHICKEN, Items.EMERALD, Items.IRON_INGOT };
+            for (var it : pack) inv.items.set(k++, new ItemStack(it, it.getDefaultMaxStackSize() > 1 ? Math.min(it.getDefaultMaxStackSize(), it == Items.COBBLESTONE ? 18 : 4) : 1)); // (35 slots, 1 free; 18 cobble, his few building blocks, as live)
+            c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, s1632Me.getX() + 2.5, s1632Me.getY() + 0.1, s1632Me.getZ() + 0.5, new ItemStack(Items.ANDESITE, 1)); it.setPickUpDelay(0); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); // (andesite a dig of his job dropped)
+        }
+        if (t[0] > 10) { c.nextPlanTick = c.tickCount + 20 * 600; s1632Max = Math.max(s1632Max, c.getInventory().countItem(Items.ANDESITE)); }
+        if (t[0] == 14) c.tasks.add(new Task.Pickup(60));
+        if (t[0] == 14 + 100) {
+            int mx = s1632Max;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
+            c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.prefs.remove("stay_close");
+            check(mx == 0, "the andesite taken into a full pack, the junk its toss throws: had " + mx);
+            pass(stage, t, "the andesite left: junk with his pack full");
         }
         return true;
     }

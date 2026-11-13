@@ -6005,6 +6005,20 @@ public class WorkGoal extends Goal {
         if (d > 3 && to.lengthSqr() > 1e-4) for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); if (tm.length() < 2.2 && tm.normalize().dot(to.normalize()) > 0.8) return "a " + m.getType().getDescription().getString() + " right in the way, " + String.format("%.1f", tm.length()) + " off"; }
         return null;
     }
+    /** His body (the box, at the higher of his feet and the cell's floor, so a step up counts) slides straight to the cell's middle without a block in the way. */
+    private boolean straightIn(ServerLevel lv, BlockPos to) {
+        Vec3 a = g.position(), b = Vec3.atBottomCenterOf(to); double y = Math.max(a.y, b.y) + 0.01;
+        for (int i = 1; i <= 8; i++) { double f = i / 8.0; if (!lv.noCollision(g, g.getBoundingBox().move(a.x + (b.x - a.x) * f - g.getX(), y - g.getY(), a.z + (b.z - a.z) * f - g.getZ()))) return false; }
+        return true;
+    }
+    private int intoSaid = -1000;
+    /** Into a cell his body can't slide straight into (a corner in the way): his feet's way to the cell itself (accuracy 0: moveTo(x, y, z) takes any cell within 1 and stopped him beside it), kept while it's on its way there. */
+    private void walkIntoCell(BlockPos c, double d) {
+        var p0 = g.getNavigation().getPath(); if (!g.getNavigation().isDone() && p0 != null && c.equals(p0.getTarget())) return;
+        var way = g.getNavigation().createPath(c, 0); boolean went = way != null && way.canReach() && g.getNavigation().moveTo(way, 1.0);
+        if (!went) g.getNavigation().stop();
+        if (g.tickCount - intoSaid > 20) { intoSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: his hide at {} {} off, the straight step in cut (a corner his body won't pass): {} (WorkGoal.walkIntoCell)", c.toShortString(), String.format("%.1f", d), went ? "round by his feet, " + way.getNodeCount() + " steps" : "no way round found"); }
+    }
     /** At the escape: 0 not there yet; 1 there and on it (in the portal, holding the gap); 2 done (the gap plugged: the run's over). */
     private int atEscape(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         ServerLevel lv = level(); double d = g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt));
@@ -6020,11 +6034,14 @@ public class WorkGoal extends Goal {
         if ("hide".equals(escapeKind)) { // out of the shooters' sight: held there; what walks in after him is hit as it comes in reach, one at a time; a shooter that sees him again: on to the next spot out of its sight
             if (d >= 1.5) return 0;
             if (!escapeHeld) { escapeHeld = true; g.setSprinting(false); g.getNavigation().stop(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: out of their sight at {}: holding, hitting what comes in reach (WorkGoal.atEscape)", escapeAt.toShortString()); }
-            if (d > 0.3) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(escapeAt.getX() + 0.5, escapeAt.getY(), escapeAt.getZ() + 0.5, 1.0); double up = escapeAt.getY() - g.getY(); if (up > 0.5 && up <= 1.25 && g.onGround() && g.horizontalCollision) g.getJumpControl().jump(); } /* a hide a step up: his hands press space as well (live 06:51:54-06:52:24 11-12: 30 s against the step under it, 20 -> 11; stage 1599) */ // the last block into it: held 1 off, in the line beside it, the fireballs land on him (D2D death 47, live 10:58:09 11-11, "1.0 off it ... to him true"; stage 1497)
+            boolean cut = d > 0.3 && !straightIn(lv, escapeAt); /* (a hide diagonal past a pillar corner: the straight push ran into the corner 75 s, fireballs on him where he stood; D2D death 170, live 10:47:41-10:48:57 11-13; stage 1713) */
+            if (cut) walkIntoCell(escapeAt, d);
+            else if (d > 0.3) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(escapeAt.getX() + 0.5, escapeAt.getY(), escapeAt.getZ() + 0.5, 1.0); double up = escapeAt.getY() - g.getY(); if (up > 0.5 && up <= 1.25 && g.onGround() && g.horizontalCollision) g.getJumpControl().jump(); } /* a hide a step up: his hands press space as well (live 06:51:54-06:52:24 11-12: 30 s against the step under it, 20 -> 11; stage 1599) */ // the last block into it: held 1 off, in the line beside it, the fireballs land on him (D2D death 47, live 10:58:09 11-11, "1.0 off it ... to him true"; stage 1497)
             for (var m : mobs) if (farShooter(m) && m.isAlive() && com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), Vec3.atBottomCenterOf(escapeAt).add(0, 1.6, 0))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the {} {} off sees him again at {}: on out of its sight (WorkGoal.atEscape)", m.getType().getDescription().getString(), (int) m.distanceTo(g), escapeAt.toShortString()); clearEscape(); pickEscape(mobs); return 0; }
             net.minecraft.world.entity.Mob close = null; for (var m : mobs) if (!farShooter(m) && m.isAlive() && (close == null || m.distanceTo(g) < close.distanceTo(g))) close = m;
             if (close != null && close.distanceTo(g) < 5) { equipWeapon(); g.getLookControl().setLookAt(close); if (canHitNow(close)) { g.attack(close); g.swing(InteractionHand.MAIN_HAND); } }
-            if ((close == null || close.distanceTo(g) >= 5) && g.hurtTime == 0 && !g.isUsingItem() && g.getHealth() < g.getMaxHealth() && g.getFoodData().getFoodLevel() < 20 && current instanceof Task.Flee fl) { // out of their sight, nothing in reach: a meal now, as a player eats in his hide (live 09:52:18-09:53:05 11-11, fight 29: 45 s held at 2-3 HP, food 17 so no regen, his Eat queued behind the run; review 143, stage 1495)
+            boolean seen = false; for (var m : mobs) if (farShooter(m) && m.isAlive() && com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), g.getEyePosition())) seen = true; /* (out of their sight is where he stands, not the spot: 3 meals "out of their sight" 1.1 off it, in a blaze's line; death 170) */
+            if (!seen && (close == null || close.distanceTo(g) >= 5) && g.hurtTime == 0 && !g.isUsingItem() && g.getHealth() < g.getMaxHealth() && g.getFoodData().getFoodLevel() < 20 && current instanceof Task.Flee fl) { // out of their sight, nothing in reach: a meal now, as a player eats in his hide (live 09:52:18-09:53:05 11-11, fight 29: 45 s held at 2-3 HP, food 17 so no regen, his Eat queued behind the run; review 143, stage 1495)
                 net.minecraft.world.item.Item food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6);
                 if (food != null) { g.tasks.addFirst(fl); g.tasks.addFirst(new Task.Eat(food)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: out of their sight at {}, health {}, hunger {}: eating {} here, then holding on (WorkGoal.atEscape)", escapeAt.toShortString(), (int) g.getHealth(), g.getFoodData().getFoodLevel(), BuiltInRegistries.ITEM.getKey(food).getPath()); return 2; }
             }
@@ -6207,7 +6224,8 @@ public class WorkGoal extends Goal {
             if (at == 2) { /* the run's end decided (the fight it turned to, the plug, or over): the hit he took on the way was deferred to it ("the run's end decides"), settled now, never re-judged next tick over that choice (live 21:50 11-08: the run's end turned him to the Creeper 6 off, the Skeleton's arrow from the run had him "fighting back: Skeleton" a tick later, the creeper blew 18 -> 8; stage 1143) */
                 if (g.urgentAttacker != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the run's end decided: the hit he took while running is settled by it, no fight of its own (WorkGoal.doFlee)");
                 g.urgentAttacker = null; return true; } }
-        if (escapeAt != null && !"run".equals(escapeKind) && g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt)) < 2.0) { Vec3 dest = Vec3.atBottomCenterOf(escapeAt); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(dest.x, dest.y, dest.z, 1.2); } // the last steps onto the spot itself
+        if (escapeAt != null && !"run".equals(escapeKind) && g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt)) < 2.0 && !straightIn(level(), escapeAt)) walkIntoCell(escapeAt, g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt))); /* (no straight way in: the push ran him into a pillar corner, and pulled him back to it off the walk round; stage 1713) */
+        else if (escapeAt != null && !"run".equals(escapeKind) && g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt)) < 2.0) { Vec3 dest = Vec3.atBottomCenterOf(escapeAt); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(dest.x, dest.y, dest.z, 1.2); } // the last steps onto the spot itself
         else if (ticks % 8 == 1 && escapeAt != null) { // the way to it, re-made as he goes: the same place every time
             Vec3 dest = Vec3.atBottomCenterOf(escapeAt);
             g.setSprinting(g.getFoodData().getFoodLevel() > 6);

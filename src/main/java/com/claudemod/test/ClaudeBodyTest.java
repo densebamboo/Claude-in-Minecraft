@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1713: return st1713(stage, t, c, h, level, mock);
             case 1712: return st1712(stage, t, c, h, level, mock);
             case 1711: return st1711(stage, t, c, h, level, mock);
             case 1710: return st1710(stage, t, c, h, level, mock);
@@ -23806,6 +23807,33 @@ public final class ClaudeBodyTest {
         if (s1712B != null) s1712B.discard(); if (s1712W != null) s1712W.discard(); c.removeAllEffects(); c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
         for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
         for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+    }
+    /** Stage 1713 (D2D death 170, live 10:47:41-10:48:57 11-13 at 284,65,499: a hide at 285,65,500 held 75 s from 1.1 off it, "hit at his hide ... line to the spot false, to him true" 35 times, all 3 meals eaten there, fireballs till dead; the hide was diagonal to him with both corners solid 2 high (a pillar corner a 0.6-wide player can't squeeze by), counted as reached within 1.5, and the hold's straight push into it ran into the corner). His hide diagonal past a pillar corner, a blaze that sees him and not it: he gets in, round the pillar. */
+    private static int s1713T; private static net.minecraft.world.entity.monster.Blaze s1713B; private static BlockPos s1713H;
+    private static boolean st1713(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1713T = -1; if (s1713B != null) s1713B.discard(); s1713B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1713H = h.absolutePos(new BlockPos(4, 2, 5)).immutable(); BlockPos me = s1713H.offset(-1, 0, 1);
+            for (int y = 0; y <= 1; y++) { level.setBlock(s1713H.west().above(y), Blocks.NETHER_BRICKS.defaultBlockState(), 2); level.setBlock(s1713H.south().above(y), Blocks.NETHER_BRICKS.defaultBlockState(), 2); } // the pillar corner between him and his hide
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = me.south(9); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 180, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1713B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+            check(com.claudemod.entity.life.FortressFight.sees(level, b, me) && !com.claudemod.entity.life.FortressFight.sees(level, b, s1713H), "setup: the blaze sees him, not his hide");
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(s1713H); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); s1713T = t[0]; }
+        if (s1713T > 0 && t[0] > s1713T) {
+            double d = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s1713H)); boolean in = d < 0.4;
+            if (in || t[0] - s1713T > 20 * 5) {
+                double s = (t[0] - s1713T) / 20.0; String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition();
+                s1713B.discard(); s1713B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.work.escapeHoldForTest(null);
+                for (int y = 0; y <= 1; y++) { level.setBlock(s1713H.west().above(y), Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1713H.south().above(y), Blocks.AIR.defaultBlockState(), 2); }
+                check(in, "his hide diagonal past a pillar corner, him in the blaze's sight: not in it in 5 s (" + String.format("%.2f", d) + " off at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "into his hide round the pillar in " + s + " s");
+            }
+        }
+        return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

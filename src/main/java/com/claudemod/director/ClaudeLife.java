@@ -13890,6 +13890,12 @@ public final class ClaudeLife {
             ts.add(new Task.FurnaceTake(furnace.immutable())); // (then eaten next round, cooked)
             what = "cooking the " + Crafting.name(raw) + " in the furnace in my hole wall";
         } else {
+            if (ore) { // stations set into the wall for the night's smelt, priced: what smelts before first light (smelt.item_s each) against putting them in and taking them back out (hold.station_s each) (live 23:32:16 11-12, D2D 233308-45: 1 raw gold, 36 s to first light, a table and a furnace into the wall, his own furnace 3 off)
+              long tod = level.getDayTime() % 24000; double nightS = tod >= 12000 ? Math.max(0, (23460 - tod) / 20.0) : 0; int n = g.inventory.count(x -> x.is(rawF)), st = g.inventory.count(x -> x.is(Items.FURNACE)) > 0 || table != null ? 1 : 2;
+              double done = Math.min(n, nightS / com.claudemod.entity.life.Weights.w("smelt.item_s", 10)); int kept = com.claudemod.entity.life.ChestLedger.count(g, level, rawF); double each = com.claudemod.entity.life.Weights.w("smelt.item_s", 10) * (kept > 0 ? com.claudemod.entity.life.Weights.w("smelt.batch_share", 0.2) : 1); // (more of it in his chests: these ride along in that batch later, little of his time)
+              var smelt = com.claudemod.entity.life.Decide.Option.of("smelt it in the hole", st * com.claudemod.entity.life.Weights.w("hold.station_s", 8), st + " station(s) into the wall and back out");
+              var later = com.claudemod.entity.life.Decide.Option.of("smelt it after", done * each, Math.round(done) + " of " + n + " " + Crafting.name(rawF) + " done by first light (" + Math.round(nightS) + " s off), at a furnace after" + (kept > 0 ? " with the " + kept + " in his chests" : ""));
+              if (com.claudemod.entity.life.Decide.choose(g, "hold.smelt", n + " " + Crafting.name(rawF), g.tickCount - g.attempts.counters.getOrDefault("holdSmeltSaid", -100000) > 20 * 60, List.of(smelt, later)) != smelt) { g.attempts.counters.put("holdSmeltSaid", g.tickCount); return; } }
             boolean haveF = g.inventory.count(s -> s.is(Items.FURNACE)) > 0;
             if (!haveF && table != null && g.inventory.count(s -> s.is(ItemTags.STONE_CRAFTING_MATERIALS)) >= 8) haveF = Crafting.craft(level, g.inventory, Items.FURNACE, 1, true).made() > 0;
             Item put = haveF ? Items.FURNACE : null;

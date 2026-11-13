@@ -11162,6 +11162,7 @@ public final class ClaudeBodyTest {
             case 1603: return st1603(stage, t, c, h, level, mock);
             case 1605: return st1605(stage, t, c, h, level, mock);
             case 1606: return st1606(stage, t, c, h, level, mock);
+            case 1330: return st1330(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26404,6 +26405,35 @@ public final class ClaudeBodyTest {
             for (var f : st1606F) f.discard(); st1606F.clear();
             check(fa != null && (fa.item() == Items.COOKED_SALMON || fa.item() == Items.COOKED_COD), "the control: the one fish there in reach, not picked: " + (fa == null ? "null" : fa.count() + " " + fa.item()) + " | " + said);
             pass(stage, t, "the fish priced by the chance it's in reach: 1 of 4 the search, all in reach the fish");
+        }
+        return true;
+    }
+    /** Stage 1330 (D2D 233308-45, live 23:32:16 11-12: holding the night in his hole, fed, "setting a crafting_table into my hole wall to smelt the raw_gold", then a furnace, for 1 raw gold 36 s before first light, his own furnace 3 off). Night, his covered hole, fed, 1 raw gold, coal, logs, cobble: no stations go into the wall for one ingot (stage 1372 the control: 8 raw iron smelt there). */
+    private static int s1330In;
+    private static boolean st1330(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.blueprint = null; c.house = null; c.nook = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); s1330In = -1; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
+                for (int yy = -4; yy <= -2; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+                for (int yy = -1; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT);
+                for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR);
+            }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_GOLD, 1)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 24)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 6.5);
+            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("shelter", "", 1, "near_you"), "it's night, get under cover", "replace");
+        }
+        if (t[0] > 10) {
+            BlockPos f = c.blockPosition(); c.getFoodData().setFoodLevel(20);
+            boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty(), in = f.getY() <= at.getY() - 2 && lid;
+            boolean station = BlockPos.betweenClosedStream(f.offset(-2, -1, -2), f.offset(2, 2, 2)).anyMatch(q -> level.getBlockState(q).is(Blocks.CRAFTING_TABLE) || level.getBlockState(q).is(Blocks.FURNACE))
+                || c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && (pl.item() == Items.CRAFTING_TABLE || pl.item() == Items.FURNACE)) || c.currentTask instanceof Task.Place pl0 && (pl0.item() == Items.CRAFTING_TABLE || pl0.item() == Items.FURNACE);
+            if (s1330In < 0) { if (in && c.holdingNight()) s1330In = t[0]; else check(t[0] - 10 < 300, "setup: not holding in a covered hole after 15 s, now=" + c.currentTask + " tasks=" + c.tasks); }
+            check(!station, "a station set into his hole wall for 1 raw gold: now=" + c.currentTask + " tasks=" + c.tasks);
+            if (s1330In >= 0 && t[0] - s1330In >= 200) { level.setDayTime(6000); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); pass(stage, t, "no table or furnace into the wall for one raw gold, 10 s holding"); }
         }
         return true;
     }

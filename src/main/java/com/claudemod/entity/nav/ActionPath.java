@@ -417,7 +417,7 @@ public final class ActionPath {
                 if (outside && !dirt) { com.claudemod.director.ClaudeLife.bridgeBlocks().add(p.pos().immutable()); if (p.pos().equals(cur) || p.pos().getY() >= cur.getY()) takeBack.add(p.pos().immutable()); } // (a tower step to climb by comes back the moment he's off it; a bridge waits till he's across: the daylight chore's) // out in the world only dirt may stay (a step up a hill): anything else is broken back up once he is past; in his mine a put is a patch
             }
         }
-        final BlockPos endAt = lastWalk;
+        final BlockPos endAt = cur; // where the way leaves him (lastWalk is flushed by a step up or down: a cut he stepped down into put back on his head, live 12:58-13:35 11-13, stage 1752)
         if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; }
         if (endAt != null && dest != null && restore.stream().anyMatch(o -> o[0].equals(endAt) || o[0].equals(endAt.above()))) out.add(new Task.GoTo(dest, within)); // the way ends in a cell he cut (within reach of the goal): on to the goal first, else the block went back into the cell he stood in and the walk planned the cut again (stage 935, a loop)
         if (!restore.isEmpty()) { for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); } putBackRepeat(level, from, restore); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back at the way's end (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList()); }

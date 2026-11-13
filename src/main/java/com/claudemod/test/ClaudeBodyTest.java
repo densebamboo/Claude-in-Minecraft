@@ -10565,6 +10565,7 @@ public final class ClaudeBodyTest {
             case 1702: return st1702(stage, t, c, h, level, mock);
             case 1750: return st1750(stage, t, c, h, level, mock);
             case 1751: return st1751(stage, t, c, h, level, mock);
+            case 1752: return st1752(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23473,6 +23474,25 @@ public final class ClaudeBodyTest {
             check(wood == 0, "made a wooden sword with an iron axe on him (" + wood + ", planks left " + planks + ")");
             check(iron == 1, "no iron sword from 2 ingots with only an iron axe (" + iron + ")");
             pass(stage, t, "the iron axe kept over a wooden sword, the iron sword still made");
+        }
+        return true;
+    }
+    /** Stage 1752 (D2D loop, live 12:58-13:35 11-13 at -147,16,-629, ~650 cycles in 37 min): a way that cuts his wall and steps one DOWN into the cut. The step-down branch flushed lastWalk, so stage 935's guard (on to the goal before the put-back) never saw where the way ends: the wall went back into his own head cell, he stepped out to place it, and the walk planned the same cut again. ActionPath.tasks: the goal walk comes before the put-back. */
+    private static boolean st1752(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos from = h.absolutePos(new BlockPos(8, 3, 8)), c16 = from.north(), c17 = c16.above(), feet = c16.below(), dest = feet.north();
+            level.setBlock(c16, Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(c17, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            java.util.Map<BlockPos, Long> cut;
+            try { var f = com.claudemod.entity.nav.ActionPath.class.getDeclaredField("SHELL_CUT"); f.setAccessible(true); @SuppressWarnings("unchecked") var m0 = (java.util.Map<BlockPos, Long>) f.get(null); cut = m0; } catch (Exception e) { throw new RuntimeException(e); }
+            cut.put(c16.immutable(), level.getGameTime()); cut.put(c17.immutable(), level.getGameTime()); // (his own wall, cut for the way: put back after)
+            var plan = new com.claudemod.entity.nav.ActionPath.Plan(java.util.List.of(new com.claudemod.entity.nav.ActionPath.Act.Dig(c16), new com.claudemod.entity.nav.ActionPath.Act.Dig(c17), new com.claudemod.entity.nav.ActionPath.Act.Walk(feet)), 2, 0, 1);
+            var tl = com.claudemod.entity.nav.ActionPath.tasks(plan, from, Items.COBBLESTONE, dest, 0.6, level);
+            cut.remove(c16); cut.remove(c17); flatBox(h);
+            int go = -1, put = -1; for (int i = 0; i < tl.size(); i++) { var x = tl.get(i); if (go < 0 && x instanceof Task.GoTo g0 && g0.pos().equals(dest)) go = i; if (put < 0 && x instanceof Task.Place) put = i; }
+            check(put >= 0, "no put-back planned: " + tl);
+            check(go >= 0 && go < put, "the wall goes back into his head cell before he's on to the goal: " + tl);
+            pass(stage, t, "a step down into his cut wall: on to the goal first, then the wall back (" + tl.size() + " tasks)");
         }
         return true;
     }

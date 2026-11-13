@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1706: return st1706(stage, t, c, h, level, mock);
             case 1705: return st1705(stage, t, c, h, level, mock);
             case 1704: return st1704(stage, t, c, h, level, mock);
             case 1703: return st1703(stage, t, c, h, level, mock);
@@ -23589,6 +23590,31 @@ public final class ClaudeBodyTest {
                 check(took <= 120, "the face's 2 blocks out after " + took + " ticks (the torch, 3 steps and two digs: 6 s at most)");
                 pass(stage, t, "the torch, then the face dug in " + took + " ticks, him at " + at.toShortString());
             }
+        }
+        return true;
+    }
+    /** Stage 1706 (D2D death 01:51:49 11-13 at the fortress, incident 015149-death-82: "cover for the Wither Skeleton: a 2-high gap at 293, 64, 501 (no 3-high room on any side: its sword can't reach in)", then 8.0 hits in it at 01:51:46, 47 and 48 to 0; the death map, one block of footing with open air round it. witherSafe looked one up and one down beside the gap; a wither skeleton 2.4 tall standing two down beside it reaches his feet). The end of a 2-high passage over a 2-block drop into a hall: no gap for the wither skeleton. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1706W;
+    private static boolean st1706(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(10, 5, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (s1706W != null) s1706W.discard(); s1706W = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+            for (int x = -6; x <= 6; x++) for (int y = -4; y <= 3; y++) for (int z = -4; z <= 4; z++) level.setBlock(o.offset(x, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+            for (int y = 0; y <= 1; y++) { level.setBlock(o.offset(0, y, 0), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(-1, y, 0), Blocks.AIR.defaultBlockState(), 2); } /* the gap and the 2-high passage to it */
+            for (int y = 0; y <= 2; y++) level.setBlock(o.offset(-2, y, 0), Blocks.AIR.defaultBlockState(), 2); /* 3-high room 2 off: where it stands to be hit */
+            for (int x = 1; x <= 5; x++) for (int y = -2; y <= 1; y++) for (int z = -2; z <= 2; z++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); /* the hall east, its floor 2 below the gap's */
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var ws = EntityType.WITHER_SKELETON.create(level); ws.moveTo(o.getX() + 3.5, o.getY() - 2, o.getZ() + 0.5, 90, 0); ws.setNoAi(true); ws.setPersistenceRequired(); level.addFreshEntity(ws); s1706W = ws;
+        }
+        if (t[0] == 14) {
+            var cv = com.claudemod.entity.life.FortressFight.coverFor(c, level, s1706W);
+            String got = cv == null ? "none" : cv.cover().subtract(o).toShortString() + " (" + cv.how() + ")";
+            s1706W.discard(); s1706W = null;
+            for (int x = -6; x <= 6; x++) for (int y = -4; y <= 3; y++) for (int z = -4; z <= 4; z++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
+            check(cv == null || !cv.cover().equals(o), "a 2-high gap over a 2-block drop, a wither skeleton's room two down beside it: taken as cover, " + got + " (o-relative)");
+            pass(stage, t, "no gap its sword reaches from two down: " + got);
         }
         return true;
     }

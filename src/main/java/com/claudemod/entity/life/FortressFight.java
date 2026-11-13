@@ -136,9 +136,13 @@ public final class FortressFight {
     }
     /** A 2.4-tall mob (a wither skeleton) stands there: floor and three open cells. */
     static boolean tall(ServerLevel level, BlockPos feet) { return floor(level, feet.below()) && open(level, feet) && open(level, feet.above()) && open(level, feet.above(2)); }
-    /** No cell round it (its 8 sides, a step up or down) where a wither skeleton stands: from here its sword can't reach him. */
+    /** No cell round it (its 8 sides, a step up, one or two down) where a wither skeleton stands: from here its sword can't reach him. */
+    /** Hit by a wither skeleton's sword in the last second, standing in that cell: whatever its shape, it isn't keeping the sword out (D2D death 01:51:49 11-13: three 8.0 hits in the gap, "healing in cover" held through them). */
+    private static java.util.Map<java.util.UUID, java.util.Map<Long, Integer>> swordCells; // cells a wither skeleton's sword reached him in, and when (static: fields added live start null)
+    static boolean swordReached(ClaudeEntity g, BlockPos cell) { var m = swordCells == null ? null : swordCells.get(g.getUUID()); Integer at = m == null ? null : m.get(cell.asLong()); return at != null && g.tickCount - at < 20 * 60 && g.tickCount >= at; }
+    static boolean swordIn(ClaudeEntity g, BlockPos cell) { return g.getLastHurtByMob() instanceof net.minecraft.world.entity.monster.WitherSkeleton && g.tickCount - g.getLastHurtByMobTimestamp() <= 20 && feet(g).equals(cell); }
     static boolean witherSafe(ServerLevel level, BlockPos c) {
-        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = -1; dy <= 1; dy++) { if (dx == 0 && dz == 0) continue; if (tall(level, c.offset(dx, dy, dz))) return false; }
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = -2; dy <= 1; dy++) { /* (two down too: 2.4 tall, one standing two down beside the gap reaches his feet; D2D death 01:51:49 11-13, stage 1706) */ if (dx == 0 && dz == 0) continue; if (tall(level, c.offset(dx, dy, dz))) return false; }
         return true;
     }
     static BlockPos feet(ClaudeEntity g) { return BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); }
@@ -190,7 +194,7 @@ public final class FortressFight {
     static boolean stillGood(ClaudeEntity g, ServerLevel level, Cover c, LivingEntity foe) {
         if (!stand(level, c.cover())) return false;
         if (c.kind().equals("blaze") && burntCell(g, c.cover())) return false;
-        if (c.kind().equals("wither")) return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null;
+        if (c.kind().equals("wither")) { if (swordIn(g, c.cover())) { if (swordCells == null) swordCells = new java.util.HashMap<>(); swordCells.computeIfAbsent(g.getUUID(), k -> new java.util.HashMap<>()).put(c.cover().asLong(), g.tickCount); if (lastGap != null && c.cover().equals(lastGap.get(g.getUUID()))) lastGap.remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude fight] the gap at {} is no cover: the wither skeleton's sword reached him in it (FortressFight.stillGood)", c.cover().toShortString()); return false; } return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null; }
         List<BlockPos> put = builds().get(g.getUUID()); if (put != null && !c.cover().equals(buildFor().get(g.getUUID()))) put = null;
         for (Blaze b : blazesNear(g, level, c.cover(), SHOT_RANGE)) if (sees(level, b, c.cover()) && (put == null || seenPast(level, b.getEyePosition(), c.cover(), put, g))) return false;
         return true;
@@ -399,7 +403,7 @@ public final class FortressFight {
         List<Cand> cands = new ArrayList<>();
         for (int dx = -10; dx <= 10; dx++) for (int dz = -10; dz <= 10; dz++) for (int dy = -2; dy <= 2; dy++) {
             BlockPos c = me.offset(dx, dy, dz);
-            if (!stand(level, c) || !witherSafe(level, c)) continue;
+            if (!stand(level, c) || !witherSafe(level, c) || swordReached(g, c)) continue;
             BlockPos front = null;
             for (int ox = -2; ox <= 2 && front == null; ox++) for (int oz = -2; oz <= 2 && front == null; oz++) {
                 if (Math.max(Math.abs(ox), Math.abs(oz)) != 2) continue;
@@ -418,7 +422,7 @@ public final class FortressFight {
             return new Cover(k.c(), k.front(), foe.blockPosition(), "wither", "a 2-high gap at " + k.c().toShortString() + " (no 3-high room on any side: its sword can't reach in), hitting it at " + k.front().toShortString() + " 2 off (" + cands.size() + " gaps looked at)", g.tickCount);
         }
         BlockPos last = lastGap == null ? null : lastGap.get(g.getUUID()); // (none within 10: the gap that held a wither skeleton off before, within 24, as a player goes back to the spot that worked; live 13:59 11-04 it was 15 off and he ran instead)
-        if (last != null && last.closerThan(me, 24) && stand(level, last) && witherSafe(level, last)) {
+        if (last != null && last.closerThan(me, 24) && stand(level, last) && witherSafe(level, last) && !swordReached(g, last)) {
             BlockPos front = null;
             for (int ox = -2; ox <= 2 && front == null; ox++) for (int oz = -2; oz <= 2 && front == null; oz++) { if (Math.max(Math.abs(ox), Math.abs(oz)) != 2) continue; for (int oy = -1; oy <= 1 && front == null; oy++) { BlockPos m = last.offset(ox, oy, oz); if (tall(level, m)) front = m.immutable(); } }
             var path = front == null ? null : g.getNavigation().createPath(last, 0);

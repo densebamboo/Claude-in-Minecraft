@@ -71,7 +71,30 @@ public final class FortressFight {
         var head = g.skillQueue.peekFirst(); if (head == null || !"blaze_rods".equals(head.skill())) return;
         BlockPos end = null; for (var t : g.tasks) { if (t instanceof Task.GoTo gt) end = gt.pos(); else if (!(t instanceof Task.Bore)) return; }
         if (g.currentTask != null) { if (g.currentTask instanceof Task.GoTo gt) { if (end == null) end = gt.pos(); } else if (!(g.currentTask instanceof Task.Bore)) return; }
-        if (end == null || end.distSqr(g.blockPosition()) < 32 * 32) return;
+        if (end != null && end.distSqr(g.blockPosition()) < 32 * 32) { /* a short look-walk: a blaze he hears and doesn't see is weighed here, the walk on into its view in the open against cover and letting it come (live 14:43:13-35 11-12, review 144447-79: "heard a Blaze 14 blocks off, not in sight", the walk went on over the open deck, 2 fireballs and their fire, 20 -> 11; stage 1672) */
+            for (Blaze b : Perception.known(g, Blaze.class, g.getBoundingBox().inflate(24), Entity::isAlive)) {
+                if (b.distanceTo(g) > 24 || Perception.seesNow(g, b) || byCrowd(g, b.blockPosition())) continue;
+                if (walkStop == null) walkStop = new HashMap<>(); Object[] last = walkStop.get(g.getUUID());
+                if (last != null && b.getUUID().equals(last[0]) && g.tickCount - (int) last[1] < 20 * 30) continue;
+                walkStop.put(g.getUUID(), new Object[] {b.getUUID(), g.tickCount});
+                double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS), fb = Weights.w("blaze.fireball_hp", 5);
+                double perB = fb * (1 - Math.min(20, Math.max(armor / 5, armor - fb / (2 + tough / 4))) / 25) + (g.hasEffect(MobEffects.FIRE_RESISTANCE) ? 0 : Weights.w("blaze.fire_hp", 3));
+                double onHp = Weights.w("blaze.backout_exposed_s", 3) * Weights.w("blaze.shots_per_s", 0.6) * Weights.w("blaze.shot_hit_chance", 0.5) * perB; // (it sees him first, in the open, before he's back in cover: walking, no shield up)
+                double walkOn = Decide.hpS(g, 0, onHp, perB);
+                Cover cv = coverFor(g, level, b); double toCover = cv == null ? 0 : Math.sqrt(cv.cover().distSqr(g.blockPosition())) / Decide.sprint(), come = Math.min(Weights.w("blaze.come_wait_s_max", 15), b.distanceTo(g) / Weights.w("blaze.come_bps", 2));
+                var pick = Decide.choose(g, "blaze.heard", "a blaze heard " + (int) b.distanceTo(g) + " off, not in view, his walk to " + end.toShortString(), true, List.of(
+                    Decide.Option.of("walk on", walkOn, "into its view in the open, ~" + String.format("%.1f", onHp) + " HP before he's in cover"),
+                    cv == null ? Decide.Option.out("cover, let it come", "no corner out of its sight near") : Decide.Option.of("cover, let it come", toCover + come, "to " + cv.cover().toShortString() + " (" + (int) Math.sqrt(cv.cover().distSqr(g.blockPosition())) + " off), ~" + (int) come + " s for it to come into view")));
+                if (pick == null || !pick.name().startsWith("cover")) return;
+                g.tasks.clear(); g.dropCurrent = true;
+                if (!cv.cover().equals(g.blockPosition())) g.tasks.add(new Task.GoTo(cv.cover(), 0.5));
+                g.tasks.add(new Task.Wait((int) (come * 20), false));
+                ClaudeMod.LOGGER.info("[Claude fight] blaze_rods: a blaze heard {} off, not in view: his walk to {} stops, into cover at {} to let it come (FortressFight.tick)", (int) b.distanceTo(g), end.toShortString(), cv.cover().toShortString());
+                return;
+            }
+            return;
+        }
+        if (end == null) return;
         for (Blaze b : Perception.known(g, Blaze.class, g.getBoundingBox().inflate(24), Entity::isAlive)) {
             if (b.distanceTo(g) > 24 || b.blockPosition().distSqr(end) < 24 * 24 || byCrowd(g, b.blockPosition())) continue;
             if (walkStop == null) walkStop = new HashMap<>(); Object[] last = walkStop.get(g.getUUID());

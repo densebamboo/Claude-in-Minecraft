@@ -7396,7 +7396,7 @@ public class WorkGoal extends Goal {
                 String why = "the way back to cover hasn't brought him nearer in " + (g.tickCount - cfBackTick) / 20 + " s (" + String.format("%.1f", dc) + " off)";
                 if (due != null && shield) { g.getNavigation().stop(); g.setSprinting(false); shieldUp(due); cfSay("shield up where he stands", why + ": the volley on the shield here"); return false; }
                 if (meal != null) { g.getNavigation().stop(); shieldDown(); cfBackTick = g.tickCount; cfEatTick = g.tickCount; g.tasks.removeIf(x -> x instanceof Task.Eat); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(meal)); cfSay("eating where he stands", why + ", health " + (int) hp + ", hunger " + g.getFoodData().getFoodLevel() + ", no volley due: " + BuiltInRegistries.ITEM.getKey(meal).getPath() + " now"); return true; }
-                cfSay("fighting where he stands", why + ", nothing to eat: the fight here, not a walk that goes nowhere"); cfBackTick = g.tickCount; cfHealing = false; backing = false;
+                cfSay("fighting where he stands", why + (g.getFoodData().getFoodLevel() >= 20 ? ", too full to eat" : ", nothing to eat") + ": the fight here, not a walk that goes nowhere"); /* (at hunger 20 it read "nothing to eat" with 10 meals on him: review 144447-78) */ cfBackTick = g.tickCount; cfHealing = false; backing = false;
             }
         } else if (inCover) cfBackTick = -1;
         if (backing) { // (an expert backs off with health to spare and heals all the way: food's plenty)

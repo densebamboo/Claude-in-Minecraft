@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1672: return st1672(stage, t, c, h, level, mock);
             case 1671: return st1671(stage, t, c, h, level, mock);
             case 1670: return st1670(stage, t, c, h, level, mock);
             case 1669: return st1669(stage, t, c, h, level, mock);
@@ -22599,6 +22600,34 @@ public final class ClaudeBodyTest {
             check(p != null && !p.legs().isEmpty(), "a route off his ledge: " + s1671W);
             check(bad.isEmpty(), "legs ending over the drop he can't see down, on a floor read as netherrack: " + bad + " | " + s1671W);
             nsHome(c, h, level); pass(stage, t, s1671W);
+        }
+        return true;
+    }
+    /** Stage 1672 (D2D review 144447-79, live 14:43:13-14:43:35 11-12: "no blaze in view: walking the fortress to 300,62,544 to look", then "heard a Blaze 14 blocks off, not in sight", and the look-walk went on over the open deck: two fireballs and their fire, 20 -> 11. FortressFight.tick weighs a known blaze only on walks ending 32+ off; this one ended 6 off). On the rods job, a look-walk 8 on over an open deck, a blaze heard 14 off behind a wall, a wall beside him: the walk on into its view is priced against cover there and letting it come; he takes the cover. */
+    private static net.minecraft.world.entity.monster.Blaze s1672B; private static BlockPos s1672E; private static int s1672T;
+    private static boolean st1672(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.FortressFight.reset(c); if (s1672B != null) s1672B.discard(); s1672B = null; s1672T = -1; }
+        if (t[0] == 10) {
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -6; z <= 6; z++) for (int y = 0; y <= 6; y++) level.setBlock(o.offset(-11, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall the blaze is behind
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 10)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1672B = EntityType.BLAZE.create(level); s1672B.moveTo(o.getX() - 13.5, o.getY() + 2, o.getZ() + 0.5, 90, 0); s1672B.setPersistenceRequired(); s1672B.setNoAi(true); level.addFreshEntity(s1672B);
+        }
+        if (t[0] == 14) { s1672E = o.offset(-8, 0, 0); c.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you")); c.tasks.add(new Task.GoTo(s1672E, 1.0)); }
+        if (t[0] == 16) { com.claudemod.entity.life.Perception.noteHeardTest(c, s1672B); s1672T = t[0]; }
+        if (s1672T > 0 && t[0] == s1672T + 30) {
+            boolean walking = c.currentTask instanceof Task.GoTo gt && gt.pos().equals(s1672E) || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo gt && gt.pos().equals(s1672E));
+            String q = c.currentTask + " | " + c.tasks; double west = o.getX() + 0.5 - c.getX();
+            s1672B.discard(); s1672B = null; s1672T = -1; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.FortressFight.reset(c);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(!walking, "a blaze heard 14 off behind the wall, his look-walk 8 on over the open deck toward it: still walking on (" + String.format("%.1f", west) + " west; " + q + ")");
+            pass(stage, t, "cover, letting it come: " + q);
         }
         return true;
     }

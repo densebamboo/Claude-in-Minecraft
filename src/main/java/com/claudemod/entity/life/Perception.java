@@ -550,6 +550,7 @@ public final class Perception {
     /** The hazard he knows at this cell (seen there, or heard from about there), or null. */
     /** (tests) A sign he saw earlier: on his record as if seen. */
     /** Tests: he has just seen {@code e} (a stage's blaze, known to his planner without the wait for his eyes). */
+    public static void noteHeardTest(ClaudeEntity g, Entity e) { mind(g).heard.put(e.getUUID(), new Contact(e.getUUID(), e.getType(), e.position(), g.tickCount, How.HEARD, "test")); }
     public static void noteSeenTest(ClaudeEntity g, Entity e) { mind(g).seen.put(e.getUUID(), new Contact(e.getUUID(), e.getType(), e.position(), g.tickCount, How.SEEN, null)); }
     public static void noteSignTest(ClaudeEntity g, BlockPos p, String what) { seenSigns(g).put(p.immutable(), what); }
     /** The signs he has seen, kept across a relaunch like his seen ore (live 12:09 11-10: the relaunch dropped death 76's spawner and the spiders came again). Heard ones are only a guess at where: not kept. */

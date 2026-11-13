@@ -5410,6 +5410,8 @@ public class WorkGoal extends Goal {
         return weaponDamage(bestWeapon(g)) >= w("fight.armed_hit", 4); // anything that hits like a wooden sword or better: an iron pickaxe is one (death 25, live 20:39 11-10: "unarmed" with it, 0 swings, cave spiders 17 -> 0; stage 1397)
     }
     /** What he'd swing: the most damage a second of anything he carries (swords, axes, a pickaxe too); EMPTY: bare hands. */
+    /** A real weapon on him: his best one by damage a second (bestWeapon) at a stone sword's or near it (an iron or stone axe counts; a wooden or gold sword, a wooden axe, bare hands don't: the wooden sword walked into a cave with mobs killed him twice). One test for every fitness gate (D2D 164147-17: an iron axe on him, "no proper sword"; stage 1707). */
+    public static boolean properWeapon(ClaudeEntity g) { ItemStack b = bestWeapon(g); return !b.isEmpty() && weaponDamage(b) * weaponSpeed(b) >= w("fight.proper_weapon_dps", 7.0); }
     public static ItemStack bestWeapon(ClaudeEntity g) {
         ItemStack best = ItemStack.EMPTY; double bestDps = 0;
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {

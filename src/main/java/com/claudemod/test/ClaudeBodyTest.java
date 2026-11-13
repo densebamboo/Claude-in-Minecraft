@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1707: return st1707(stage, t, c, h, level, mock);
             case 1706: return st1706(stage, t, c, h, level, mock);
             case 1705: return st1705(stage, t, c, h, level, mock);
             case 1704: return st1704(stage, t, c, h, level, mock);
@@ -23615,6 +23616,27 @@ public final class ClaudeBodyTest {
             flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
             check(cv == null || !cv.cover().equals(o), "a 2-high gap over a 2-block drop, a wither skeleton's room two down beside it: taken as cover, " + got + " (o-relative)");
             pass(stage, t, "no gap its sword reaches from two down: " + got);
+        }
+        return true;
+    }
+    /** Stage 1707 (D2D review 225922-34, live 22:57:12 11-12: a wooden sword and a wooden axe on him, "a Skeleton 11 blocks off in sight: let be, not fit for it (no proper sword)", shot 20 -> 4 after; D2D 164147-17: an iron axe on him, the same gate). The fight-fitness gate reads his best weapon by damage a second: an iron axe is a weapon; a wooden sword (6.4) still isn't, as every other gate has it, nor bare hands. */
+    private static boolean st1707(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+            level.setDayTime(6000); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            String[] got = new String[3]; String err = null;
+            net.minecraft.world.item.Item[] kits = {Items.WOODEN_SWORD, Items.IRON_AXE, null};
+            for (int i = 0; i < 3; i++) {
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); if (kits[i] != null) c.getInventory().add(new ItemStack(kits[i]));
+                try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("unfitForDrops", com.claudemod.entity.ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); got[i] = (String) m.invoke(null, c, level); } catch (ReflectiveOperationException e) { err = String.valueOf(e); }
+            }
+            c.getInventory().clearContent();
+            check(err == null, "unfitForDrops unread: " + err);
+            check(got[0] != null, "a wooden sword alone: fit to pick a fight (every other gate has it not)");
+            check(got[1] == null, "an iron axe on him, health 20, fed, by day: \"" + got[1] + "\"");
+            check(got[2] != null, "bare hands: fit to pick a fight");
+            pass(stage, t, "his best weapon read: wooden sword \"" + got[0] + "\", iron axe fit, bare hands \"" + got[2] + "\"");
         }
         return true;
     }

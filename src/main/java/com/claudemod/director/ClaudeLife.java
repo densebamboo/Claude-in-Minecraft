@@ -475,7 +475,7 @@ public final class ClaudeLife {
                 var mobs = ((ServerLevel) g.level()).getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(at).inflate(12), m -> m.isAlive());
                 boolean ranged = mobs.stream().anyMatch(m -> com.claudemod.entity.goals.WorkGoal.shoots(m)
                         || (m instanceof net.minecraft.world.entity.monster.Drowned && m.getMainHandItem().is(Items.TRIDENT)));
-                boolean armed = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0; // (a wooden sword is not "armed" for a cave with mobs in it: that walk-in killed him twice)
+                boolean armed = com.claudemod.entity.goals.WorkGoal.properWeapon(g); // (a wooden sword is not "armed" for a cave with mobs in it: that walk-in killed him twice)
                 if (mobs.size() >= 2 || (!mobs.isEmpty() && (g.getHealth() < 14 || ranged || !armed))) { // more than one, a shooter, hurt, or nothing proper to fight with: wait; a single melee mob he can handle on the way
                     if (g.justRespawned) ClaudeMod.LOGGER.info("[Claude life] {} mobs still where he died: waiting before going back for his things", mobs.size());
                     g.justRespawned = false;
@@ -4197,11 +4197,11 @@ public final class ClaudeLife {
                 if (looked != null) { mobs.remove(looked); mobs.add(0, looked); }
                 int n = Math.min(Math.min(Math.max(count, 1), 4), mobs.size());
                 craftSwordIfCan(g, level);
-                boolean properSword = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0;
+                boolean properSword = com.claudemod.entity.goals.WorkGoal.properWeapon(g);
                 boolean armored = false; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
                 boolean ranged = com.claudemod.entity.goals.WorkGoal.shoots(mobs.get(0));
                 if (!g.commandActive && (g.getHealth() < 10 || !properSword || (ranged && !armored))) // his own idea of a fight, in no state for one (a pillager at 8 health with a wooden sword took him to 6): not now
-                    return "failed: not fit to pick that fight (health " + (int) g.getHealth() + (properSword ? "" : ", no proper sword") + (armored ? "" : ", no armor") + (ranged ? ", it shoots" : "") + "); cover and food first";
+                    return "failed: not fit to pick that fight (health " + (int) g.getHealth() + (properSword ? "" : ", no proper weapon") + (armored ? "" : ", no armor") + (ranged ? ", it shoots" : "") + "); cover and food first";
                 // picking a fight (not self-defence) takes food for the regen it costs, and a crowd takes iron: a player with an empty belly or a stone sword walks round a group
                 int foodOn = g.inventory.count(x -> x.getItem().getFoodProperties(x, g) != null && !x.is(Items.ROTTEN_FLESH) && !x.is(Items.SPIDER_EYE));
                 if (!g.commandActive && g.getFoodData().getFoodLevel() < 18 && foodOn == 0) return "failed: not picking a fight with nothing to eat afterwards (hunger " + g.getFoodData().getFoodLevel() + ", no food on me): food first, fights later";
@@ -4386,7 +4386,7 @@ public final class ClaudeLife {
                 String race = com.claudemod.entity.life.Clocks.race(g, player, level, spot); // the despawn clock against the run there: a race he can't win is not run (the user told him it was gone; his clock had known)
                 if (race != null) { if (g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; return race; }
                 var guard = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(spot).inflate(12), m -> m.isAlive()); // what's standing over his things
-                boolean properSword = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0;
+                boolean properSword = com.claudemod.entity.goals.WorkGoal.properWeapon(g);
                 boolean shooter = guard.stream().anyMatch(com.claudemod.entity.goals.WorkGoal::shoots);
                 // risk against reward, the user's rule: a pile with an iron set in it is worth walking in on one zombie with a stone sword; a pile of cobble waits for them to wander off
                 int worth = dropsWorth(drops);
@@ -4394,10 +4394,10 @@ public final class ClaudeLife {
                 int risk = guard.size() * (shooter ? 2 : 1) + (creeper ? 3 : 0) + (com.claudemod.director.ClaudeLife.dayHere(level) ? 0 : 1) + (properSword ? 0 : 2) + (g.getHealth() < 10 ? 2 : 0);
                 boolean anyWeapon = false; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i).getItem(); if (it instanceof net.minecraft.world.item.SwordItem || it instanceof net.minecraft.world.item.AxeItem) { anyWeapon = true; break; } }
                 boolean worthIt = !guard.isEmpty() && worth >= 20 * risk && g.getHealth() >= 8 && (properSword || (worth >= 80 && anyWeapon && !creeper)); // never empty-handed into a guarded cave, never by a creeper without a real sword (pockets empty after a respawn, he walked into 3 mobs and a creeper for a 232 pile and blew up)
-                if (!guard.isEmpty()) ClaudeMod.LOGGER.info("[Claude life] his drops at {}: worth {} against risk {} ({} mob(s){}{}, {}, {}): {}", spot.toShortString(), worth, risk, guard.size(), shooter ? ", a shooter" : "", creeper ? ", a creeper" : "", com.claudemod.director.ClaudeLife.dayHere(level) ? "day" : "night", properSword ? "sword in hand" : "no proper sword", worthIt ? "going in" : "waiting");
+                if (!guard.isEmpty()) ClaudeMod.LOGGER.info("[Claude life] his drops at {}: worth {} against risk {} ({} mob(s){}{}, {}, {}): {}", spot.toShortString(), worth, risk, guard.size(), shooter ? ", a shooter" : "", creeper ? ", a creeper" : "", com.claudemod.director.ClaudeLife.dayHere(level) ? "day" : "night", properSword ? "a weapon on him" : "no proper weapon", worthIt ? "going in" : "waiting");
                 if (!properSword && haveFor(g, level, Items.COBBLESTONE) + haveFor(g, level, Items.COBBLED_DEEPSLATE) >= 2) { // back to where something killed him, with nothing to fight with: a stone sword first, like a player (live 09:41-09:44 World 17: the plan's "with a sword this time" lost to this step, 50 s "waiting: nothing proper to fight with" with cobble in his chest 9 off, then in unarmed on the clock: 7 mobs, dead)
                     g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("craft", "stone_sword", 1));
-                    ClaudeMod.LOGGER.info("[Claude life] his drops at {}: no proper sword on him ({} mob(s) seen there): stone_sword first (ClaudeLife recover_drops)", spot.toShortString(), guard.size());
+                    ClaudeMod.LOGGER.info("[Claude life] his drops at {}: no proper weapon on him ({} mob(s) seen there): stone_sword first (ClaudeLife recover_drops)", spot.toShortString(), guard.size());
                     return "going back for my things at " + spot.toShortString() + " with nothing to fight with: making a stone sword first";
                 }
                 if (!worthIt && !guard.isEmpty()) { // (worth less than its risk with a mob on it: wait, as said; one mob with a sword in hand walked him in for 10 cobble, "waiting" and "going" in the same second, live 14:16:41 11-08, review 158, stage 1048) // walking in on them with a wooden sword and no armor is how he died twice: wait them out (or get a sword first)
@@ -9768,7 +9768,7 @@ public final class ClaudeLife {
     /** A crafting table on his queue (a notch dug for it, then the table): a craft waits for it, never reports "no table" past it (review 58). */
     public static boolean tableComing(ClaudeEntity g) { return g.tasks.stream().anyMatch(t -> t instanceof Task.Place p && p.item() == Items.CRAFTING_TABLE); }
     /** Night, and nothing proper to fight with or wear (a stone-or-better sword or axe, and a chestplate): no hunting in the open. One rule for the hunt and for the kit that would send him on it (they disagreed: round in circles, then 5 min idle; review 184). */
-    static boolean nightHuntNo(ClaudeEntity g, ServerLevel level) { return !dayHere(level) && (g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) == 0 || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty()); }
+    static boolean nightHuntNo(ClaudeEntity g, ServerLevel level) { return !dayHere(level) && (!com.claudemod.entity.goals.WorkGoal.properWeapon(g) || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty()); }
     /** Places a block from his inventory right next to him (instantly; a player would too). */
     /** (tests: where a station of his would go down from where he stands) */
     public static BlockPos placeStation(ClaudeEntity g, ServerLevel level, Item item) { return placeNextTo(g, level, item); }
@@ -14083,9 +14083,9 @@ public final class ClaudeLife {
             ClaudeMod.LOGGER.info("[Claude life] a {} on them but he's bare-handed: not charging in (a sword first)", BuiltInRegistries.ENTITY_TYPE.getKey(threats.get(0).getType()).getPath());
             return; // ponytail: he just sits it out unarmed; fetching cobble for a sword mid-fight is the planner's call
         }
-        boolean properSword = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0;
+        boolean properSword = com.claudemod.entity.goals.WorkGoal.properWeapon(g);
         if (threats.get(0) instanceof net.minecraft.world.entity.monster.Creeper && (!properSword || g.getHealth() <= 12)) { // a creeper with a wooden sword is a funeral (death 39: it chased him 30 s and blew); they can step back from it themselves
-            ClaudeMod.LOGGER.info("[Claude life] a creeper by them but he's not fit to take one on ({}): leaving it to them", properSword ? "health " + (int) g.getHealth() : "no proper sword");
+            ClaudeMod.LOGGER.info("[Claude life] a creeper by them but he's not fit to take one on ({}): leaving it to them", properSword ? "health " + (int) g.getHealth() : "no proper weapon");
             return;
         }
         g.urgentAttacker = g.lastGuardTarget;
@@ -14572,7 +14572,7 @@ public final class ClaudeLife {
     }
 
     private static String unfitForDrops(ClaudeEntity g, ServerLevel level) {
-        if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) == 0) return "no proper sword";
+        if (!com.claudemod.entity.goals.WorkGoal.properWeapon(g)) return "no proper weapon (best " + (com.claudemod.entity.goals.WorkGoal.bestWeapon(g).isEmpty() ? "bare hands" : BuiltInRegistries.ITEM.getKey(com.claudemod.entity.goals.WorkGoal.bestWeapon(g).getItem()).getPath()) + ")";
         if (g.getHealth() < 10) return "health " + (int) g.getHealth();
         if (Kit.food(g) == 0 && g.getFoodData().getFoodLevel() < 18) return "nothing to eat after it";
         if (nightOutsideNo(g, level, g.blockPosition()) != null) return "night and not geared for the open";

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1673: return st1673(stage, t, c, h, level, mock);
             case 1672: return st1672(stage, t, c, h, level, mock);
             case 1671: return st1671(stage, t, c, h, level, mock);
             case 1670: return st1670(stage, t, c, h, level, mock);
@@ -22628,6 +22629,36 @@ public final class ClaudeBodyTest {
             flatBox(h);
             check(!walking, "a blaze heard 14 off behind the wall, his look-walk 8 on over the open deck toward it: still walking on (" + String.format("%.1f", west) + " west; " + q + ")");
             pass(stage, t, "cover, letting it come: " + q);
+        }
+        return true;
+    }
+    /** Stage 1673 (D2D pass 143457, live 14:21:24 11-12: 2 blaze rods off his pile at 250,65,507 despawned, him 11 off on the rods job; "[Claude deaths] ... left the world: blaze_rod (despawned)" was logging only, and no review named the rods, only the iron armor and pick): a job item (a dragon-path item, or what his step is after) that despawns or burns off his pending pile is an incident of its own, JOB_ITEM_LOST; cobblestone off the same pile isn't. */
+    private static net.minecraft.world.entity.item.ItemEntity s1673R, s1673C; private static int s1673N;
+    private static boolean st1673(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)), pile = o.offset(4, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you"));
+            s1673R = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.BLAZE_ROD, 2)); s1673R.setPickUpDelay(32767);
+            s1673C = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 1.5, new ItemStack(Items.COBBLESTONE, 9)); s1673C.setPickUpDelay(32767);
+            level.addFreshEntity(s1673R); level.addFreshEntity(s1673C);
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, java.util.List.of(s1673R, s1673C));
+            s1673C.lifespan = s1673C.getAge() + 10; s1673N = com.claudemod.entity.life.Watchdog.incidents;
+        }
+        if (t[0] == 30) {
+            String afterCobble = com.claudemod.entity.life.Watchdog.incidents == s1673N ? "" : com.claudemod.entity.life.Watchdog.lastIncident;
+            check(!s1673C.isAlive(), "setup: the cobblestone didn't despawn");
+            check(!afterCobble.startsWith("JOB_ITEM_LOST"), "cobblestone off his pile despawned: " + afterCobble);
+            s1673R.lifespan = s1673R.getAge() + 10; s1673N = com.claudemod.entity.life.Watchdog.incidents;
+        }
+        if (t[0] == 50) {
+            boolean gone = !s1673R.isAlive(); String inc = com.claudemod.entity.life.Watchdog.incidents == s1673N ? "none" : com.claudemod.entity.life.Watchdog.lastIncident;
+            if (s1673R.isAlive()) s1673R.discard(); s1673R = null; s1673C = null; c.skillQueue.clear(); com.claudemod.entity.life.DeathLog.reset(c);
+            check(gone, "setup: the rods didn't despawn");
+            check(inc.startsWith("JOB_ITEM_LOST") && inc.contains("blaze_rod"), "2 blaze rods off his pending pile despawned on the rods job: incident " + inc);
+            pass(stage, t, inc);
         }
         return true;
     }

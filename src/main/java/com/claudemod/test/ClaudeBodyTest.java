@@ -11140,6 +11140,7 @@ public final class ClaudeBodyTest {
             case 1642: return st1642(stage, t, c, h, level, mock);
             case 1643: return st1643(stage, t, c, h, level, mock);
             case 1644: return st1644(stage, t, c, h, level, mock);
+            case 1645: return st1645(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25783,6 +25784,38 @@ public final class ClaudeBodyTest {
             check(!s1644W.startsWith("-") && !s1644W.startsWith("no"), "setup: the cow down the stair not walkable: " + s1644W);
             check(!s1644R.contains("no cow in sight") && !s1644R.contains("fishing"), "a cow 10 below him under an overhang, " + s1644W + ", left out of the hunt: " + s1644R);
             pass(stage, t, "the cow under the overhang is in the hunt (" + s1644W + "): " + (s1644R.length() > 100 ? s1644R.substring(0, 100) : s1644R));
+        }
+        return true;
+    }
+    /** Stage 1645 (D2D review 191949-61, live 19:16:13-19:19 11-12 at 35,71,-66: "the cast landed out of the water (3 blocks out, the water's 4): aiming higher next" a dozen times in 3 min, never given up; the give-up only counted casts that stop under 1 block out). A bank under a 2-high overhang, a block in the line 3 out, the water behind it: the casts land in the same dry spot whatever the aim; he gives the spot up inside 40 s. (The incident map round him, rebuilt, landed his casts fine: the line's block was past the map's edge.) */
+    private static int s1645Dry, s1645T; private static String s1645R = "";
+    private static boolean st1645(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = new BlockPos(14400, 200, 7800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) for (int m = -16; m <= 16; m += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(base.offset(k, 0, m)), 2, base.offset(k, 0, m));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; c.prefs.put("stay_close", "no"); c.attempts.clear(); s1645Dry = 0; s1645T = -1; s1645R = ""; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 12; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 5; y++) {
+                boolean solid = y < 0 || y == 0 && x <= 3 || y == 3 || x == 3 && y >= 1 && y <= 2; // (floor, the bank to x 3, the overhang 2 over his feet, the block in the line)
+                boolean wet = y == 0 && x >= 4 && x <= 10 && Math.abs(z) <= 3;
+                level.setBlock(base.offset(x, y, z), (wet ? Blocks.WATER : solid ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(base).inflate(60), m -> !m.getUUID().equals(c.getUUID()))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.FISHING_ROD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.teleportTo(level, base.getX() + 0.5, base.getY() + 1, base.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(1000);
+        }
+        if (t[0] == 40) { c.tasks.add(new Task.Fish(base.offset(6, 0, 0), 2, 20 * 240)); s1645R = "Fish at the water 6 off, a block in the line 3 off"; s1645T = t[0]; }
+        if (s1645T > 0 && t[0] > s1645T) {
+            var hook = c.fishing;
+            if (hook != null && hook.getDeltaMovement().lengthSqr() < 1e-3 && !level.getFluidState(hook.blockPosition()).is(net.minecraft.tags.FluidTags.WATER) && !level.getFluidState(hook.blockPosition().below()).is(net.minecraft.tags.FluidTags.WATER)) s1645Dry++;
+            boolean fishing = c.currentTask instanceof Task.Fish || c.tasks.stream().anyMatch(x -> x instanceof Task.Fish);
+            if (!fishing && t[0] - s1645T > 5 || s1645Dry > 20 * 30 || t[0] - s1645T > 20 * 40) {
+                if (c.fishing != null) c.fishing.discard();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear();
+                for (int x = -4; x <= 12; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(!fishing, "a block in the line, every cast on dry ground: still casting after " + (t[0] - s1645T) + " ticks, the hook dry " + s1645Dry + " ticks");
+                pass(stage, t, "gave the spot up after " + (t[0] - s1645T) + " ticks (the hook dry " + s1645Dry + ")");
+            }
         }
         return true;
     }

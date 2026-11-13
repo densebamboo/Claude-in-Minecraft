@@ -7718,6 +7718,7 @@ public class WorkGoal extends Goal {
     }
 
     private int fishCaught, fishCastTick;
+    private double fishLastD = -9; // where the last dry cast fell (from him)
     private float fishAim; // pitch correction learned from where the casts land (past the water: lower; short of it: higher)
     private static java.lang.reflect.Field nibbleField; // FishingHook.nibble: >0 while a fish is on the line (the window a player reels in)
 
@@ -7730,7 +7731,7 @@ public class WorkGoal extends Goal {
 
     /** Rod in hand, face the water, cast; wait for the bite (the bobber dips: the hook's nibble window), reel in; again until enough. */
     private boolean doFish(Task.Fish t) {
-        if (ticks == 1) { fishCaught = 0; fishCastTick = -100; fishAim = 0; }
+        if (ticks == 1) { fishCaught = 0; fishCastTick = -100; fishAim = 0; fishLastD = -9; }
         var hook = g.fishing;
         boolean over = ticks > t.maxTicks() || fishCaught >= t.catches() || !hostilesNear(10).isEmpty(); // enough, out of time, or something coming: rod in, deal with it
         ItemStack rod = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.FISHING_ROD));
@@ -7757,7 +7758,8 @@ public class WorkGoal extends Goal {
             double hookD = Math.hypot(hook.getX() - g.getX(), hook.getZ() - g.getZ()), wantD = Math.hypot(to.x - g.getX(), to.z - g.getZ());
             if (Math.abs(hookD - wantD) > 1.5) fishAim = Math.max(-40, Math.min(60, fishAim + (hookD > wantD ? 8 : -8))); // the right distance and still dry: off to the side, the aim's fine
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the cast landed out of the water ({} blocks out, the water's {}): aiming {} next", (int) hookD, (int) wantD, hookD > wantD ? "lower" : "higher");
-            if (hookD < 1.0) { int blocked = g.attempts.counters.merge("castBlocked", 1, Integer::sum); if (blocked >= 3) { g.attempts.counters.put("castBlocked", 0); g.useHeld(); failed(com.claudemod.entity.life.Attempts.Kind.REACH, t.water(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_BLOCK, "the cast lands out of the water: something in the line"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the line stops at his feet every cast (something in the way): not fishing from here"); return true; } } else g.attempts.counters.put("castBlocked", 0); // (a block over or before him catches the line: aiming higher never helps, and he cast twenty times)
+            boolean same = Math.abs(hookD - fishLastD) < 1.0; fishLastD = hookD; /* (the aim moved 8 degrees and the cast fell where the last one did: the line stops on a block, live 19:16-19:19 11-12 a dozen casts "3 blocks out", D2D 191949-61, stage 1645) */
+            if (hookD < 1.0 || same) { int blocked = g.attempts.counters.merge("castBlocked", 1, Integer::sum); if (blocked >= 3) { g.attempts.counters.put("castBlocked", 0); g.useHeld(); failed(com.claudemod.entity.life.Attempts.Kind.REACH, t.water(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_BLOCK, "the cast lands out of the water: something in the line"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the line stops {} blocks out every cast, whatever the aim (something in the way): not fishing from here", (int) hookD); return true; } } else g.attempts.counters.put("castBlocked", 0); // (a block over or before him catches the line: aiming higher never helps, and he cast twenty times)
             g.useHeld(); fishCastTick = ticks; return false;
         }
         if (nibble(hook) > 0) { // a bite: reel in now (the catch flies to him)

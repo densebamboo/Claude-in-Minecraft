@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1679: return st1679(stage, t, c, h, level, mock);
             case 1678: return st1678(stage, t, c, h, level, mock);
             case 1677: return st1677(stage, t, c, h, level, mock);
             case 1676: return st1676(stage, t, c, h, level, mock);
@@ -22799,6 +22800,30 @@ public final class ClaudeBodyTest {
             check(!target, "setup: the piglin has a target");
             check(!odds.contains("Piglin"), "gold boots on, a crossbow piglin 9 off with no target: counted on him: " + odds);
             pass(stage, t, odds);
+        }
+        return true;
+    }
+    /** Stage 1679 (D2D TOP, reviews 164147-15/16 ... 170642-47, live 16:36:49-17:09 11-12 by his base: the greedy made way to -41,50,-19 leapt onto a pond's bank and dug a staircase down beside the pond, "Dig -41,61,-14, -41,60,-14, -41,59,-14", each cell holding the pond back; the first break let the pond into his cut ("water at -41,61,-14 is open water up top", logged after the break), and he floated in his flooded staircase ~30 min. The plan's rule "never dig a block holding known water back" knew only the pond's surface, the cells he had looked at; the water under a seen surface was not his. A pond 3 deep in stone, its surface seen, a goal under its bank: the made way never digs a cell beside the pond's water. */
+    private static boolean st1679(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 14, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (int x = -7; x <= 7; x++) for (int z = -6; z <= 6; z++) { for (int y = -12; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int y = -3; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); /* the pond */
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() - 4.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) { com.claudemod.entity.life.Perception.forgetWater(c, o.offset(x, -2, z)); com.claudemod.entity.life.Perception.forgetWater(c, o.offset(x, -3, z)); com.claudemod.entity.life.Perception.sawCell(c, level, o.offset(x, -1, z)); } /* its surface seen, as from its bank */
+            BlockPos from = o.offset(-5, 0, 0), goal = o.offset(-2, -6, 0); String bad = "", acts;
+            var p = com.claudemod.entity.nav.ActionPath.plan(c, level, from, goal, 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0, java.util.List.of(), 2.5);
+            acts = p == null ? "no plan" : String.valueOf(p.acts());
+            if (p != null) for (var a : p.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d) for (var dir : net.minecraft.core.Direction.values()) if (dir != net.minecraft.core.Direction.DOWN && level.getFluidState(d.pos().relative(dir)).is(net.minecraft.tags.FluidTags.WATER)) { bad += d.pos().subtract(o).toShortString() + " by " + dir + "; "; break; }
+            c.getInventory().clearContent();
+            for (int x = -7; x <= 7; x++) for (int z = -6; z <= 6; z++) for (int y = -12; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(p != null, "setup: no way at all down to the goal");
+            check(bad.isEmpty(), "digs into the pond's bank (each one lets the pond in): " + bad + " | " + acts);
+            pass(stage, t, acts);
         }
         return true;
     }

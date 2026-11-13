@@ -463,7 +463,7 @@ public final class Watchdog {
             if (ticks >= 20) {
                 double d = Math.sqrt(Math.pow(g.getX() - s.wetX, 2) + Math.pow(g.getZ() - s.wetZ, 2));
                 double pace = s.wetWalkT == 0 ? 0 : s.wetWalkD / (s.wetWalkT / 20.0);
-                String line = String.format("in water %.1f s, %.0f blocks from %.0f %.0f %.0f to %.0f %.0f %.0f (%.0f swum), doing %s; walking %.1f s of it, %.0f blocks at %.1f a second", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetPath, s.wetDoing, s.wetWalkT / 20.0, s.wetWalkD, pace)
+                String line = String.format("in water %.1f s, ended %.0f blocks from where he went in (%.0f %.0f %.0f to %.0f %.0f %.0f, %.0f swum in all), doing %s now; walking %.1f s of it, %.0f blocks at %.1f a second", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetPath, s.wetDoing, s.wetWalkT / 20.0, s.wetWalkD, pace)
                         + (s.wetJobs.size() > 1 ? "; his jobs in it: " + s.wetJobs.entrySet().stream().sorted((x, y) -> y.getValue() - x.getValue()).map(e -> e.getKey() + " " + String.format("%.1f", e.getValue() / 20.0) + " s").collect(java.util.stream.Collectors.joining(", ")) : "");
                 ClaudeMod.LOGGER.info("[Claude move] {}", line);
                 if (s.wetWalkT > 20 * 5 && s.wetWalk && pace < Weights.w("water.slow_bps", 1.8) && (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests)) fileOnce(g, "WATER", "WATER|" + BlockPos.containing(s.wetX, s.wetY, s.wetZ).asLong(), line);

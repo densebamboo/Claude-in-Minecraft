@@ -11108,6 +11108,7 @@ public final class ClaudeBodyTest {
             case 1627: return st1627(stage, t, c, h, level, mock);
             case 1629: return st1629(stage, t, c, h, level, mock);
             case 1630: return st1630(stage, t, c, h, level, mock);
+            case 1631: return st1631(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24876,6 +24877,21 @@ public final class ClaudeBodyTest {
             check(my > 1.5, "down off his ledge after the pillar's drops (feet down to " + String.format("%.1f", my) + ", the ledge at 3)");
             check(at < -30, "the walk west not done in 15 s: at " + String.format("%.1f", at));
             pass(stage, t, "his pillar's low blocks left, never down after them, the walk on (lowest " + String.format("%.1f", my) + ", at " + String.format("%.1f", at) + ")");
+        }
+        return true;
+    }
+    /** Stage 1631 (D2D review 135245-16, live 13:51:57-13:51:58 11-12 at -73,16,-161 by his chest): off to the Nether, "2 valuables on him he won't use on the trip" (2 iron ingots a queued step needed): store, the Deposit kept them for that step and stored 0, enter_portal asked again, round in circles, the gate refusing. What a queued step needs is no valuable to stash: the trip stash counts what the Deposit takes. */
+    private static boolean st1631(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.commandActive = false; c.lastStep = null; }
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition(), box = me.offset(2, 0, 0);
+            level.setBlock(box, Blocks.CHEST.defaultBlockState(), 2); c.storageChests.add(box.immutable());
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.IRON_INGOT, 2)); inv.add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("obtain", "iron_ingot", 3)); // (a step of his plan that wants the iron)
+            String r = com.claudemod.director.ClaudeLife.stashForTripTest(c, level);
+            level.setBlock(box, Blocks.AIR.defaultBlockState(), 2); c.storageChests.clear(); c.skillQueue.clear(); inv.clearContent();
+            check(r == null, "the trip stash asks to store the 2 iron ingots a queued step needs (the Deposit keeps them: round in circles): " + r);
+            pass(stage, t, "the iron a queued step needs stays on him, no store asked");
         }
         return true;
     }

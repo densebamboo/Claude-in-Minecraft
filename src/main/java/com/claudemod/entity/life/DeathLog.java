@@ -31,12 +31,12 @@ public final class DeathLog {
 
     public static final class Death {
         public final String dim; public final BlockPos at; public final long time; public final String what;
-        public String status; public int loadedTicks; public boolean wasNear; public int threat, creepers; // (the hostiles he knew of round it when he died, or saw there since: what the run back walks into; the creepers among them)
+        public String status; public int loadedTicks; public boolean wasNear; public int threat, creepers; public double hit; /* (hit: one of their hits before armor, on average; 0 unknown, a zombies then) */ // (the hostiles he knew of round it when he died, or saw there since: what the run back walks into; the creepers among them)
         Death(String dim, BlockPos at, long time, String what, String status, int loadedTicks) { this.dim = dim; this.at = at; this.time = time; this.what = what; this.status = status; this.loadedTicks = loadedTicks; }
         public boolean pending() { return status.equals("pending"); }
         /** What fell worth a run of its own from where he stands (worthS against tripS); a pile of planks and a wooden pick is picked up only on his way. */
         public boolean worth(ClaudeEntity g) { return worthS(what) > tripS(g, dim, at); }
-        String line() { return dim + "\t" + at.getX() + "\t" + at.getY() + "\t" + at.getZ() + "\t" + time + "\t" + status + "\t" + loadedTicks + "\t" + what + "\t" + threat + "\t" + creepers; }
+        String line() { return dim + "\t" + at.getX() + "\t" + at.getY() + "\t" + at.getZ() + "\t" + time + "\t" + status + "\t" + loadedTicks + "\t" + what + "\t" + threat + "\t" + creepers + "\t" + hit; }
     }
 
     private static Map<UUID, List<Death>> all; // (static, lazy: fields added live start null)
@@ -47,8 +47,8 @@ public final class DeathLog {
         if (all == null) all = new HashMap<>();
         return all.computeIfAbsent(g.getUUID(), k -> {
             List<Death> l = new ArrayList<>();
-            try { Path f = file(g); if (Files.exists(f)) for (String s : Files.readAllLines(f, StandardCharsets.UTF_8)) { String[] p = s.split("\t", 10); if (p.length >= 8) { Death d0 =
-                new Death(p[0], new BlockPos(Integer.parseInt(p[1]), Integer.parseInt(p[2]), Integer.parseInt(p[3])), Long.parseLong(p[4]), p[7], p[5], Integer.parseInt(p[6])); if (p.length >= 9) d0.threat = Integer.parseInt(p[8].trim()); if (p.length >= 10) d0.creepers = Integer.parseInt(p[9].trim()); l.add(d0); } } }
+            try { Path f = file(g); if (Files.exists(f)) for (String s : Files.readAllLines(f, StandardCharsets.UTF_8)) { String[] p = s.split("\t", 11); if (p.length >= 8) { Death d0 =
+                new Death(p[0], new BlockPos(Integer.parseInt(p[1]), Integer.parseInt(p[2]), Integer.parseInt(p[3])), Long.parseLong(p[4]), p[7], p[5], Integer.parseInt(p[6])); if (p.length >= 9) d0.threat = Integer.parseInt(p[8].trim()); if (p.length >= 10) d0.creepers = Integer.parseInt(p[9].trim()); if (p.length >= 11) d0.hit = Double.parseDouble(p[10].trim()); l.add(d0); } } }
             catch (Exception e) { ClaudeMod.LOGGER.warn("[Claude deaths] couldn't read his death list: {}", e.toString()); }
             if (l.isEmpty()) for (String[] s : com.claudemod.director.ClaudeLife.deathKitsOf(g.getUUID())) { // (first run, live: the deaths he remembers already; newest first in, so oldest first out)
                 var m = java.util.regex.Pattern.compile(" in (\\w+) at (-?\\d+), (-?\\d+), (-?\\d+)[^;]*; (.*)").matcher(s[1]);
@@ -71,7 +71,7 @@ public final class DeathLog {
         List<Death> l = of(g);
         boolean burnt = level.getFluidState(at).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(at.above()).is(net.minecraft.tags.FluidTags.LAVA); // items in lava burn at once (Day to Day 11-05: after his 13:28 death in a lava sea he planned a trip back for a pile that was ash)
         Death nd = new Death(level.dimension().location().getPath(), at.immutable(), level.getGameTime(), sb.toString(), burnt ? "gone (burnt: he died in lava)" : "pending", 0);
-        int[] th = threatsAt(g, at, true); nd.threat = th[0]; nd.creepers = th[1]; l.add(nd);
+        int[] th = threatsAt(g, at, true); nd.threat = th[0]; nd.creepers = th[1]; nd.hit = hitAt(g, at, true); l.add(nd);
         while (l.size() > 20) l.remove(0); // ponytail: the last 20 deaths
         save(g);
         ClaudeMod.LOGGER.info("[Claude deaths] died in {} at {}: {} on his list as pending ({})", level.dimension().location().getPath(), at.toShortString(), fell.size() + " stack(s)", sb);
@@ -92,7 +92,7 @@ public final class DeathLog {
             if (d.pending() && left > 0 && Math.sqrt(g.blockPosition().distSqr(d.at)) / 4.0 < (6000 - d.loadedTicks) / 20.0 && g.tickCount - backForTick > 20 * 30 && !g.skillQueue.stream().anyMatch(s -> s.skill().equals("recover_drops")) && !(g.lastStep != null && g.lastStep.skill().equals("recover_drops")) && next(g, dim) == d && !(g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.tasks.stream().anyMatch(t -> t instanceof Task.Flee) || g.holdingCover() || g.buildingCover())) { // (deaths 25 and 26, live 21:05 and 22:05 11-10: an iron kit despawned 9 and 40 off him while he strip-mined round it; only the idle pickup read the clock)
                 backForTick = g.tickCount; g.tasks.clear(); com.claudemod.director.ClaudeLife.dropCurrent(g); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); // (the work round it waits: a strip-mine's 168 queued tasks ran past the clock live)
                 ClaudeMod.LOGGER.info("[Claude deaths] his pile at {} is loaded, its clock running ({} s counted of 300), he's {} off: back for it now, before {} (DeathLog.tick)", d.at.toShortString(), d.loadedTicks / 20, (int) Math.sqrt(g.blockPosition().distSqr(d.at)), g.lastStep == null ? "anything else" : g.lastStep.skill()); }
-            if (g.blockPosition().distSqr(d.at) <= 24 * 24) { int[] th = threatsAt(g, d.at, false); if (th[0] != d.threat || th[1] != d.creepers) { d.threat = th[0]; d.creepers = th[1]; changed = true; } } // (seen there now: what's there now, not what was)
+            if (g.blockPosition().distSqr(d.at) <= 24 * 24) { int[] th = threatsAt(g, d.at, false); double hit = hitAt(g, d.at, false); if (th[0] != d.threat || th[1] != d.creepers || Math.abs(hit - d.hit) > 0.5) { d.threat = th[0]; d.creepers = th[1]; d.hit = hit; changed = true; } } // (seen there now: what's there now, not what was)
             if (!d.pending()) { changed = true; ClaudeMod.LOGGER.info("[Claude deaths] his pile at {} in {}: {} ({} s loaded)", d.at.toShortString(), dim, d.status, d.loadedTicks / 20); }
         }
         if (changed) save(g);
@@ -167,6 +167,13 @@ public final class DeathLog {
         int c = 0; for (var m : ms) if (m instanceof net.minecraft.world.entity.monster.Creeper) c++;
         return new int[] {ms.size(), c};
     }
+    /** One hit of theirs before armor, the average over the hostiles he knows of round the pile (0: none known). */
+    static double hitAt(ClaudeEntity g, BlockPos at, boolean dying) {
+        var ms = new java.util.ArrayList<>(Perception.known(g, net.minecraft.world.entity.monster.Monster.class, new AABB(at).inflate(16), m -> m.isAlive()));
+        if (dying && g.getLastHurtByMob() instanceof net.minecraft.world.entity.monster.Monster k && k.isAlive() && k.blockPosition().distSqr(at) <= 24 * 24 && !ms.contains(k)) ms.add(k);
+        double sum = 0; int n = 0; for (var m : ms) if (!(m instanceof net.minecraft.world.entity.monster.Creeper)) { sum += Decide.rawHit(m); n++; }
+        return n == 0 ? 0 : sum / n;
+    }
     /** What he knows waits at the pile, said for the trip's price line. */
     public static String threatNote(ClaudeEntity g, String dim, BlockPos at) {
         for (Death d : of(g)) if (d.at.equals(at) && d.dim.equals(dim)) return d.threat == 0 ? "nothing known there" : d.threat + " hostile(s) known there" + (d.creepers > 0 ? ", " + d.creepers + " creeper(s)" : "");
@@ -174,11 +181,12 @@ public final class DeathLog {
     }
     /** The time on the pile picking it up with the hostiles he knows were round it (what killed him there, until he's seen it since), as his time: through his armor and health now, so better gear makes the run worth it again. */
     static double pileS(ClaudeEntity g, String dim, BlockPos at) {
-        int th = 0, cr = 0; for (Death d : of(g)) if (d.at.equals(at) && d.dim.equals(dim)) { th = d.threat; cr = Math.min(d.creepers, d.threat); } if (th == 0) return 0;
+        int th = 0, cr = 0; double hit = 0; for (Death d : of(g)) if (d.at.equals(at) && d.dim.equals(dim)) { th = d.threat; cr = Math.min(d.creepers, d.threat); hit = d.hit; } if (th == 0) return 0;
         ServerLevel level = (ServerLevel) g.level(); long tod = runTod(level, at); double on = Weights.w("recovery.on_pile_s", 15);
         // a creeper is its blast, not a 3 HP hit: the chance one gets to him in his time on the pile (D2D 04:12 11-10: 3-4 creepers at the pile priced as hitters, armor 0, a run back into them)
         double lamC = cr * (1 - Math.exp(-Weights.w("recovery.creeper_blast_per_s", 0.05) * on));
-        return Decide.hpS(g, Decide.danger(g, level, tod, on, th - cr) - Decide.danger(g, level, tod, on, 0)) + Decide.blastS(g, lamC);
+        double per = Decide.throughArmor(g, hit > 0 ? hit : Decide.hitHp()), hp = (Decide.danger(g, level, tod, on, th - cr) - Decide.danger(g, level, tod, on, 0)) / Decide.throughArmor(g, Decide.hitHp()) * per; /* (their own hits: a wither skeleton's 8, a blaze's fireball, through his armor as vanilla takes it; a fortress pile priced as zombies sent him back into 7 of them, D2D death 22:46:06 11-12, stage 1700) */
+        return Decide.hpS(g, 0, hp, per) + Decide.blastS(g, lamC);
     }
     /** The time of day his run to a pile is priced at: now, while its chunk is loaded (its 5-min clock runs); by day when it's frozen unloaded in the overworld, since waiting for morning costs nothing (death 25, live 20:39 11-10: a pile with no threat priced ~2299 s at dusk against ~264 s of iron, ~139 s by day: never the run's target, then lost; stage 1398). */
     static long runTod(ServerLevel level, BlockPos at) {

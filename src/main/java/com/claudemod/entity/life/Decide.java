@@ -157,6 +157,14 @@ public final class Decide {
     /** A hit of dmg as it lands through his armor: vanilla's own rule (CombatRules), a big hit losing less of itself to the same armor than a small one (8 through armor 15: 4.5, not the flat armor/25's 3.2; D2D death 22:46:06 11-12, stage 1699). */
     public static double throughArmor(ClaudeEntity g, double dmg) { return dmg <= 0 ? 0 : net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(g, (float) dmg, g.damageSources().generic(), g.getArmorValue(), (float) g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)); }
     public static double hitHp() { return w("danger.hit_hp", 3); }
+    /** One hit from this mob before his armor: a blaze's fireball, a ghast's, a bowman's arrow, else its own attack (a wither skeleton's sword 8, a zombie's 3); a creeper's blast is priced apart (blastS). */
+    public static double rawHit(net.minecraft.world.entity.LivingEntity m) {
+        if (m instanceof net.minecraft.world.entity.monster.Blaze) return w("fight.fireball_hit_hp", 5);
+        if (m instanceof net.minecraft.world.entity.monster.Ghast) return w("fight.ghast_hit_hp", 6);
+        if (m instanceof net.minecraft.world.entity.monster.Creeper) return hitHp();
+        if (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton)) return w("fight.arrow_hit_hp", 4);
+        return m.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) ? m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : hitHp();
+    }
     /** Known hostiles that could meet him on the walk from a to b: within danger.walk_side of the line and danger.walk_dy of its height (live 06:17 World 17: 9 known, creepers in the caves under him, priced a 4 s walk to his lit mine at ~650 s; he dug a hole). */
     public static int hostilesAlong(ClaudeEntity g, BlockPos a, BlockPos b) {
         net.minecraft.world.phys.Vec3 A = net.minecraft.world.phys.Vec3.atBottomCenterOf(a), AB = net.minecraft.world.phys.Vec3.atBottomCenterOf(b).subtract(A);

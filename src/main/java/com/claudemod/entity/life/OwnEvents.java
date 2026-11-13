@@ -78,6 +78,7 @@ public final class OwnEvents {
     public static String lastBroke = "";
     public static void onGearBroke(net.neoforged.neoforge.event.entity.player.PlayerDestroyItemEvent e) {
         if (!(e.getEntity() instanceof ClaudeEntity g)) return;
+        if (!e.getOriginal().isDamageableItem()) return; /* (the event fires for the last of any stack used up, a block set down too: only gear wears out; "his crafting_table wore out" live ~23:31 11-12, stage 1701) */
         String id = BuiltInRegistries.ITEM.getKey(e.getOriginal().getItem()).getPath();
         lastBroke = id + "@" + g.tickCount;
         ClaudeMod.LOGGER.info("[Claude gear] his {} wore out ({}) at {} in {}, doing {}, step {} (OwnEvents.onGearBroke)", id, e.getHand() == null ? "worn" : e.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND ? "main hand" : "off hand",

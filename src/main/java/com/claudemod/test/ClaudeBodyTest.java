@@ -8047,7 +8047,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1699) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1999) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1701: return st1701(stage, t, c, h, level, mock);
+            case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
             case 1697: return st1697(stage, t, c, h, level, mock);
             case 1696: return st1696(stage, t, c, h, level, mock);
@@ -23370,7 +23372,7 @@ public final class ClaudeBodyTest {
             try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("mobHit", net.minecraft.world.entity.LivingEntity.class); m.setAccessible(true); priced = (double) m.invoke(c.work, ws0);
                 float raw = (float) ws0.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
                 real = net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(c, raw, c.damageSources().mobAttack(ws0), c.getArmorValue(), (float) c.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)); } catch (ReflectiveOperationException e) { err = String.valueOf(e); }
-            String odds = s1699Odds; int counted = odds == null ? 0 : odds.split("Wither Skeleton", -1).length - 1; int armor = c.getArmorValue();
+            String odds = s1699Odds; int counted = odds == null || !odds.contains("counted ") ? 0 : odds.substring(odds.indexOf("counted ")).split(", run ~")[0].split("Wither Skeleton", -1).length - 1; int armor = c.getArmorValue();
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var w0 : s1699W) w0.discard(); s1699W.clear(); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             for (int x = -4; x <= 26; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             flatBox(h);
@@ -23379,6 +23381,57 @@ public final class ClaudeBodyTest {
             check(Math.abs(priced - real) <= 0.3, both);
             check(counted == 3, both);
             pass(stage, t, both);
+        }
+        return true;
+    }
+    /** Stage 1700 (D2D death 22:46:06 11-12: recovery.trip "go for them ~1531 s (... 7 hostile(s) known there)" against leave ~1692 s, a run of its own back into the fortress that had just killed him; pileS priced each known hostile at the pile as a zombie's 3 HP, the wither skeletons' 8 and the blazes' 5 never in it). The same pile 14 off, armor 15: with three wither skeletons known round it, priced well over three zombies there. */
+    private static final java.util.List<net.minecraft.world.entity.Mob> s1700M = new java.util.ArrayList<>(); private static Object s1700D; private static double s1700Z, s1700W; private static int s1700ZT; private static String s1700Err;
+    private static boolean st1700(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 8)), at = o.offset(14, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : s1700M) m.discard(); s1700M.clear(); s1700D = null; s1700Err = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = -4; x <= 22; x++) for (int z = -8; z <= 8; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90); c.setXRot(0); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            try { var k = com.claudemod.entity.life.DeathLog.Death.class.getDeclaredConstructor(String.class, BlockPos.class, long.class, String.class, String.class, int.class); k.setAccessible(true);
+                s1700D = k.newInstance(level.dimension().location().getPath(), at.immutable(), level.getGameTime(), "iron_sword 1", "pending", 0); com.claudemod.entity.life.DeathLog.of(c).add((com.claudemod.entity.life.DeathLog.Death) s1700D); } catch (ReflectiveOperationException e) { s1700Err = String.valueOf(e); } var it0 = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY() + 0.1, at.getZ() + 0.5, new ItemStack(Items.IRON_SWORD)); it0.setNeverPickUp(); it0.setUnlimitedLifetime(); level.addFreshEntity(it0); /* (the pile on the ground: a pile with nothing left is gone) */
+            for (int i = -1; i <= 1; i++) { var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); z.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 2 * i + 0.5, 90, 0); z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); s1700M.add(z); }
+        }
+        if (t[0] == 20 || t[0] == 40) { c.setYRot(-90); c.setYHeadRot(-90); c.setXRot(0);
+            try { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.entity.life.DeathLog.tick(c, level); var m = com.claudemod.entity.life.DeathLog.class.getDeclaredMethod("pileS", ClaudeEntity.class, String.class, BlockPos.class); m.setAccessible(true);
+                double v = (double) m.invoke(null, c, level.dimension().location().getPath(), at); if (t[0] == 20) { s1700Z = v; s1700ZT = ((com.claudemod.entity.life.DeathLog.Death) s1700D).threat; } else s1700W = v; } catch (ReflectiveOperationException e) { s1700Err = String.valueOf(e); }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; }
+        if (t[0] == 21) { for (var m : s1700M) m.discard(); s1700M.clear();
+            for (int i = -1; i <= 1; i++) { var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); ws.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 2 * i + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setNoAi(true); ws.setPersistenceRequired(); level.addFreshEntity(ws); s1700M.add(ws); } }
+        if (t[0] == 41) {
+            int threat = s1700D instanceof com.claudemod.entity.life.DeathLog.Death d ? d.threat : -1;
+            if (s1700D != null) com.claudemod.entity.life.DeathLog.of(c).remove(s1700D); for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(3))) ie.discard(); for (var m : s1700M) m.discard(); s1700M.clear();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (int x = -4; x <= 22; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            String both = String.format("the pile's time with 3 zombies known round it ~%.0f s, with 3 wither skeletons ~%.0f s (threat on record %d)", s1700Z, s1700W, threat);
+            check(s1700Err == null, "setup: " + s1700Err);
+            check(threat == 3 && s1700ZT == 3, "setup: the mobs round the pile not on its record (zombies " + s1700ZT + "): " + both);
+            check(s1700W >= 1.5 * s1700Z && s1700W > 0, both);
+            pass(stage, t, both);
+        }
+        return true;
+    }
+    /** Stage 1701 (D2D pass 233308: "[Claude gear] his crafting_table wore out (main hand) at -82, 59, 16" ~23:31 11-12, his last table just set down: vanilla's PlayerDestroyItemEvent fires for the last of a stack used up, a placed block too, and onGearBroke read every one as wear). His last crafting table set down: no wear on record for it. */
+    private static boolean st1701(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(9, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); }
+        if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE, 1)); BlockPos me = h.absolutePos(new BlockPos(7, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.OwnEvents.lastBroke = ""; }
+        if (t[0] == 14) c.tasks.add(new Task.Place(at.immutable(), Items.CRAFTING_TABLE));
+        if (t[0] > 14 && (level.getBlockState(at).is(Blocks.CRAFTING_TABLE) && t[0] > 30 || t[0] == 14 + 200)) {
+            boolean placed = level.getBlockState(at).is(Blocks.CRAFTING_TABLE); String lb = com.claudemod.entity.life.OwnEvents.lastBroke;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setBlock(at, Blocks.AIR.defaultBlockState(), 3); c.getInventory().clearContent();
+            check(placed, "setup: his table never went down");
+            check(!lb.startsWith("crafting_table@"), "his last table set down read as worn out: " + lb);
+            pass(stage, t, "table down, no wear on record (" + lb + ")");
         }
         return true;
     }

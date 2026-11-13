@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1678: return st1678(stage, t, c, h, level, mock);
             case 1677: return st1677(stage, t, c, h, level, mock);
             case 1676: return st1676(stage, t, c, h, level, mock);
             case 1675: return st1675(stage, t, c, h, level, mock);
@@ -22766,6 +22767,36 @@ public final class ClaudeBodyTest {
             level.setBlock(s1677C, Blocks.AIR.defaultBlockState(), 3); c.storageChests.remove(s1677C); com.claudemod.entity.life.ChestLedger.look(c, level, s1677C);
             check(r != null && r.startsWith("done"), "7 rods in his chest, none on him, blaze_rod@7: \"" + r + "\"");
             pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 1678 (Loops / D2D review 161022-52, live 16:07:37-41 11-12: fight.flee at 15 HP counted "3 on him (Hoglin 1, Hoglin 4, Piglin 9)", fight ~91 s against run ~41 s, ran and plugged his escape; 4 s later, the piglin out of the count, the fight ~25 s, he dug his plug and fought: a crossbow piglin with no target, him in gold boots, counted as a shooter on him by fight.idle_shooter_notice). Gold boots on, a crossbow piglin 9 off with no target and a line on him, a hoglin by him: the piglin isn't on him. */
+    private static net.minecraft.world.entity.monster.piglin.Piglin s1678P; private static net.minecraft.world.entity.monster.hoglin.Hoglin s1678H;
+    private static boolean st1678(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (s1678P != null) s1678P.discard(); if (s1678H != null) s1678H.discard(); s1678P = null; s1678H = null; }
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(15); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1678P = EntityType.PIGLIN.create(level); s1678P.moveTo(o.getX() + 9.5, o.getY(), o.getZ() + 0.5, 90, 0); s1678P.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.CROSSBOW)); s1678P.setPersistenceRequired(); s1678P.setNoAi(true); s1678P.setImmuneToZombification(true); level.addFreshEntity(s1678P);
+            s1678H = EntityType.HOGLIN.create(level); s1678H.moveTo(o.getX() - 1.5, o.getY(), o.getZ() + 0.5, 270, 0); s1678H.setPersistenceRequired(); s1678H.setNoAi(true); s1678H.setImmuneToZombification(true); level.addFreshEntity(s1678H);
+        }
+        if (t[0] == 20) {
+            com.claudemod.entity.life.Perception.noteSeenTest(c, s1678P); com.claudemod.entity.life.Perception.noteSeenTest(c, s1678H); s1678H.setTarget(c);
+            String odds;
+            try { var sf = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("shouldFlee", net.minecraft.world.entity.Entity.class, boolean.class); sf.setAccessible(true);
+                var fo = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("fightOdds"); fo.setAccessible(true);
+                boolean ran = (boolean) sf.invoke(c.work, s1678H, false); odds = ran + " (" + fo.get(c.work) + ")"; } catch (ReflectiveOperationException e) { odds = "threw " + e; }
+            boolean target = s1678P.getTarget() != null;
+            s1678P.discard(); s1678H.discard(); s1678P = null; s1678H = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); c.setHealth(20);
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(!target, "setup: the piglin has a target");
+            check(!odds.contains("Piglin"), "gold boots on, a crossbow piglin 9 off with no target: counted on him: " + odds);
+            pass(stage, t, odds);
         }
         return true;
     }

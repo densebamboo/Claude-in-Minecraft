@@ -11145,6 +11145,7 @@ public final class ClaudeBodyTest {
             case 1643: return st1643(stage, t, c, h, level, mock);
             case 1644: return st1644(stage, t, c, h, level, mock);
             case 1645: return st1645(stage, t, c, h, level, mock);
+            case 1646: return st1646(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25921,6 +25922,29 @@ public final class ClaudeBodyTest {
                 check(!fishing, "a block in the line, every cast on dry ground: still casting after " + (t[0] - s1645T) + " ticks, the hook dry " + s1645Dry + " ticks");
                 pass(stage, t, "gave the spot up after " + (t[0] - s1645T) + " ticks (the hook dry " + s1645Dry + ")");
             }
+        }
+        return true;
+    }
+    /** Stage 1646 (D2D review 210901-22, live 21:08:32 11-12 at -56,63,-23: kit.food "fish with a rod ~328 s; search for animals ~71 s (2 cows' worth): search for animals -> 4 cooked_beef", then "collect beef x4 -> nothing to hunt in reach, but a rod and open water: fishing for it": the rod fallback took no heed of the kit's pick). No animals, a pond 6 off, a rod on him, the kit's pick the search: collect beef walks to look, not to the pond. */
+    private static String s1646P = "", s1646R = "";
+    private static boolean st1646(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; level.setDayTime(3000); flatBox(h); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) e.discard();
+            for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 2); // a pond, one deep
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.FISHING_ROD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 20));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 10)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(18); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 70) { // (past the kit's 40-tick memo)
+            com.claudemod.director.Kit.foodAsk(c); s1646P = String.valueOf(com.claudemod.director.Kit.foodPick(c));
+            s1646R = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 4);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.DIRT.defaultBlockState(), 2);
+            check("search for animals".equals(s1646P), "setup: the kit's pick with no animals and a pond: " + s1646P + " (" + com.claudemod.director.Kit.foodSaidTest(c) + ")");
+            check(!s1646R.contains("fishing"), "the kit's pick the search for animals, collect beef went fishing: " + s1646R);
+            pass(stage, t, "the kit's search stands: " + s1646R);
         }
         return true;
     }

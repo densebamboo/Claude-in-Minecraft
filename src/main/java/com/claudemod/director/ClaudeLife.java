@@ -2158,7 +2158,7 @@ public final class ClaudeLife {
                             return "no " + animal + " about, but " + f + " in the water close by: " + want + " instead";
                         }
                     }
-                    if (herd.isEmpty() && Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod").contains(target.replace("raw_", "").replace("cooked_", "")) && g.inventory.count(s -> s.is(Items.FISHING_ROD)) > 0) {
+                    if (herd.isEmpty() && !kitSays && Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod").contains(target.replace("raw_", "").replace("cooked_", "")) && g.inventory.count(s -> s.is(Items.FISHING_ROD)) > 0) { /* (the kit priced the rod against the search: its pick stands, the rod branch above is its rod; live 21:08:32 "search for animals ~71 s" picked, then "fishing for it", D2D 210901-22, stage 1646) */
                         boolean wet = fishSpot(g, level, (int) com.claudemod.entity.life.Weights.w("kit.rod_water_range", 48)) != null;
                         if (wet && g.tickCount - g.attempts.counters.getOrDefault("fishNoWater", -100000) > 20 * 300 && g.tickCount - g.attempts.counters.getOrDefault("fishFail", -100000) > 20 * 300) { g.skillQueue.addFirst(new Skills.Step("fish", "", count)); return "nothing to hunt in reach, but a rod and open water: fishing for it"; } // (the fishing skill wants more than "some water": two deep, open sky, water all round, a dry bank; when it says no, not again for 5 min)
                     }

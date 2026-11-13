@@ -7151,6 +7151,7 @@ public class WorkGoal extends Goal {
     }
     private java.util.UUID holdSaid; private boolean fightOnHw;
     private BlockPos footFeet, footBest; private int footTick; // fightFooting's pick, kept 10 ticks a spot
+    private BlockPos footTry; private int footTrySince; private double footTryDist; private final java.util.Map<BlockPos, Integer> footRefused = new java.util.HashMap<>(); private BlockPos footOffAt; private int footOffUntil; // the pick he is walking to, since when and from how far; picks he could not get onto (his steps refused), written off 10 s
     /** A cell vanilla's walker has a way onto from where he stands (the path ends in it). */
     public boolean wayOnto(BlockPos q) { var path = g.getNavigation().createPath(q, 0); return path != null && path.canReach(); }
     private Boolean fightFooting(net.minecraft.world.entity.LivingEntity mob) {
@@ -7162,10 +7163,13 @@ public class WorkGoal extends Goal {
         boolean shooter = shoots(mob) || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
         boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= (footingSaid != null ? 6 : 4); // ponytail: 4 to start, 6 to finish the step (live 20:07 -119,76,-936: an enderman at the edge of 4 flipped it on and off, the approach stepped him back onto the lip 7 times in 2 s). (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
         if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
+        if (feet.equals(footOffAt) && g.tickCount < footOffUntil) return null; // (a pick here he could not get onto: the fight from this spot a while, not one pick after another, 1.5 s each)
         if (feet.equals(footFeet) && g.tickCount - footTick < 10) { if (footBest == null) return null; } else { if (footBest != null && !feet.equals(footBest) && g.tickCount - footTick < 40) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] footing re-picked at {} ({} ticks on): the last pick {} not reached ({} off), the {} at {} (was {} off), away {} (WorkGoal.fightFooting)", feet.toShortString(), g.tickCount - footTick, footBest.toShortString(), String.format("%.1f", Math.sqrt(footBest.distToCenterSqr(g.position()))), mob.getType().getDescription().getString(), mob.blockPosition().toShortString(), String.format("%.1f", mob.distanceTo(g)), String.format("%.2f %.2f", away.x, away.z)); /* (live 08:02:56-58 11-12, spin-60: a new pick at each cell he stepped into, the path flipping, no swing in 1.5 s by a creeper; not reproduced on a rebuilt hill: this proves it or not next time) */ footFeet = feet; footTick = g.tickCount; footBest = null; java.util.List<BlockPos> picks = new java.util.ArrayList<>(); java.util.Map<BlockPos, Double> cost = new java.util.HashMap<>();
         String hd = com.claudemod.entity.life.PortalMap.NETHER; boolean onHw = level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.PortalMap.highwayBlock(g, hd, feet.below(), level.getBlockState(feet.below()));
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;
+            { Integer rf = footRefused.get(q); if (rf != null && g.tickCount - rf < 200 && g.tickCount >= rf) continue; }
+            if (!level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(q).expandTowards(0, 1, 0), e -> e != g && e.isAlive()).isEmpty()) continue; // (a mob standing in it: no footing to step onto; a big magma cube's body was picked and walked at, stage 1715)
             if (onHw && !com.claudemod.entity.life.PortalMap.highwayBlock(g, hd, q.below(), level.getBlockState(q.below()))) continue; // on his highway the footing stays on it: off its side is the delta it bridges, the mobs' ground (live 23:59:58 11-06: "firm footing" a block under his railless highway, 1:45 in the basalt; stage 932)
             Vec3 aw = Vec3.atBottomCenterOf(q).subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) continue; aw = aw.normalize();
             if (lipBehind(level, q, aw)) continue;
@@ -7176,6 +7180,13 @@ public class WorkGoal extends Goal {
         if (footBest == null) { if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lip behind him at {} the way the {} would throw him, and no firmer footing within 4 he has a way onto ({} looked at): fighting on (WorkGoal.fightFooting)", feet.toShortString(), mob.getType().getDescription().getString(), tried); } return null; } }
         BlockPos best = footBest;
         if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} at {} the way the {} would throw him: to firm footing at {} first, then the fight (WorkGoal.fightFooting)", fire ? "fire under him" : "a lip behind him", feet.toShortString(), mob.getType().getDescription().getString(), best.toShortString()); }
+        double bd = Math.sqrt(best.distToCenterSqr(g.position()));
+        if (!best.equals(footTry)) { footTry = best.immutable(); footTrySince = g.tickCount; footTryDist = bd; }
+        else if (bd < footTryDist - 0.5) { footTrySince = g.tickCount; footTryDist = bd; } // (getting there: the clock starts again)
+        else if (g.tickCount - footTrySince > 30) { // 1.5 s and no nearer: his steps there refused (vanilla's way cut a corner over lava his body won't take: live 14:46:40-14:47:02 11-13, the pick re-made every 10 ticks, no swing in 20 s with a big magma cube on him, 15 -> 0; stage 1715)
+            footRefused.put(footTry, g.tickCount); footOffAt = feet.immutable(); footOffUntil = g.tickCount + 100; footTry = null; footBest = null; footFeet = feet; footTick = g.tickCount; footingSaid = feet;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] not getting onto the footing at {} ({} off after {} s, no nearer): written off 10 s, the {} fought from {} for 5 s (WorkGoal.fightFooting)", best.toShortString(), String.format("%.1f", bd), (g.tickCount - footTrySince) / 20, mob.getType().getDescription().getString(), feet.toShortString());
+            return null; }
         if (g.isUsingItem()) g.stopUsingItem();
         g.setSprinting(false); cfMove(best, 1.0);
         return false;

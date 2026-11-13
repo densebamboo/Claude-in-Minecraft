@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1715: return st1715(stage, t, c, h, level, mock);
             case 1714: return st1714(stage, t, c, h, level, mock);
             case 1713: return st1713(stage, t, c, h, level, mock);
             case 1712: return st1712(stage, t, c, h, level, mock);
@@ -23931,6 +23932,37 @@ public final class ClaudeBodyTest {
                 check(low >= 6, "2 rods in " + (int) s + " s but down to " + (int) low + " health on the way: a player farming a spawner from a pocket keeps a margin");
                 pass(stage, t, "2 rods in " + (int) s + " s, lowest health " + (int) low);
             }
+        }
+        return true;
+    }
+    /** Stage 1715 (D2D death 14:47:02 11-13 at 34,52,407, magma cubes by a lava lake, incident 20261113-144702-death-94): a big magma cube on him and an open cell over lava (2 below) just west of him; fightFooting picked firm footing 32,52,410 past that cell's corner, vanilla's path cut the corner, Controls refused the step ("lava 2 below the lip at 33,52,407: not stepping off"), and the pick was re-picked every 10 ticks with his swings held, 15 -> 0. Here the firm footing is the cell diagonal from his, past an open cell over lava; a big magma cube is on him from the east. Passes when the cube is being fought (hit) within 6 s and he is alive. */
+    private static net.minecraft.world.entity.monster.MagmaCube s1715M; private static int s1715T; private static float s1715Hp;
+    private static boolean st1715(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1715T = -1; if (s1715M != null) s1715M.discard(); s1715M = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 4; y++) {
+                boolean hole = !((x == 0 && z == 0) || (x == 0 && z == 1) || (x >= 1 && x <= 3 && z >= -2 && z <= 1) || (x >= -3 && x <= -1 && z >= 1 && z <= 2 && !(x == -1 && z == 2))); // (a field of open cells over lava, as by the lake live: his lip cell, the cell south of it, the cube's ground east, and the firm pad diagonal south-west past the open cell west of him)
+                net.minecraft.world.level.block.Block b = y == -3 ? Blocks.NETHERRACK : y == -2 ? (hole ? Blocks.LAVA : Blocks.NETHERRACK) : y == -1 ? (hole ? Blocks.AIR : Blocks.NETHERRACK) : Blocks.AIR;
+                level.setBlock(o.offset(x, y, z), b.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.47, o.getY(), o.getZ() + 0.2); c.setHealth(17); c.getFoodData().setFoodLevel(17); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var m = EntityType.MAGMA_CUBE.create(level); m.setSize(4, true); m.moveTo(o.getX() + 2.5, o.getY(), o.getZ() - 0.5, 90, 0); m.setPersistenceRequired(); m.setNoAi(true); level.addFreshEntity(m); s1715M = m; // (held where it sat live, east of him by the lip: the geometry fixed, as stage 1076's skeleton) s1715Hp = m.getHealth();
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1715M.getUUID(), 20 * 30)); s1715T = t[0]; try { var f = c.work.getClass().getDeclaredField("noWayOutTick"); f.setAccessible(true); f.setInt(c.work, c.tickCount); } catch (Exception e) { throw new RuntimeException(e); } } // (cornered live: "fighting his way out", every way out past them: the fight is on)
+        if (s1715T > 0 && t[0] < s1715T + 120 && (t[0] - s1715T) % 10 == 0) try { var f = c.work.getClass().getDeclaredField("noWayOutTick"); f.setAccessible(true); f.setInt(c.work, c.tickCount); } catch (Exception e) { throw new RuntimeException(e); } // (still no way out: the lake all round)
+        if (s1715T > 0 && (t[0] == s1715T + 120 || !c.isAlive())) {
+            boolean hit = s1715M.isRemoved() || !s1715M.isAlive() || s1715M.getHealth() < s1715M.getMaxHealth(); String cube = "cube " + s1715M.getHealth() + "/" + s1715M.getMaxHealth() + (s1715M.isRemoved() ? " removed" : "");
+            String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), q = c.currentTask + " " + c.tasks; float hp = c.getHealth(); boolean alive = c.isAlive();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard(); s1715M = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); if (alive) c.setHealth(20); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -3 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(alive, "died on the lip by the lava with the big magma cube on him (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            check(hit, "6 s with a big magma cube on him and not one hit landed on it (" + cube + ", health " + (int) hp + ", at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            pass(stage, t, "the cube fought from the lip, health " + (int) hp);
         }
         return true;
     }

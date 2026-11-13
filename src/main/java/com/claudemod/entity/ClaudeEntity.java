@@ -523,11 +523,11 @@ public class ClaudeEntity extends ServerPlayer {
     }
 
     private int sweepJumpTick = -100; // his last jump to keep a swing off a calm bystander
-    private net.minecraft.world.item.Item armedItem; private int armSaidTick = -100; // the item his attack damage belongs to (vanilla applies a new item's attributes in the next tick)
+    private net.minecraft.world.item.Item armedItem; private int armSaidTick = -100, armWaits; // the item his attack damage belongs to (vanilla applies a new item's attributes in the next tick)
     @Override
     public void attack(net.minecraft.world.entity.Entity target) { // every swing at a mob, landed or not (the fight episode's swings)
         if (!level().isClientSide && getMainHandItem().getItem() != armedItem) { // swapped to it this tick: the hit would land with the old item's damage (a sword swapped in over cobblestone hit blazes for 1, 0-1 kills a run, stage 1714); a player's hit comes once it's in hand
-            if (tickCount - armSaidTick > 100) { armSaidTick = tickCount; ClaudeMod.LOGGER.info("[Claude fight] the swing at the {} waits a tick: the {} just came into his hand, its damage counts from the next tick ({} before) (ClaudeEntity.attack)", target.getType().getDescription().getString(), net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(getMainHandItem().getItem()).getPath(), armedItem == null ? "-" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(armedItem).getPath()); }
+            armWaits++; if (tickCount - armSaidTick > 100) { armSaidTick = tickCount; ClaudeMod.LOGGER.info("[Claude fight] the swing at the {} waits a tick: the {} just came into his hand, its damage counts from the next tick ({} before; {} swing(s) held so, task {}) (ClaudeEntity.attack)", target.getType().getDescription().getString(), net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(getMainHandItem().getItem()).getPath(), armedItem == null ? "-" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(armedItem).getPath(), armWaits, currentTask == null ? "-" : currentTask.getClass().getSimpleName()); armWaits = 0; }
             return; }
         if (!level().isClientSide) { var by = com.claudemod.entity.goals.CombatBrain.sweepBystander(this, target); // (death 20:55:49 11-11: a ground hit on a wither skeleton swept a calm enderman beside it; stage 1075)
             if (by != null && tickCount - sweepJumpTick > 10) { sweepJumpTick = tickCount; getJumpControl().jump();

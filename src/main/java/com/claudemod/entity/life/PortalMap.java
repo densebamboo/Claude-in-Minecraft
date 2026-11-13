@@ -218,10 +218,11 @@ public final class PortalMap {
         }
         return false;
     }
-    public static Segment segmentFor(ClaudeEntity g, String dim, BlockPos floor, Direction.Axis axis) {
+    public static Segment segmentFor(ClaudeEntity g, String dim, BlockPos floor, Direction.Axis axis) { return segmentFor(g, dim, floor, axis, 1); }
+    static Segment segmentFor(ClaudeEntity g, String dim, BlockPos floor, Direction.Axis axis, int dy) {
         Segment best = null; int bd = Integer.MAX_VALUE;
         for (Segment s : net(g).segments) {
-            if (!s.dim.equals(dim) || s.axis != axis || Math.abs(s.y() - floor.getY()) > 1) continue;
+            if (!s.dim.equals(dim) || s.axis != axis || Math.abs(s.y() - floor.getY()) > dy) continue;
             int lat = Math.abs(s.across(floor) - s.line()); if (lat > s.width) continue;
             int al = s.along(floor), gap = al < s.lo() ? s.lo() - al : al > s.hi() ? al - s.hi() : 0; if (gap > 8) continue;
             int d = lat * 4 + gap; if (d < bd) { bd = d; best = s; }
@@ -279,7 +280,7 @@ public final class PortalMap {
     }
     /** A crossing he built, on record: joined to the segment it extends (same axis, line and floor), else a new one. */
     public static Segment addSegment(ClaudeEntity g, String dim, BlockPos a, BlockPos b, Direction.Axis axis, int width) {
-        Segment s = segmentFor(g, dim, a, axis); if (s == null) s = segmentFor(g, dim, b, axis);
+        Segment s = segmentFor(g, dim, a, axis, 0); if (s == null) s = segmentFor(g, dim, b, axis, 0); /* (its own floor height only: a run 1 up joined the segment it touched at the first one's y, and the route walked it in his floor, live 17:26 11-12, stage 1683) */
         if (s != null && s.width == width) {
             int lo0 = s.lo(), hi0 = s.hi();
             int lo = Math.min(s.lo(), Math.min(s.along(a), s.along(b))), hi = Math.max(s.hi(), Math.max(s.along(a), s.along(b))), line = s.line(), y = s.y();

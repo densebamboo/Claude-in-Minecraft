@@ -395,7 +395,6 @@ public final class Highway {
     public static void record(ClaudeEntity g, BridgeBlueprint b, int built) {
         { State s0 = state(g); s0.built = built; s0.rows = b.rows.size(); }
         // every flat run of rows, one leg and one height (the first run of each leg only, before: the rows past a staircase never on record, the route couldn't use them; stage 925)
-        // shortcut: addSegment joins runs 1 apart in height on one line, so a 1-step staircase's two runs read as one at the first's height; split by height there if the route ever mis-walks one
         BridgeBlueprint.Row a = null, z = null;
         for (int i = 0; i <= Math.min(built, b.rows.size()); i++) { var r = i < Math.min(built, b.rows.size()) ? b.rows.get(i) : null;
             if (r != null && !r.stair() && a != null && r.leg() == a.leg() && r.centre().getY() == a.centre().getY()) { z = r; continue; }
@@ -404,7 +403,7 @@ public final class Highway {
         BridgeBlueprint.Row flat = null; boolean stair = false; // the staircases between runs: their joins on record too (only flat runs were: two runs at y 58 and y 32 read as no road through, the route home went round by the fortress deck and a branch was built over the road; death 24, live 17:32-18:08 11-10, stage 1470)
         for (int i = 0; i < Math.min(built, b.rows.size()); i++) { var r = b.rows.get(i);
             if (r.stair()) { if (flat != null) stair = true; continue; }
-            if (stair && flat != null) PortalMap.addStair(g, flat.centre().above(), r.centre().above());
+            if (flat != null && (stair || r.centre().getY() != flat.centre().getY())) PortalMap.addStair(g, flat.centre().above(), r.centre().above()); /* (a 1-step rise with no staircase rows too: its two runs are two segments now, joined here; stage 1683) */
             stair = false; flat = r; }
     }
 

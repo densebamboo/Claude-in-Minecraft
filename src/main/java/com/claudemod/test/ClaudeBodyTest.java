@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1683: return st1683(stage, t, c, h, level, mock);
             case 1682: return st1682(stage, t, c, h, level, mock);
             case 1681: return st1681(stage, t, c, h, level, mock);
             case 1680: return st1680(stage, t, c, h, level, mock);
@@ -22923,6 +22924,32 @@ public final class ClaudeBodyTest {
             check(!q1.contains("gravel"), "no feathers, no chicken about, gravel in sight: get_arrows broke gravel for flint: \"" + r1 + "\", queue " + q1);
             check(!q2.contains("get_arrows"), "nothing to get arrows from: gear_up asked get_arrows again: \"" + r2 + "\", queue " + q2);
             pass(stage, t, r1 + " | " + r2);
+        }
+        return true;
+    }
+    /** Stage 1683 (Loops / D2D review 172641-80 and 174651-162, live 17:26 11-12 on the z 509 road, x 133-193: the route's legs at y 59 in the cobbled deepslate floor he laid there, "the walk to 141, 59, 509 ends at once ... (a route cell not dug?)" every leg, 42 times; his highway's flat runs at y 58 and y 59 went on record as one segment at y 58: addSegment took a run 1 up into the segment it touched, at the first one's height). His highway's rows, the second half one up with no staircase rows between: every row's floor on record at its own height, and the road from the portal reaches the end. */
+    private static boolean st1683(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15200, 70, 10600), dest = new BlockPos(o.getX(), o.getY(), o.getZ() + 80);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 96; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 12) {
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+            var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, dest, 2, false);
+            int half = b0.rows.size() / 2, floorY = b0.rows.get(0).centre().getY(); boolean flat = true;
+            for (int i = 0; i < b0.rows.size(); i++) { var r = b0.rows.get(i); if (r.stair() || r.centre().getY() != floorY) flat = false; if (i >= half) b0.rows.set(i, new com.claudemod.entity.life.BridgeBlueprint.Row(r.centre().above(), r.dir(), r.leg(), r.k(), false, r.tunnel())); } /* the second half one up, no staircase rows (live: a 1-step rise in the floor he laid) */
+            com.claudemod.entity.life.Highway.record(c, b0, b0.rows.size());
+            String bad = "";
+            for (int i = 0; i < b0.rows.size(); i++) { BlockPos fl = b0.rows.get(i).centre();
+                for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) if (sg.axis == net.minecraft.core.Direction.Axis.Z && fl.getX() == sg.a.getX() && fl.getZ() >= Math.min(sg.a.getZ(), sg.b.getZ()) && fl.getZ() <= Math.max(sg.a.getZ(), sg.b.getZ()) && sg.y() != fl.getY()) { bad += "row " + i + " floor y " + fl.getY() + " on record at y " + sg.y() + "; "; break; } }
+            String segs = ""; for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) segs += sg.describe() + "; ";
+            var road = com.claudemod.entity.nav.NetherRoute.road(c, nl, o, b0.rows.get(b0.rows.size() - 1).centre().above());
+            String why = "road " + (road == null ? "none" : road.legs().size() + " legs, partial " + road.partial()) + " | segments: " + segs + " stairs " + com.claudemod.entity.life.PortalMap.net(c).stairs.size();
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.Highway.reset(c);
+            check(flat, "setup: the planned highway isn't one flat run (" + why + ")");
+            check(bad.isEmpty(), "rows on record at the wrong height: " + (bad.length() > 200 ? bad.substring(0, 200) + "..." : bad) + " | " + why);
+            check(road != null && !road.partial(), "the road from the portal along it doesn't reach its end: " + why);
+            nsHome(c, h, level); pass(stage, t, why);
         }
         return true;
     }

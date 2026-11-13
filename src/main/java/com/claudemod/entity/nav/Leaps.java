@@ -273,7 +273,7 @@ public final class Leaps {
                 else if (!com.claudemod.entity.life.Perception.clear(l, g.getEyePosition(), Vec3.atBottomCenterOf(t.land()).add(0, 0.05, 0))) { /* judged as the plan judged it: standing at the lip's edge, looking over (seesOver); his eye where it happens to be, crouched at an edge or at the cell's back for the run-up, refused landings the plan saw (live 19:03:21 11-12, D2D review 190457; stage 1684) */
                     BlockPos col = t.from().offset(Integer.signum(t.land().getX() - t.from().getX()), 0, Integer.signum(t.land().getZ() - t.from().getZ()));
                     String eyeAt = String.format("eye %.2f %.2f %.2f%s", g.getEyePosition().x, g.getEyePosition().y, g.getEyePosition().z, g.isShiftKeyDown() ? ", crouched" : "");
-                    if (seesOver(l, t.from(), col, t.land())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: the landing hidden from where he is ({}), seen from the lip's edge standing: looked over, on (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), eyeAt); s.plan = kindName(t.kind()) + " over " + gap + (dy == 0 ? "" : dy > 0 ? " up 1" : " down " + -dy) + ", " + fmt(t.hp()) + " HP, I'm at " + fmt(health(g)); }
+                    if (seesOver(l, t.from(), col, t.land())) { s.phase = -1; s.plan = kindName(t.kind()) + " over " + gap + (dy == 0 ? "" : dy > 0 ? " up 1" : " down " + -dy) + ", " + fmt(t.hp()) + " HP, I'm at " + fmt(health(g)); com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: the landing hidden from where he is ({}): to the lip's edge to look over it first (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), eyeAt); } /* a real look: his body to the edge, stood up, his eyes on it (the no-sensing-through-walls rule, D2D) */
                     else why = "he can't see the landing " + t.land().toShortString() + " (" + eyeAt + "; not from the lip's edge either)";
                 }
                 else s.plan = kindName(t.kind()) + " over " + gap + (dy == 0 ? "" : dy > 0 ? " up 1" : " down " + -dy) + ", " + fmt(t.hp()) + " HP, I'm at " + fmt(health(g));
@@ -286,10 +286,23 @@ public final class Leaps {
                 g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, t.land(), g.tickCount);
                 return "refused: " + why;
             }
-            g.setShiftKeyDown(false); // (a crouch won't go off an edge; slime only saves a fall not sneaking)
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: {} (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), s.plan);
+            if (s.phase != -1) { g.setShiftKeyDown(false); // (a crouch won't go off an edge; slime only saves a fall not sneaking)
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: {} (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), s.plan); }
         }
         int age = g.tickCount - s.t0;
+        if (s.phase == -1) { // the look: crouched to the lip's edge (where the plan judged it from), stood up, eyes on the landing, then his own eye decides
+            Vec3 eye = g.getEyePosition(), at = Vec3.atBottomCenterOf(t.land()).add(0, 0.05, 0), v = at.subtract(eye);
+            g.setYRot((float) Math.toDegrees(Math.atan2(-v.x, v.z))); g.setYHeadRot(g.getYRot()); g.setXRot((float) Math.toDegrees(-Math.atan2(v.y, Math.sqrt(v.x * v.x + v.z * v.z))));
+            Vec3 to = c0.add(dir.scale(0.72)), off = new Vec3(to.x - g.getX(), 0, to.z - g.getZ());
+            if (off.length() > 0.06 && age < 40) { g.setShiftKeyDown(true); hands(g, off.normalize(), Mth.clamp(off.length() * 2.5, 0.1, 0.4), false, false); s.ground = 0; return null; }
+            hands(g, null, 0, false, false); g.setShiftKeyDown(false); if (++s.ground < 4) return null; // (stood up at the edge, a few ticks for his eye to rise and settle)
+            if (com.claudemod.entity.life.Perception.clear(l, g.getEyePosition(), at)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: looked over the edge, the landing's there: {} (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), s.plan); s.phase = 0; s.ground = 0; s.t0 = g.tickCount; return null; }
+            String why = String.format("he can't see the landing %s, looked over the edge (eye %.2f %.2f %.2f)", t.land().toShortString(), g.getEyePosition().x, g.getEyePosition().y, g.getEyePosition().z);
+            RUN.remove(g.getUUID()); refusedNote(g, kindName(t.kind()) + " at " + t.from().toShortString() + ": " + why);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: not taken, {} (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), why);
+            com.claudemod.entity.life.MindLog.refused(g, t.from(), kindName(t.kind()) + " [" + why + "]"); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, t.land(), g.tickCount);
+            return "refused: " + why;
+        }
         g.setYRot(yaw); g.setYHeadRot(yaw); g.yBodyRot = yaw; g.setXRot(t.kind() == DROP ? 60 : 20); // facing straight along the row, eyes on the landing
         boolean sprint = t.kind() == SPRINT_JUMP;
         if (s.phase == 0) { // lined up: on the lip, at the back of it for a run, still for a moment (vanilla's 10-tick jump delay is past)

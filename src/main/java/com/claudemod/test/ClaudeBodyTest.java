@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1688: return st1688(stage, t, c, h, level, mock);
             case 1687: return st1687(stage, t, c, h, level, mock);
             case 1686: return st1686(stage, t, c, h, level, mock);
             case 1685: return st1685(stage, t, c, h, level, mock);
@@ -23064,6 +23065,34 @@ public final class ClaudeBodyTest {
             check(stored == 6, "6 rods banked in his overworld chest, read from the Nether: " + stored + " stored");
             check(r != null && r.startsWith("done"), "6 rods banked at home, blaze_rod@6 from the Nether: \"" + r + "\"");
             pass(stage, t, stored + " stored, " + r);
+        }
+        return true;
+    }
+    /** Stage 1688 (D2D death 19:38:42 11-12 at the fortress: FIGHT_NO_EFFECT broke off the attack, the next task's Place at 317, 69, 497 sent a walk to 315, 67, 497, "no route: made one (MAY_DIG: 2 digs)", the made way's Digs at 315, 67, 498 and 314, 66, 498, both his cobblestone booked "(cover)" at 19:34:12, "back up after 3 min" with 8+ blazes about; 5 s on "no cover from the blazes within 10", the run through their fire, dead: ActionPath kept only a dig-in's cells (coverCell) and priced his temps at no world cost). His cover blocks (booked "cover") in the way, a blaze 10 off, a walk round: the way leaves his cover standing. */
+    private static net.minecraft.world.entity.monster.Blaze s1688B;
+    private static boolean st1688(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (s1688B != null) s1688B.discard(); s1688B = null; }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 12; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -8; z <= 8; z++) for (int y = 0; y <= 3; y++) level.setBlock(o.offset(1, y, z), (z == 0 && y <= 1 ? Blocks.COBBLESTONE : Blocks.BEDROCK).defaultBlockState(), 2); /* a wall with his cover in it by him, a long way round */
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            try { var k = com.claudemod.entity.life.TempLedger.Entry.class.getDeclaredConstructor(BlockPos.class, String.class, String.class, long.class, String.class, String.class); k.setAccessible(true);
+                for (int y = 0; y <= 1; y++) { BlockPos q = o.offset(1, y, 0).immutable(); com.claudemod.entity.life.TempLedger.book(c).put(q, k.newInstance(q, "cobblestone", "cover", level.getGameTime(), "step blaze_rods", "task Place")); } } catch (ReflectiveOperationException e) { check(false, "setup: " + e); }
+            s1688B = EntityType.BLAZE.create(level); s1688B.moveTo(o.getX() + 10.5, o.getY() + 3, o.getZ() + 0.5, 90, 0); s1688B.setNoAi(true); s1688B.setPersistenceRequired(); level.addFreshEntity(s1688B);
+        }
+        if (t[0] == 14) {
+            var p = com.claudemod.entity.nav.ActionPath.plan(c, level, o, o.offset(3, 0, 0), 1.0, true, 6000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0);
+            String dug = ""; if (p != null) for (var a : p.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d && d.pos().getX() == o.getX() + 1 && d.pos().getZ() == o.getZ()) dug += d.pos().subtract(o).toShortString() + " ";
+            String why = p == null ? "no way" : p.digs() + " digs, " + p.walks() + " walks";
+            for (int y = 0; y <= 1; y++) com.claudemod.entity.life.TempLedger.book(c).remove(o.offset(1, y, 0));
+            s1688B.discard(); s1688B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -6; x <= 12; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(p != null, "setup: no way at all past the wall (" + why + ")");
+            check(dug.isEmpty(), "a blaze 10 off, the way dug his cover at " + dug + "(o-relative): " + why);
+            pass(stage, t, why);
         }
         return true;
     }

@@ -606,6 +606,8 @@ public final class ActionPath {
             return false;
         }
         int coverLeft; // cells of his cover the search wouldn't dig
+        private Boolean shooters; // (once a plan)
+        boolean shootersAbout() { if (shooters == null) shooters = !level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(32), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.RangedAttackMob && m instanceof net.minecraft.world.entity.monster.Enemy)).isEmpty(); return shooters; }
         /** His own build: never dug through (the rows of his mine and his house's door are the way). */
         final java.util.Set<BlockPos> straySaid = new java.util.HashSet<>(); // (each said once a plan)
         final java.util.Set<BlockPos> intactSaid = new java.util.HashSet<>(); // (a structure's blocks kept: said once a plan)
@@ -647,6 +649,7 @@ public final class ActionPath {
             if (s.getDestroySpeed(level, p) < 0 || s.hasBlockEntity()) return -1;
             if (s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && !com.claudemod.director.ClaudeLife.isTempStation(g, p) && !com.claudemod.director.ClaudeLife.stationPickup(p)) return -1; // a table is a station with no block entity: the dig guard refuses it, so a route never plans one (the planner dug it, the guard said no, the route came back)
             String bend = null; // (MAY_BEND: the soft rule this dig bends)
+            { var te = com.claudemod.entity.life.TempLedger.entry(g, p); if (te != null && "cover".equals(te.why) && shootersAbout()) { if (mode != Mode.MAY_BEND) { coverLeft++; return -1; } bend = "his cover, shooters about"; } } // his cover stands while shooters are about: no walk digs it (D2D death 19:38:42 11-12, a walk to a Place dug his blaze cover with 8+ blazes about; stage 1688)
             if (s.is(net.minecraft.tags.BlockTags.LOGS) && !(p.getX() == g.getBlockX() && p.getZ() == g.getBlockZ() && p.getY() < g.getBlockY() && bs(g.blockPosition().below()).is(net.minecraft.tags.BlockTags.LOGS))) { if (mode != Mode.MAY_BEND) return -1; bend = "the tree rule (a log cut out of a standing tree)"; } // a tree is felled whole or left standing: never a log cut out of it for a way through (the trunk he's standing on is the exception: digging down it is taking that tree down, from the top)
             if (owner != null && com.claudemod.director.ClaudeLife.protectedBlock(g, owner, p)) return -1;
             if (com.claudemod.director.ClaudeLife.nookShell(g, p) && mode == Mode.MAY_BEND) bend = "his nook's shell";

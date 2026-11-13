@@ -11148,6 +11148,7 @@ public final class ClaudeBodyTest {
             case 1645: return st1645(stage, t, c, h, level, mock);
             case 1646: return st1646(stage, t, c, h, level, mock);
             case 1647: return st1647(stage, t, c, h, level, mock);
+            case 1648: return st1648(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25998,6 +25999,33 @@ public final class ClaudeBodyTest {
                 check(!s1647Broke, "his fresh patch at " + s1647P.toShortString() + " broken for the ore beside it in his ceiling (a clear view from the tunnel below it)");
                 pass(stage, t, "the ore taken from the tunnel, the patch stayed, " + (t[0] - s1647T) + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1648 (D2D review 202028-52, live 20:17:47-20:18:33 11-12 at -48..-46,16..17,-554: his way to the granite at -46,16,-557 dug a door through his mine wall and put it back at the way's end ("structure block(s) dug for the way: put back"); the next way's dig there was a "flip" to the referee (dug by walkTo, filled by approach), refused, the way dropped and planned through the next wall cell, 4 ways in a second). A door dug and put back as it was is no change: the next way may dig it; a fill that isn't the way's own put-back still stands as a flip. */
+    private static boolean st1648(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; com.claudemod.entity.life.Gate.reset(c); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 12000;
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && !level.getBlockState(d.relative(dd)).isAir()) side = dd;
+            check(side != null && b.isShell(d.relative(side)) && b.isShell(d.relative(side).above()), "setup: no wall of his beside the row");
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+            BlockPos door = d.relative(side), flip = d.relative(side).above();
+            var st = level.getBlockState(door);
+            var dig = new Task.Break(door); com.claudemod.entity.ClaudeEntity.ORIGIN.put(dig, "WorkGoal.approach"); com.claudemod.entity.life.Gate.started(c, dig, null); level.setBlock(door, Blocks.AIR.defaultBlockState(), 3); com.claudemod.entity.life.Gate.ended(c, dig, null);
+            var back = new Task.Place(door, st.getBlock().asItem(), null, st); com.claudemod.entity.ClaudeEntity.ORIGIN.put(back, "WorkGoal.walkTo"); com.claudemod.entity.life.Gate.started(c, back, null); level.setBlock(door, st, 3); com.claudemod.entity.life.Gate.ended(c, back, null);
+            var dig2 = new Task.Break(door); com.claudemod.entity.ClaudeEntity.ORIGIN.put(dig2, "WorkGoal.approach");
+            boolean doorOk = com.claudemod.entity.life.Gate.admits(c, dig2);
+            var fst = level.getBlockState(flip); level.setBlock(flip, Blocks.COBBLESTONE.defaultBlockState(), 3); /* (his patch there, as live: the fill puts back what was dug) */
+            var dig3 = new Task.Break(flip); com.claudemod.entity.ClaudeEntity.ORIGIN.put(dig3, "WorkGoal.approach"); com.claudemod.entity.life.Gate.started(c, dig3, null); level.setBlock(flip, Blocks.AIR.defaultBlockState(), 3); com.claudemod.entity.life.Gate.ended(c, dig3, null);
+            var fill = new Task.Place(flip, Items.COBBLESTONE); com.claudemod.entity.ClaudeEntity.ORIGIN.put(fill, "WorkGoal.doPlace:4288"); com.claudemod.entity.life.Gate.started(c, fill, null); level.setBlock(flip, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.Gate.ended(c, fill, null);
+            var dig4 = new Task.Break(flip); com.claudemod.entity.ClaudeEntity.ORIGIN.put(dig4, "WorkGoal.approach");
+            boolean flipOk = com.claudemod.entity.life.Gate.admits(c, dig4);
+            level.setBlock(flip, fst, 3); com.claudemod.entity.life.Gate.reset(c); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(doorOk, "his way's door through his wall, dug and put back as it was: the next way's dig there refused as a flip");
+            check(!flipOk, "a dig, a patch of another system's, the dig again: no longer refereed");
+            pass(stage, t, "a closed door is no flip; a dig against another system's fill still is");
         }
         return true;
     }

@@ -93,7 +93,8 @@ public final class Gate {
         if (!a.block().equals(b.block()) && (t instanceof Task.Break || t instanceof Task.Place)) { // (the referee's history: who changed the cell to what)
             Map<Long, Change[]> h = HIST.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (h.size() > 2000) h.clear();
             Change[] was = h.get(p.asLong());
-            h.put(p.asLong(), new Change[] {was == null ? null : was[1], new Change(t, a.block(), b.block(), ClaudeEntity.originOf(t), now(g))});
+            if (t instanceof Task.Place pl && pl.want() != null && was != null && was[1] != null && was[1].task() instanceof Task.Break && was[1].before().equals(b.block())) h.remove(p.asLong()); // a door: his way's dig put back as it was (ActionPath's restore), no change to referee; the next way's dig there read as a flip, refused, and the way re-planned through the next wall cell, 4 times in a second (live 20:18:33 11-12, D2D 202028-52, stage 1648)
+            else h.put(p.asLong(), new Change[] {was == null ? null : was[1], new Change(t, a.block(), b.block(), ClaudeEntity.originOf(t), now(g))});
         }
         if (g.tasks.contains(t)) return; // (put itself back: a nudge, the block in front first, a walk to a stand spot; its own bounded retry)
         if (Boolean.TRUE.equals(Watchdog.achieved(g, t))) { book(g).remove(t); return; }

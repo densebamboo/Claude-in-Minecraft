@@ -11123,6 +11123,7 @@ public final class ClaudeBodyTest {
             case 1635: return st1635(stage, t, c, h, level, mock);
             case 1636: return st1636(stage, t, c, h, level, mock);
             case 1637: return st1637(stage, t, c, h, level, mock);
+            case 1638: return st1638(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25285,6 +25286,28 @@ public final class ClaudeBodyTest {
             check(r != null, "6 blaze rods on him, the blaze job counting his chests, his storage 2 off: no stash before the trip");
             check(in == 6 && on == 0, "at his storage: the rods not banked (" + on + " on him, " + in + " in the chest)");
             pass(stage, t, "the rods banked before the trip, kept with a powder craft queued: " + in + " in the chest");
+        }
+        return true;
+    }
+    /** Stage 1638 (D2D review 154353-36, live 15:39:26-15:39:51 11-12: lapis with lava he knew of behind it, "not breaking: lava behind it", the refusal back on a second later as "he stands somewhere new", doMineVisibleOres queued it again and walked him back, 25 s round and round). The lava beside a block doesn't change with where he stands: his move off doesn't clear that refusal; the blocks round it changing does. */
+    private static boolean st1638(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = c.blockPosition().immutable();
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); }
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -3; z <= 3; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos ore = me.offset(3, 0, 3); for (BlockPos q : BlockPos.betweenClosed(ore.offset(-1, -1, 1), ore.offset(1, 1, 2))) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); level.setBlock(ore, Blocks.DEEPSLATE_LAPIS_ORE.defaultBlockState(), 2); level.setBlock(ore.south(), Blocks.LAVA.defaultBlockState(), 2); // (the lava shut in: stone round it, the ore its one open side)
+            c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, ore, c.tickCount, me.offset(-12, 0, 0), com.claudemod.entity.life.Attempts.Reason.GUARD, "lava he knows of beside it", null); // (refused from 12 off: where he stands now is somewhere new; a teleport would clear his attempts)
+        }
+        if (t[0] == 20) {
+            BlockPos ore = me.offset(3, 0, 3);
+            boolean held = c.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.BREAK, ore, c.tickCount, 0); String moved = held ? null : "dropped while he stood 12 off" + (c.onGround() ? "" : " (not on the ground)");
+            level.setBlock(ore.south(), Blocks.STONE.defaultBlockState(), 2); // (the lava plugged: the blocks round it changed)
+            String plugged = held ? c.attempts.changed(com.claudemod.entity.life.Attempts.Kind.BREAK, ore) : "n/a";
+            for (int x = -12; x <= 12; x++) for (int z = -3; z <= 3; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.attempts.clear();
+            check(moved == null, "lava beside the ore, he walked 12 off: the refusal back on (" + moved + ")");
+            check(plugged != null, "the lava beside it plugged: the refusal still held");
+            pass(stage, t, "the lava refusal holds where he stands, back on when the blocks change: " + plugged);
         }
         return true;
     }

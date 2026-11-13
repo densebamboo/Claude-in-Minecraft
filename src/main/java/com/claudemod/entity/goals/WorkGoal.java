@@ -4285,10 +4285,14 @@ public class WorkGoal extends Goal {
                     }
                 }
             }
-            if (g.blueprint.roleAt(pos) != null) for (Task q0 : g.tasks) if (q0 instanceof Task.Place qp && qp.pos().distManhattan(pos) == 1 && g.blueprint.roleAt(qp.pos()) == null && Vec3.atCenterOf(qp.pos()).distanceToSqr(g.getEyePosition()) > Vec3.atCenterOf(pos).distanceToSqr(g.getEyePosition()) + 0.25 && level.getBlockState(qp.pos()).canBeReplaced() && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, qp.pos(), g.tickCount, 20 * 60)) { // a pocket is filled from its deepest cell out: his mine's cell at its mouth patched first shut the ore cells behind it off, left open (stage 568); inside the pocket the vein's own order stands
-                g.tasks.remove(q0); g.tasks.addFirst(t); g.tasks.addFirst(q0);
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} behind the hole at {} filled first: the pocket from its deepest cell out (WorkGoal.doPlace)", qp.pos().toShortString(), pos.toShortString());
-                return exit("first: the cell behind it");
+            if (g.blueprint.roleAt(pos) != null) { // a pocket is filled from its deepest cell out: his mine's cell at its mouth patched first shut the ore cells behind it off, left open (stage 568); deepest by the way in from the mouth, the whole pocket, not the mouth's own neighbours only (live 23:57:46 11-12, D2D family 1: -34,17,-571 shut with -33,18,-571 behind it open, the walk to that one dug it out again; stage 1335)
+                java.util.List<BlockPos> pk0 = new java.util.ArrayList<>(pocketBehind(g, level, pos)); Task.Place deep = null; int di = 0; // (pocketBehind is breadth-first from the mouth: a later cell is further in)
+                for (Task q0 : g.tasks) if (q0 instanceof Task.Place qp && pk0.indexOf(qp.pos()) > di && g.blueprint.roleAt(qp.pos()) == null && level.getBlockState(qp.pos()).canBeReplaced() && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, qp.pos(), g.tickCount, 20 * 60)) { di = pk0.indexOf(qp.pos()); deep = qp; }
+                if (deep != null) {
+                    g.tasks.remove(deep); g.tasks.addFirst(t); g.tasks.addFirst(deep);
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} behind the hole at {} filled first: the pocket from its deepest cell out (WorkGoal.doPlace)", deep.pos().toShortString(), pos.toShortString());
+                    return exit("first: the cell behind it");
+                }
             }
             int refusedBehind = 0; java.util.List<BlockPos> behind0 = veinBehind(g, level, pos); // (live 12:14: the vein went on past the hole's own faces, the patch sealed 3 diamond ore and a drop in)
             BlockPos wetAt = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) ? pos : null; for (Direction d : Direction.values()) if (wetAt == null && level.getFluidState(pos.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) wetAt = pos.relative(d);

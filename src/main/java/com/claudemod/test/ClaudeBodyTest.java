@@ -11168,6 +11168,7 @@ public final class ClaudeBodyTest {
             case 1332: return st1332(stage, t, c, h, level, mock);
             case 1333: return st1333(stage, t, c, h, level, mock);
             case 1334: return st1334(stage, t, c, h, level, mock);
+            case 1335: return st1335(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26551,6 +26552,30 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(far, Blocks.AIR.defaultBlockState(), 3);
             check(d != null && d.contains("rides home"), "the control: nothing queued, the raw iron no longer rides home 62 off: \"" + d + "\"");
             pass(stage, t, "the ingots wanted next: smelted here; nothing wanting them: they ride home");
+        }
+        return true;
+    }
+    /** Stage 1335 (D2D family 1, live 23:57:46-48 11-12 down his mine: the pocket's "deepest cell out" moved only the mouth's own neighbour first, -34,17,-571 went in with -33,18,-571 behind it still open, and the walk to patch that one dug the fresh patch out again: PLACE_BREAK). A two-high mouth in his wall, a pocket mid -> upper -> deep behind it, every cell's patch queued: no cell is shut while a cell behind it is still open. */
+    private static boolean st1335(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(6, 2, 8)), hole = at.north(), mid = hole.north(), upper = mid.above(), deep = upper.north();
+        java.util.function.Predicate<BlockPos> shut = q -> !level.getBlockState(q).getCollisionShape(level, q).isEmpty();
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.prefs.put("stay_close", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -2; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(at.west(2), net.minecraft.core.Direction.EAST, 2, 3);
+            b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(2), net.minecraft.core.Direction.EAST, 7, null)); b.invalidate(); c.blueprint = b;
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos q : new BlockPos[] {hole, hole.above(), mid, upper, deep}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.director.ClaudeLife.bpSync(c); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(20))) it.discard();
+            check(c.blueprint.roleAt(hole) != null && c.blueprint.roleAt(mid) == null, "the mouth isn't his wall or the pocket is: " + c.blueprint.roleAt(hole) + " / " + c.blueprint.roleAt(mid));
+        }
+        if (t[0] == 10) for (BlockPos q : new BlockPos[] {hole, hole.above(), deep, upper, mid}) c.tasks.add(new Task.Place(q, Items.COBBLED_DEEPSLATE));
+        if (t[0] > 10) {
+            check(!(shut.test(mid) && (!shut.test(upper) || !shut.test(deep))) && !(shut.test(upper) && !shut.test(deep)), "a pocket cell shut with a cell behind it still open: mid " + shut.test(mid) + ", upper " + shut.test(upper) + ", deep " + shut.test(deep) + " (tick " + t[0] + ", queue " + c.tasks + ")");
+            if (java.util.List.of(hole, hole.above(), mid, upper, deep).stream().allMatch(shut)) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the pocket filled from its deepest cell out, the mouth last, in " + t[0] + " ticks"); }
+            else check(t[0] < 400, "the pocket not filled in 20 s: mid " + shut.test(mid) + ", upper " + shut.test(upper) + ", deep " + shut.test(deep) + ", mouth " + shut.test(hole) + "/" + shut.test(hole.above()) + ", at " + c.blockPosition() + ", task " + c.currentTask + ", queue " + c.tasks);
         }
         return true;
     }

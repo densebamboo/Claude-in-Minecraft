@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1693: return st1693(stage, t, c, h, level, mock);
             case 1692: return st1692(stage, t, c, h, level, mock);
             case 1691: return st1691(stage, t, c, h, level, mock);
             case 1690: return st1690(stage, t, c, h, level, mock);
@@ -23209,6 +23210,29 @@ public final class ClaudeBodyTest {
             check(gone, "setup: the rod didn't despawn");
             check(inc.startsWith("JOB_ITEM_LOST") && inc.contains("blaze_rod"), "a blaze rod 4 off him on the rods job despawned, no pile of his: incident " + inc);
             pass(stage, t, inc);
+        }
+        return true;
+    }
+    /** Stage 1693 (D2D reviews 201021-33 / 201525-46, live 20:07:31 11-12 at -115, 18, -543: the iron there mined, the pocket filled from beside it, the cell sealed in on all six sides; its patch then "NO_FACE ... no face in sight from anywhere he can stand", a failed placement, read by the review as a give-up one step from a face; the NO_FACE map shows it shut on every side). A placement queued into a cell of air shut in by rock on all six sides: no failed placement, it's a sealed void, nothing to patch. */
+    private static BlockPos s1693P;
+    private static boolean st1693(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.attempts.clear(); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), (x >= 2 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            s1693P = o.offset(3, 1, 0).immutable(); level.setBlock(s1693P, Blocks.AIR.defaultBlockState(), 2); /* a void shut in by rock */
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.tasks.add(new Task.Place(s1693P, Items.COBBLESTONE));
+        }
+        if (t[0] == 10 + 20 * 3) {
+            boolean failed = c.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, s1693P, c.tickCount, 20 * 60); boolean still = c.tasks.stream().anyMatch(k -> k instanceof Task.Place p && p.pos().equals(s1693P)) || c.currentTask instanceof Task.Place p2 && p2.pos().equals(s1693P);
+            String q = c.currentTask + " " + c.tasks; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(!failed, "a placement into a void shut in on all six sides: a failed placement (NO_FACE) on record");
+            check(!still, "a placement into a sealed void still queued after 3 s: " + q);
+            pass(stage, t, "the sealed void left as it is");
         }
         return true;
     }

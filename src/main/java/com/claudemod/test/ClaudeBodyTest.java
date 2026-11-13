@@ -11118,6 +11118,7 @@ public final class ClaudeBodyTest {
             case 1632: return st1632(stage, t, c, h, level, mock);
             case 1633: return st1633(stage, t, c, h, level, mock);
             case 1634: return st1634(stage, t, c, h, level, mock);
+            case 1635: return st1635(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25139,6 +25140,39 @@ public final class ClaudeBodyTest {
             check(!gone, "his step up the ledge taken up as he set off up it");
             check(at > 25 && y > 1.5, "not up the ledge and on in 15 s: at " + String.format("%.1f", at) + ", " + String.format("%.1f", y) + " up");
             pass(stage, t, "his step left for the walk up it, on along the ledge (at " + String.format("%.1f", at) + ")");
+        }
+        return true;
+    }
+    /** Stage 1635 (live 16:05-16:10 11-12, D2D reviews 161022-50/53: kit.food priced "hunt hoglins ... a furnace set down here" while its own "cook his raw" read "out: nothing to make one from here (no blackstone in sight)"; the hunt won every few seconds for 2 min, collect/smelt/fight each failed or said done): a hoglin 20 off on bare netherrack, no furnace, no stone, no blackstone, 4 raw porkchop and 14 cooked cod on him. The hunt is out (its pork would stay raw); with 8 cobblestone on him it's back. */
+    private static boolean st1635(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13400, 64, 7900);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -32; k <= 32; k += 16) for (int j = -32; j <= 32; j += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, j)), 2, o.offset(k, 0, j));
+        if (t[0] == 10) {
+            for (int x = -26; x <= 26; x++) for (int z = -26; z <= 26; z++) for (int y = -26; y <= 26; y++) { BlockPos q = o.offset(x, y, z);
+                if (y == -1 && Math.abs(x) <= 24 && Math.abs(z) <= 4) nl.setBlock(q, Blocks.NETHERRACK.defaultBlockState(), 2);
+                else if (y >= 0 && y <= 3 && Math.abs(x) <= 24 && Math.abs(z) <= 4) nl.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+                else if (nl.getBlockState(q).is(Blocks.BLACKSTONE) || nl.getBlockState(q).is(Blocks.GILDED_BLACKSTONE)) nl.setBlock(q, Blocks.NETHERRACK.defaultBlockState(), 2); }
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            var hg = EntityType.HOGLIN.create(nl); hg.moveTo(o.getX() + 20.5, o.getY(), o.getZ() + 0.5, 0, 0); hg.setNoAi(true); hg.setPersistenceRequired(); hg.setImmuneToZombification(true); nl.addFreshEntity(hg);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 14)); c.getInventory().add(new ItemStack(Items.PORKCHOP, 4));
+            c.myStations.clear(); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false;
+        }
+        if (t[0] == 70) { // (past the kit's 40-tick memo)
+            com.claudemod.director.Kit.foodAsk(c); String pick = com.claudemod.director.Kit.foodPick(c);
+            c.getInventory().clearOrCountMatchingItems(x -> x.is(Items.PORKCHOP), -1, c.inventoryMenu.getCraftSlots()); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; // (no raw on him: the hunt the only cooked food, so its pick shows it back)
+            check(!"hunt hoglins".equals(pick), "no furnace near, none on him, no stone or blackstone: the kit still picks the hoglin hunt, its pork would stay raw (" + pick + ")");
+        }
+        if (t[0] == 120) {
+            com.claudemod.director.Kit.foodAsk(c); String pick = com.claudemod.director.Kit.foodPick(c);
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.hoglin.Hoglin.class, new net.minecraft.world.phys.AABB(o).inflate(50))) m.discard();
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -24; x <= 24; x++) for (int z = -4; z <= 4; z++) nl.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check("hunt hoglins".equals(pick), "8 cobblestone on him (a furnace made here): the hoglin hunt should be back (" + pick + ")");
+            pass(stage, t, "the hoglin hunt out with no furnace to be had, back with 8 cobblestone");
         }
         return true;
     }

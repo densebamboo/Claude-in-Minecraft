@@ -9289,6 +9289,12 @@ public final class ClaudeLife {
                 if (best != null && (mineStation == null || best.distSqr(face) + 24 * 24 < mineStation.distSqr(face))) mineStation = best;
             }
             if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && mineStation != null && ownTableBeats(g, level, mineStation, st.skill() + " " + st.target())) return null;
+            if (block == Blocks.FURNACE && canPlaceOwn && mineStation != null) { // priced as out of his mine: the walk there and back and the smelt split over its furnaces, against his own set down here (live 20:44 11-12: 1 salmon, 2 furnaces in his pack, 23 off by his rows and back, D2D 204749-47 / 205746-93, stage 1649)
+                Item in0 = smeltInput(level, g, item(st.target())); int n0 = in0 == null ? st.count() : Math.min(st.count(), g.getInventory().countItem(in0)); final BlockPos ms0 = mineStation;
+                int k0 = 0; for (BlockPos f : g.myStations) if (f.distSqr(ms0) <= 9 && level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) k0++;
+                int r0 = routeDist(g, g.blockPosition(), ms0); double his0 = 2.0 * r0 / 5.6 + n0 * 10.0 / Math.max(1, k0), own0 = (g.getInventory().countItem(Items.FURNACE) > 0 ? 4 : 10) + n0 * 10.0;
+                if (own0 < his0) { ClaudeMod.LOGGER.info("[Claude life] {} {} x{}: his own furnace set down here (~{} s) beats the mine's at {} ({} by his rows, {} furnace(s) there, ~{} s) (ClaudeLife.goToStation)", st.skill(), st.target(), n0, (int) own0, ms0.toShortString(), r0, k0, (int) his0); ownHereOver.put(g.getUUID(), new Object[] {ms0.immutable(), g.tickCount}); return null; }
+            }
             Integer failed = mineStation == null ? null : g.attempts.any.get(mineStation);
             if (mineStation != null && (failed == null || g.tickCount - failed > 20 * 60)) {
                 g.tasks.add(new Task.GoTo(mineStation, 2.5));

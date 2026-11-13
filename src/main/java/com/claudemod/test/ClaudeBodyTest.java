@@ -11150,6 +11150,7 @@ public final class ClaudeBodyTest {
             case 1646: return st1646(stage, t, c, h, level, mock);
             case 1647: return st1647(stage, t, c, h, level, mock);
             case 1648: return st1648(stage, t, c, h, level, mock);
+            case 1649: return st1649(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26053,6 +26054,34 @@ public final class ClaudeBodyTest {
             check(doorOk, "his way's door through his wall, dug and put back as it was: the next way's dig there refused as a flip");
             check(!flipOk, "a dig, a patch of another system's, the dig again: no longer refereed");
             pass(stage, t, "a closed door is no flip; a dig against another system's fill still is");
+        }
+        return true;
+    }
+    /** Stage 1649 (D2D reviews 204749-47 and 205746-93, live 20:44:27 and 20:56:50 11-12 in his mine: "smelt cooked_salmon wants the mine's furnace at -114, 16, -536 (23 blocks off)" for 1 salmon, and 34 off / 12 legs for 17 raw iron, 2 furnaces in his pack each time: in his mine the station walk was never weighed against his own). His U of a mine, 1 raw salmon, 2 furnaces and coal on him, his furnace 25 along his row: his own set down here. */
+    private static boolean st1649(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 7650);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 40; x++) for (int z = -4; z <= 16; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.SALMON, 1)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.FURNACE, 2)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance; c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            var rs = b.rows(); BlockPos me = rs.get(1).first(), near = rs.get(26).first();
+            for (int x = -4; x <= 40; x++) for (int z = -4; z <= 16; z++) for (int y = -1; y <= 3; y++) level.setBlock(new BlockPos(o.getX() + x, me.getY() + y, o.getZ() + z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0;
+            check(com.claudemod.director.ClaudeLife.inHisMine(c, c.blockPosition()), "setup: not in his mine at " + c.blockPosition().toShortString());
+            level.setBlock(near, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(near.immutable());
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 1);
+            BlockPos went = null; for (Task q : c.tasks) if (q instanceof Task.GoTo go && go.pos().equals(near)) { went = go.pos(); break; }
+            String q = c.tasks.toString(); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.blueprint = null; c.prefs.remove("mine_model"); c.stairStart = null; c.myStations.clear(); c.mineShape = null; c.mineCells.clear();
+            level.setBlock(near, Blocks.AIR.defaultBlockState(), 2);
+            check(went == null, "1 salmon, 2 furnaces in his pack, his furnace " + (int) Math.sqrt(near.distSqr(me)) + " along his row: walked to it (" + r + "; " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            pass(stage, t, "his own furnace here for the one salmon: " + r);
         }
         return true;
     }

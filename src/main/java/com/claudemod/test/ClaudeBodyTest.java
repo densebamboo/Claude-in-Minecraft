@@ -10552,6 +10552,7 @@ public final class ClaudeBodyTest {
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
             case 1702: return st1702(stage, t, c, h, level, mock);
+            case 1750: return st1750(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23443,6 +23444,23 @@ public final class ClaudeBodyTest {
     }
     /** Stage 1702 (D2D death 22:46:06 11-12 at the fortress: walk.blocked "clear them ~68 s ...; wait out (the Wither Skeleton 2 off is after him: it comes to him, it doesn't move off his way): clear them", the only option left; fight.flee 2 s on priced the run under the fight, 20 -> 7 in those two seconds; the walk never had turning back as a choice). Armor 15, three wither skeletons on and by his way, one already after him, the fight dearer than the run: the walk doesn't start the fight. */
     private static final java.util.List<net.minecraft.world.entity.monster.WitherSkeleton> s1702W = new java.util.ArrayList<>(); private static String s1702Q;
+    /** Stage 1750 (live 16:39:36 11-12 World 17, D2D review 164147-17): a spider in sight, an iron axe in his pack, and "made a wooden_sword for the fight": craftSwordIfCan weighed the sword he could make only against his swords. An iron axe (9 a hit at 0.9 a second) out-hits a wooden sword (4 at 1.6), so a player swings the axe and keeps the wood. An iron sword (6 at 1.6) still beats the axe and still gets made. */
+    private static boolean st1750(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 5) {
+            c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 10)); c.getInventory().add(new ItemStack(Items.STICK, 3)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            com.claudemod.director.ClaudeLife.craftSwordIfCan(c, level);
+            int wood = c.inventory.count(x -> x.is(Items.WOODEN_SWORD)), planks = c.inventory.count(x -> x.is(Items.OAK_PLANKS));
+            c.getInventory().add(new ItemStack(Items.IRON_INGOT, 2)); c.tickCount += 200; // a moment on, with ingots: an iron sword beats the axe
+            com.claudemod.director.ClaudeLife.craftSwordIfCan(c, level);
+            int iron = c.inventory.count(x -> x.is(Items.IRON_SWORD));
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            check(wood == 0, "made a wooden sword with an iron axe on him (" + wood + ", planks left " + planks + ")");
+            check(iron == 1, "no iron sword from 2 ingots with only an iron axe (" + iron + ")");
+            pass(stage, t, "the iron axe kept over a wooden sword, the iron sword still made");
+        }
+        return true;
+    }
     private static boolean st1702(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = h.absolutePos(new BlockPos(4, 2, 8)), goal = o.offset(22, 0, 0);
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var w0 : s1702W) w0.discard(); s1702W.clear(); s1702Q = null; }

@@ -13215,11 +13215,16 @@ public final class ClaudeLife {
         int canTier = !handle ? -1 : g.inventory.count(s -> s.is(Items.IRON_INGOT)) >= 2 ? 2 : g.inventory.count(s -> s.is(ItemTags.STONE_TOOL_MATERIALS)) >= 2 ? 1
                 : wood >= 2 + stickWood + tableWood ? 0 : -1;
         if (canTier <= haveTier) return;
+        // only a sword that out-hits what he'd swing already: an iron axe beats a wooden sword (live 16:39 11-12, D2D review 164147-17, stage 1750)
+        ItemStack held = com.claudemod.entity.goals.WorkGoal.bestWeapon(g);
+        double heldDps = held.isEmpty() ? 0 : com.claudemod.entity.goals.WorkGoal.weaponDamage(held) * com.claudemod.entity.goals.WorkGoal.weaponSpeed(held);
+        java.util.function.Predicate<Item> beats = it -> { ItemStack s0 = new ItemStack(it); return com.claudemod.entity.goals.WorkGoal.weaponDamage(s0) * com.claudemod.entity.goals.WorkGoal.weaponSpeed(s0) > heldDps; };
+        if (!beats.test(SWORDS[SWORDS.length - 1 - canTier])) { ClaudeMod.LOGGER.info("[Claude skill] no {} for the fight: his {} hits as hard", Crafting.name(SWORDS[SWORDS.length - 1 - canTier]), Crafting.name(held.getItem())); return; }
         // a sword takes a table: one goes down right here if he has none in reach, like a player (picked up again when he moves on)
         boolean table = ensureCraftingTable(g, level, Items.STONE_SWORD);
         for (int i = 0; i < SWORDS.length; i++) {
             Item sword = SWORDS[i];
-            if (SWORDS.length - 1 - i <= haveTier) return;
+            if (SWORDS.length - 1 - i <= haveTier || !beats.test(sword)) return;
             if (sword == Items.DIAMOND_SWORD && diamondsReserved(g)) continue; // they asked for diamonds: those are theirs, not his sword
             if (Crafting.craft(level, g.inventory, sword, 1, table).made() == 0) continue;
             ClaudeMod.LOGGER.info("[Claude skill] made a {} for the fight", Crafting.name(sword));

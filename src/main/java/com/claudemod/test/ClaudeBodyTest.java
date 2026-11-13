@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1703: return st1703(stage, t, c, h, level, mock);
             case 1702: return st1702(stage, t, c, h, level, mock);
             case 1750: return st1750(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
@@ -23484,6 +23485,27 @@ public final class ClaudeBodyTest {
             flatBox(h);
             check(q == null, "three wither skeletons on his way, one after him, the fight dearer than the run: the walk cleared them anyway: " + q);
             pass(stage, t, "the walk didn't start the fight");
+        }
+        return true;
+    }
+    /** Stage 1703 (D2D 003214-20, live 00:29:10 11-13: the plan "cooked chicken, arrows, flint and steel"; get_arrows "2 flint and 4 feathers on him: crafting 8 arrows", then flint_and_steel had no flint and fetched one from a chest 551 blocks off). get_arrows crafts only from the flint the plan's later steps don't need. */
+    private static boolean st1703(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.ARROW, 4)); c.getInventory().add(new ItemStack(Items.FLINT, 2)); c.getInventory().add(new ItemStack(Items.FEATHER, 4)); c.getInventory().add(new ItemStack(Items.STICK, 4)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 1)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("obtain", "flint_and_steel", 1, "near_you"));
+            String ga = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "get_arrows", "arrow@16", 12);
+            ClaudeMod.LOGGER.info("[Claude test] stage 1703 get_arrows -> {} | queue {}", ga, c.skillQueue);
+            int made = 0; for (var s0 : c.skillQueue) if ("craft".equals(s0.skill()) && "arrow".equals(s0.target())) made += s0.count();
+            boolean kept = c.skillQueue.stream().anyMatch(s0 -> "obtain".equals(s0.skill()) && "flint_and_steel".equals(s0.target()));
+            String q = String.valueOf(c.skillQueue);
+            c.skillQueue.clear(); c.tasks.clear(); c.getInventory().clearContent(); c.dropCurrent = true;
+            check(kept, "the plan's flint_and_steel step went missing: " + q);
+            check(made == 4, "2 flint on him and the plan's flint_and_steel still to come: the arrows took " + made / 4 + " flint (" + made + " arrows), not 1: " + ga + " | " + q);
+            pass(stage, t, "the arrows left the plan's flint");
         }
         return true;
     }

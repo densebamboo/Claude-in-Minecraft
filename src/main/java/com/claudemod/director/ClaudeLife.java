@@ -14641,6 +14641,23 @@ public final class ClaudeLife {
      * craft); the short part from what's to hand: flint or feathers in a near chest, gravel in sight broken till the flint drops, a
      * chicken about for feathers; else it waits, logged, and the plan moves on. target "arrow@N": N on him is the goal.
      */
+    /** How many of this item the plan's later craft/obtain steps still need, by their recipes: a step spends only what's left over (D2D 003214-20: the arrows took both flint, then the plan's flint_and_steel walked 551 blocks to a chest for one). */
+    static int planKeeps(ClaudeEntity g, ServerLevel level, Item it) {
+        int keep = 0;
+        for (var s0 : g.skillQueue) {
+            if (!"obtain".equals(s0.skill()) && !"craft".equals(s0.skill())) continue;
+            String t = s0.target(); int at = t.indexOf('@'); Item out = item(at >= 0 ? t.substring(0, at) : t);
+            if (out == null || out == it) continue;
+            int want = Math.max(1, s0.count()); try { if (at >= 0) want = Integer.parseInt(t.substring(at + 1)); } catch (NumberFormatException e) { }
+            int lack = want - g.inventory.count(x -> x.is(out)); if (lack <= 0) continue;
+            var rs = com.claudemod.entity.life.Crafting.recipesFor(level, out); if (rs.isEmpty()) continue;
+            var r = rs.get(0).value(); int per = 0;
+            for (var ing : r.getIngredients()) if (!ing.isEmpty() && ing.test(new ItemStack(it))) per++;
+            int makes = Math.max(1, r.getResultItem(level.registryAccess()).getCount());
+            keep += per * ((lack + makes - 1) / makes);
+        }
+        return keep;
+    }
     private static String getArrows(ClaudeEntity g, ServerLevel level, Skills.Step st) { return getArrows(g, level, st, false); }
     /** What he saw when there are no arrows to be had right now (nothing queued, nothing said), or null when there's a way to them: gear_up asks before it queues get_arrows (live 17:30-17:51 11-12, D2D review 173648-114: asked six times, "no arrows to be had" each time; stage 1682). */
     static String arrowsNone(ClaudeEntity g, ServerLevel level, int want) { return getArrows(g, level, new Skills.Step("get_arrows", "arrow@" + want, want, "near_you"), true); }
@@ -14673,7 +14690,7 @@ public final class ClaudeLife {
             }
             if (!dry) ClaudeMod.LOGGER.info("[Claude life] get_arrows: a skeleton {} blocks off but not fit for that fight ({}): let be (ClaudeLife.getArrows)", (int) Math.sqrt(pd), unfit);
         }
-        int flint = g.inventory.count(s -> s.is(Items.FLINT)), feathers = g.inventory.count(s -> s.is(Items.FEATHER));
+        int flintOn = g.inventory.count(s -> s.is(Items.FLINT)), flintKept = Math.min(flintOn, planKeeps(g, level, Items.FLINT)), flint = flintOn - flintKept, feathers = g.inventory.count(s -> s.is(Items.FEATHER)); /* (the flint the plan's later craft needs stays: 003214-20) */
         if (flint > 0 && feathers > 0) { if (dry) return null;
             int k = Math.min(crafts, Math.min(flint, feathers));
             g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("craft", "arrow", k * 4, st.where()));
@@ -14698,7 +14715,7 @@ public final class ClaudeLife {
                 ClaudeMod.LOGGER.info("[Claude life] get_arrows: no flint, {} gravel in sight (nearest {}): breaking {} till the flint drops (ClaudeLife.getArrows)", gravel.size(), gravel.get(0).toShortString(), n);
                 return "breaking the gravel in sight for flint (" + n + " of " + gravel.size() + "; about one in ten drops it)";
             }
-            flintWhy = "no flint, no gravel in sight" + (fs != null ? ", my flint's " + fs.dist() + " blocks off" : "");
+            flintWhy = (flintKept > 0 ? "no flint to spare (" + flintKept + " on me kept for the plan's later craft)" : "no flint") + ", no gravel in sight" + (fs != null ? ", my flint's " + fs.dist() + " blocks off" : "");
         }
         if (feathers == 0) {
             var fe = chestWith(g, level, Items.FEATHER);

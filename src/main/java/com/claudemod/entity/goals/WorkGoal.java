@@ -3604,9 +3604,10 @@ public class WorkGoal extends Goal {
             if (side || level.getFluidState(f).is(net.minecraft.tags.FluidTags.LAVA)) { int up = me.getY() + 2 - t.y(); if (boreYOff < up) { boreYOff = up; boreClean = 0; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] lava level with {}: the line goes up to y {} over it (WorkGoal.doBore)", f.toShortString(), t.y() + boreYOff); } ny = me.getY() + 1; f = me.relative(boreDir).atY(ny); }
         }
         if (off == 0 && ny < me.getY()) { BlockPos dfl = me.relative(boreDir).atY(ny).below(); // back down to the line only where there's ground under the step (live 14:47:10 11-05: back on the line out over the lava, the floor 2 down had nothing to go against, the same place asked every tick)
-            if (level.getBlockState(dfl).getCollisionShape(level, dfl).isEmpty() && level.getBlockState(dfl.below()).getCollisionShape(level, dfl.below()).isEmpty()) {
+            boolean ownFloor = com.claudemod.entity.life.TempLedger.built(g, dfl.above()); // (the step down is into the floor he put down for this level: the support under it isn't ground to go down onto; live 16:24:57 11-12, review 162740-93: dug his fresh floor, put it back, PLACE_BREAK and a referee fill-dig-fill; stage 1675)
+            if (ownFloor || level.getBlockState(dfl).getCollisionShape(level, dfl).isEmpty() && level.getBlockState(dfl.below()).getCollisionShape(level, dfl.below()).isEmpty()) {
                 ny = me.getY(); f = me.relative(boreDir).atY(ny);
-                if (!f.equals(boreCol)) com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] the line is down at y {}, nothing under {} to step down onto: on level at y {} till there's ground (WorkGoal.doBore)", wantY, dfl.toShortString(), ny);
+                if (!f.equals(boreCol)) com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] the line is down at y {}, {}: on level at y {} till there's ground (WorkGoal.doBore)", wantY, ownFloor ? "the step down is into his own floor at " + dfl.above().toShortString() : "nothing under " + dfl.toShortString() + " to step down onto", ny);
             }
         }
         if (!f.equals(boreCol)) { if (++boreClean >= 16 && (boreYOff != 0 || boreLaneOff != 0)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] 16 clean columns at {}: back on the line (y {}, lane {} -> y {}, lane 0) (WorkGoal.doBore)", f.toShortString(), t.y() + boreYOff, boreLaneOff, t.y()); boreYOff = 0; boreLaneOff = 0; boreDetour = 0; } boreCol = f.immutable(); boreTries = 0; boreStill = 0; } // (16 clean columns past a detour: back on the line)

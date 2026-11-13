@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1675: return st1675(stage, t, c, h, level, mock);
             case 1674: return st1674(stage, t, c, h, level, mock);
             case 1673: return st1673(stage, t, c, h, level, mock);
             case 1672: return st1672(stage, t, c, h, level, mock);
@@ -22695,6 +22696,30 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.FarSight.reset(c); c.getInventory().clearContent();
             check(bad.isEmpty(), "his plans ping-pong between two looks at the same unseen floor: " + bad + s1674W);
             nsHome(c, h, level); pass(stage, t, s1674W);
+        }
+        return true;
+    }
+    /** Stage 1675 (Loops / D2D review 162740-93, live 16:24:56-59 11-12 at -112,53,116: the bore, level at y 54 over a gap with its line down at 46, floored the step at -112,53,116; the support doPlace put under that floor made "ground under the step", so the next tick the line stepped down into its own fresh floor, dug it, and boreBuilt put it back: PLACE_BREAK and a referee fill-dig-fill). His bore east, its line 8 down, the next column's floor his own build with ground under it: he walks on over his floor, never digs it. */
+    private static BlockPos s1675F; private static int s1675N, s1675D;
+    private static boolean st1675(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 12, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1675F = null; s1675D = -1; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 8; x++) for (int z = -2; z <= 2; z++) for (int y = -10; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y < 0 && !(x == 1 && y == -1) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1675F = o.offset(1, -1, 0); com.claudemod.entity.life.TempLedger.planBuild(c, s1675F, "WorkGoal.doBore"); level.setBlock(s1675F, Blocks.NETHERRACK.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, s1675F, Blocks.NETHERRACK.defaultBlockState(), Blocks.AIR.defaultBlockState()); // the floor his bore just put down over the gap
+            s1675N = com.claudemod.entity.life.Watchdog.incidents;
+        }
+        if (t[0] == 14) c.tasks.add(new Task.Bore(o.offset(7, -8, 0), o.getY() - 8));
+        if (t[0] > 14 && t[0] < 70 && s1675D < 0 && level.getBlockState(s1675F).isAir()) s1675D = t[0];
+        if (t[0] == 70) {
+            boolean floor = level.getBlockState(s1675F).is(Blocks.NETHERRACK); String inc = com.claudemod.entity.life.Watchdog.incidents == s1675N ? "none" : com.claudemod.entity.life.Watchdog.lastIncident; String at = c.blockPosition().toShortString();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close");
+            for (int x = -2; x <= 8; x++) for (int z = -2; z <= 2; z++) for (int y = -10; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(floor && s1675D < 0, "his bore stepped down into the floor it had just put down: dug at tick " + s1675D + ", floor there now " + floor + ", incident " + inc + ", he's at " + at);
+            pass(stage, t, "walked on over his floor, at " + at);
         }
         return true;
     }

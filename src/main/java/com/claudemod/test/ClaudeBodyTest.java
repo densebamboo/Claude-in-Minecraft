@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1695: return st1695(stage, t, c, h, level, mock);
             case 1694: return st1694(stage, t, c, h, level, mock);
             case 1693: return st1693(stage, t, c, h, level, mock);
             case 1692: return st1692(stage, t, c, h, level, mock);
@@ -23256,6 +23257,32 @@ public final class ClaudeBodyTest {
             check(r != null && r.startsWith("failed: it's day,"), "a bow, flint, no feathers, no chicken or skeleton known, by day: \"" + r + "\" (not the time-of-day wait for the night's skeletons)");
             check(!q.contains("explore"), "a chicken search queued: " + q);
             pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 1695 (D2D: live crash 22:20:09 11-12, StackOverflowError ticking him at -6, 81, -21 in the overworld: stored() counted the other world's banked rods through bankedOutput, which asks the dragon run's open steps; the run's kit asked its food, the food ask read stored() again, round and round; f22508d5). The dragon goal, rods on record in his Nether chest, him in the overworld with no food ask remembered: his stores read once, the Nether's rods among them. */
+    private static BlockPos s1695C;
+    private static boolean st1695(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            s1695C = new BlockPos(15600, 70, 10600); nl.setBlock(s1695C, Blocks.CHEST.defaultBlockState(), 3);
+            if (nl.getBlockEntity(s1695C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch) ch.setItem(0, new ItemStack(Items.BLAZE_ROD, 6));
+            com.claudemod.entity.life.ChestLedger.look(c, nl, s1695C);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.playerGoal = "kill the ender dragon";
+        }
+        if (t[0] == 14) {
+            String err = null; int rods = -1;
+            try { var f = com.claudemod.director.Kit.class.getDeclaredField("foodAskMemo"); f.setAccessible(true); ((java.util.Map<?, ?>) f.get(null)).clear();
+                rods = com.claudemod.director.ClaudeLife.stored(c, level).getOrDefault(Items.BLAZE_ROD, 0); }
+            catch (StackOverflowError e) { err = "StackOverflowError"; } catch (ReflectiveOperationException e) { err = String.valueOf(e); }
+            c.playerGoal = null; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            if (nl.getBlockEntity(s1695C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch) ch.clearContent();
+            nl.setBlock(s1695C, Blocks.AIR.defaultBlockState(), 3); com.claudemod.entity.life.ChestLedger.look(c, nl, s1695C);
+            check(err == null, "his stores read with the dragon goal and rods in his Nether chest: " + err);
+            check(rods == 6, "6 rods banked in his Nether chest, read from the overworld: " + rods);
+            pass(stage, t, rods + " rods stored");
         }
         return true;
     }

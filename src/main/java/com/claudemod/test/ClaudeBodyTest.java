@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1696: return st1696(stage, t, c, h, level, mock);
             case 1695: return st1695(stage, t, c, h, level, mock);
             case 1694: return st1694(stage, t, c, h, level, mock);
             case 1693: return st1693(stage, t, c, h, level, mock);
@@ -23285,6 +23286,36 @@ public final class ClaudeBodyTest {
             check(err == null, "his stores read with the dragon goal and rods in his Nether chest: " + err);
             check(rods == 6, "6 rods banked in his Nether chest, read from the overworld: " + rods);
             pass(stage, t, rods + " rods stored");
+        }
+        return true;
+    }
+    /** Stage 1696 (D2D review 205746-92, live 20:55:33-39 11-12 finishing his branch at -86, 16, -561: the WallTorch at -119, 17, -561 walked onto the torch's own cell, its floor -119, 16 still stone, so the way dug his roof at -118, 18 and -119, 18 to step up, put them back, dug -118, 18 again to step down: PLACE_BREAK, "dug for a way and put back 3 times in 5 s"; from -118, 16 the torch was in reach, its wall's face in sight). His branch row 2 high, its last bottom block not dug yet, the torch due in the open cell above it, him 6 back along the row: the torch goes in from the row's floor, no roof cell ever dug. */
+    private static boolean st1696(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(9, 2, 8)), torch = o.offset(-6, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -9; x <= 3; x++) for (int y = -1; y <= 4; y++) for (int z = -3; z <= 3; z++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -6; x <= 0; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(o.offset(-6, 0, 0), Blocks.STONE.defaultBlockState(), 2); /* the branch's last bottom block, not dug yet */
+            level.setDayTime(6000); c.blueprint = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) c.tasks.add(new Task.WallTorch(torch.immutable(), net.minecraft.core.Direction.NORTH));
+        if (t[0] > 14) {
+            String dug = ""; for (int x = -7; x <= 0; x++) if (!level.getBlockState(o.offset(x, 2, 0)).is(Blocks.STONE)) dug += o.offset(x, 2, 0).subtract(o).toShortString() + " ";
+            boolean lit = level.getBlockState(torch).is(Blocks.WALL_TORCH);
+            if (!dug.isEmpty() || lit || t[0] == 14 + 200) {
+                BlockPos at = c.blockPosition().subtract(o); String tasks = c.tasks + " / " + c.currentTask;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+                for (int x = -9; x <= 3; x++) for (int y = -1; y <= 4; y++) for (int z = -3; z <= 3; z++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
+                check(dug.isEmpty(), "his branch's roof dug for the torch's walk at " + dug + "(o-relative), him at " + at.toShortString() + ", tasks " + tasks);
+                check(lit, "no torch at the branch's end in 10 s: him at " + at.toShortString() + " (o-relative), tasks " + tasks);
+                check(t[0] - 14 <= 100, "the torch in after " + (t[0] - 14) + " ticks (a player's pace: 4 steps and a click, 5 s at most)");
+                pass(stage, t, "the torch in from the row's floor in " + (t[0] - 14) + " ticks, him at " + at.toShortString() + ", no roof cell dug");
+            }
         }
         return true;
     }

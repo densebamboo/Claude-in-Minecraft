@@ -9933,6 +9933,8 @@ public final class ClaudeLife {
         if (g.commandActive || g.lastStep == null || !java.util.Set.of("strip_mine", "dig_down").contains(g.lastStep.skill()) || g.tasks.isEmpty()) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.FurnaceTake) return;
         if (Kit.food(g) >= com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6)) return;
+        { String fr = g.failReason.get("collect"); int wait = g.attempts.counters.getOrDefault("timeWait", 0); // the hunt waits on the clock: no food trip till it can run, the dig carries on (live 20:49-20:56 11-12: every 10 s, 46 times, 121 tasks set aside, the hunt "failed: it's night ... waits for first light", the dig rebuilt; D2D 205251-72 / 210404-18, stage 1609)
+          if (fr != null && fr.contains("it's night") && g.tickCount < wait) { if (g.tickCount - g.attempts.counters.getOrDefault("tripFoodWaitSaid", -100000) > 20 * 60) { g.attempts.counters.put("tripFoodWaitSaid", g.tickCount); ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left partway through {} {}: the hunt waits for first light ({} s), the dig goes on meanwhile (ClaudeLife.tripFoodCheck)", Kit.food(g), g.lastStep.skill(), g.lastStep.target(), (wait - g.tickCount) / 20); } return; } }
         for (Skills.Step s0 : g.skillQueue) { Item f0 = item(s0.target()); if (f0 != null && f0.components().has(net.minecraft.core.component.DataComponents.FOOD)) return; } // the food's on its way already
         int gt = g.gearTick; g.gearTick = -100000;
         String r = gearFirst(g, level, g.lastStep, false);

@@ -11151,6 +11151,7 @@ public final class ClaudeBodyTest {
             case 1647: return st1647(stage, t, c, h, level, mock);
             case 1648: return st1648(stage, t, c, h, level, mock);
             case 1649: return st1649(stage, t, c, h, level, mock);
+            case 1609: return st1609(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26082,6 +26083,33 @@ public final class ClaudeBodyTest {
             level.setBlock(near, Blocks.AIR.defaultBlockState(), 2);
             check(went == null, "1 salmon, 2 furnaces in his pack, his furnace " + (int) Math.sqrt(near.distSqr(me)) + " along his row: walked to it (" + r + "; " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
             pass(stage, t, "his own furnace here for the one salmon: " + r);
+        }
+        return true;
+    }
+    /** Stage 1609 (D2D reviews 205251-72 / 210404-18, live 20:49:20-20:56:40 11-12 down his mine at night, 5 meals, no armor: tripFoodCheck every 10 s, 46 times, "the dig waits (121 task(s) set aside), the food first", the hunt "failed: it's night and I'm down my mine with no armor; the hunt waits for first light", the dig rebuilt). The hunt waiting on the clock: the dig stays, no food trip till it can run. */
+    private static String s1609R = "";
+    private static boolean st1609(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; flatBox(h); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5)); c.getInventory().add(new ItemStack(Items.TORCH, 40)); c.getInventory().add(new ItemStack(Items.COAL, 10)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 16);
+            for (int k = 0; k < 6; k++) c.tasks.add(new Task.Break(h.absolutePos(new BlockPos(8 + k, 2, 4))));
+            String night = "failed: it's night and I'm down my mine with no armor; the hunt waits for first light (out the top in the dark is where the skeletons are)";
+            c.failReason.put("collect", night); c.attempts.counters.put("timeWait", c.tickCount + 20 * 300); c.attempts.counters.put("timeWaitRefusals", 1); c.attempts.counters.put("timeWaitDay", 1);
+            int before = c.tasks.size();
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("tripFoodCheck", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { s1609R = "no call: " + e; }
+            int after = c.tasks.size(); String q = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.failReason.remove("collect"); c.attempts.counters.put("timeWait", 0); c.getInventory().clearContent(); level.setDayTime(6000);
+            check(s1609R.isEmpty(), s1609R);
+            check(after == before, "the hunt waits for first light, 5 meals on him: the dig set aside (" + before + " -> " + after + " tasks), the food trip queued again: " + (q.length() > 160 ? q.substring(0, 160) : q));
+            pass(stage, t, "the dig carries on while the hunt waits on the clock (" + after + " tasks kept)");
         }
         return true;
     }

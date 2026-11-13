@@ -11163,6 +11163,7 @@ public final class ClaudeBodyTest {
             case 1605: return st1605(stage, t, c, h, level, mock);
             case 1606: return st1606(stage, t, c, h, level, mock);
             case 1330: return st1330(stage, t, c, h, level, mock);
+            case 1331: return st1331(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26434,6 +26435,20 @@ public final class ClaudeBodyTest {
             if (s1330In < 0) { if (in && c.holdingNight()) s1330In = t[0]; else check(t[0] - 10 < 300, "setup: not holding in a covered hole after 15 s, now=" + c.currentTask + " tasks=" + c.tasks); }
             check(!station, "a station set into his hole wall for 1 raw gold: now=" + c.currentTask + " tasks=" + c.tasks);
             if (s1330In >= 0 && t[0] - s1330In >= 200) { level.setDayTime(6000); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); pass(stage, t, "no table or furnace into the wall for one raw gold, 10 s holding"); }
+        }
+        return true;
+    }
+    /** Stage 1331 (D2D 231408-65, live 23:09:27-23:09:50 11-12 down his mine: "smelt iron_ingot x10 -> done: the raw_iron rides home to my furnace at -118, 16, -536 (41 off): no new furnace out here" with his mine's furnace at -121, 16, -536 38 off; the plan then crafted a furnace, and the smelt walked to the one 38 off after all). His furnace 30 off and another 45 off: the raw doesn't "ride home" past the one he can walk to. */
+    private static boolean st1331(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), near = me.offset(30, 0, 0), far = me.offset(45, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); flatBox(h); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 5) {
+            level.setBlock(near.below(), Blocks.STONE.defaultBlockState(), 3); level.setBlock(near, Blocks.FURNACE.defaultBlockState(), 3); level.setBlock(far.below(), Blocks.STONE.defaultBlockState(), 3); level.setBlock(far, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(near); c.myStations.add(far); c.getInventory().add(new ItemStack(Items.OAK_LOG, 16));
+            c.getInventory().add(new ItemStack(Items.RAW_IRON, 10)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            String d = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 10);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(near, Blocks.AIR.defaultBlockState(), 3); level.setBlock(far, Blocks.AIR.defaultBlockState(), 3);
+            check(d != null && !d.contains("rides home"), "his furnace 30 off: the raw iron \"rides home\" to the one 45 off: \"" + d + "\"");
+            pass(stage, t, "smelt with his furnace 30 off: \"" + d + "\"");
         }
         return true;
     }

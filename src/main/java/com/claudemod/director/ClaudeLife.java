@@ -667,6 +667,7 @@ public final class ClaudeLife {
     /** His furnace that raw ore rides home to: none within 16 here, no furnace on him, one of his 40+ off (no new furnace out here). Null: it smelts where he is. */
     static BlockPos rawRidesHome(ClaudeEntity g, ServerLevel level) {
         if (g.commandActive || reachableFurnace(g, level, g.blockPosition(), 16) != null || g.inventory.count(t -> t.is(Items.FURNACE)) > 0) return null;
+        for (BlockPos f : g.myStations) if (f.distSqr(g.blockPosition()) <= 40 * 40 && level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) return null; // a furnace of his within 40: it smelts there (goToStation walks or prices it), not "home" past it (live 23:09:27 11-12, D2D 231408-65: "rides home to my furnace 41 off" with his mine's 38 off; the plan crafted a furnace, then walked to the 38 anyway; stage 1331)
         BlockPos homeF = null; for (BlockPos f : g.myStations) if (f.distSqr(g.blockPosition()) > 40 * 40 && (!level.isLoaded(f) || level.getBlockState(f).is(Blocks.FURNACE)) && (homeF == null || f.distSqr(g.blockPosition()) < homeF.distSqr(g.blockPosition()))) homeF = f;
         return homeF;
     }

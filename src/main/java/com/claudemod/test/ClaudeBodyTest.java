@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1682: return st1682(stage, t, c, h, level, mock);
             case 1681: return st1681(stage, t, c, h, level, mock);
             case 1680: return st1680(stage, t, c, h, level, mock);
             case 1679: return st1679(stage, t, c, h, level, mock);
@@ -22897,6 +22898,31 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(boxed, "15 s, two blazes up, health 10 burning, never walled in (at " + at.toShortString() + ", health " + hp + "); the last refusal: " + why);
             pass(stage, t, "walled in in " + secs + " s");
+        }
+        return true;
+    }
+    /** Stage 1682 (D2D reviews 173648-114 and 173134 SLOW, live 17:30:27-17:51:55 11-12 by his base: the rods' bow need in gear_up's kit, 16 arrows; get_arrows broke the gravel in sight for flint with no feathers and no chicken about (17:31-17:32, 3 collect gravel steps, SLOW and SPLIT_JOB), and gear_up asked get_arrows again on every replan, "no arrows to be had right now" each time, 6 rounds). A bow, no arrows, flint or feathers, no chest, skeleton or chicken, gravel in sight: get_arrows breaks no gravel, and gear_up leaves the arrows out of its steps, saying so. */
+    private static boolean st1682(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            for (int x = 3; x <= 5; x++) level.setBlock(o.offset(x, 0, 2), Blocks.GRAVEL.defaultBlockState(), 3); /* gravel in sight */
+            nsKit(c); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 40));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            com.claudemod.entity.life.FortressFight.noteBowNeeded(c, level);
+        }
+        if (t[0] == 14) {
+            boolean wants = com.claudemod.director.Kit.missing(c, true).containsKey(Items.ARROW);
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "get_arrows", "arrow@16", 16); String q1 = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear();
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "gear_up", "", 1); String q2 = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.prefs.remove("stay_close"); com.claudemod.entity.life.FortressFight.reset(c);
+            for (int x = 3; x <= 5; x++) level.setBlock(o.offset(x, 0, 2), Blocks.AIR.defaultBlockState(), 3);
+            check(wants, "setup: the rods' bow need noted, the kit wants no arrows");
+            check(!q1.contains("gravel"), "no feathers, no chicken about, gravel in sight: get_arrows broke gravel for flint: \"" + r1 + "\", queue " + q1);
+            check(!q2.contains("get_arrows"), "nothing to get arrows from: gear_up asked get_arrows again: \"" + r2 + "\", queue " + q2);
+            pass(stage, t, r1 + " | " + r2);
         }
         return true;
     }

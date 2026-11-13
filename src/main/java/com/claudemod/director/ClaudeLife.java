@@ -3282,9 +3282,11 @@ public final class ClaudeLife {
                 boolean full = !target.equals("basic");
                 var missing = Kit.missing(g, full);
                 if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) { missing = new java.util.LinkedHashMap<>(missing); missing.keySet().removeIf(it0 -> !it0.components().has(net.minecraft.core.component.DataComponents.FOOD)); } // (away from the overworld the kit is behind him but its food: a shield's iron is in his mine, and failing on it left him starving on build_highway in the Nether, stage 892)
+                String arrowsWait = null; /* the arrows only when there's a way to them right now: get_arrows asked with none to be had was a step a replan, six in 20 min (live 17:30-17:51 11-12; stage 1682); the want stays the kit's (stage 1669) */
+                if (missing.containsKey(Items.ARROW)) { String none = arrowsNone(g, level, missing.get(Items.ARROW) + g.inventory.count(s0 -> s0.is(Items.ARROW))); if (none != null) { missing = new java.util.LinkedHashMap<>(missing); missing.remove(Items.ARROW); arrowsWait = "the arrows wait: none to be had right now (" + none + "): skeletons at night, flint from gravel and feathers off chickens"; ClaudeMod.LOGGER.info("[Claude kit] gear_up: {} (ClaudeLife gear_up)", arrowsWait); } }
                 String bowNote = full && g.inventory.count(s -> s.is(Items.BOW)) == 0 && !missing.containsKey(Items.BOW) ? bowWantNote(g, level) : null; // the bow: a want, no part of this kit (the user: the Nether wants it, the End needs it)
                 if (bowNote != null) ClaudeMod.LOGGER.info("[Claude kit] gear_up: {}: not in this kit, no spider hunt for it (ClaudeLife gear_up)", bowNote);
-                if (missing.isEmpty()) return "done: kitted out already (armor on, sword, shield, " + Kit.food(g) + " food)" + (bowNote != null ? "; " + bowNote : "");
+                if (missing.isEmpty()) return "done: kitted out already (armor on, sword, shield, " + Kit.food(g) + " food)" + (bowNote != null ? "; " + bowNote : "") + (arrowsWait != null ? "; " + arrowsWait : "");
                 Procure.Plan plan = Procure.planAll(g, level, Kit.totals(g, missing));
                 if (plan.problem() != null && Kit.food(g) > 0) { // the rest of the food can't be had here (no cod in this river): the food he has will do, the torches and sword still get made (all-or-nothing dropped the whole kit and he went for iron with neither)
                     missing = new java.util.LinkedHashMap<>(missing);
@@ -3315,7 +3317,7 @@ public final class ClaudeLife {
                 order = foodLast(g, order);
                 if (nightOutsideNo(g, level, g.blockPosition()) != null || nightOutsideNo(g, level, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition())) != null) { List<Skills.Step> outdoor = new ArrayList<>(); for (Skills.Step s1 : order) if (s1.skill().equals("fight") || (s1.skill().equals("smelt") && s1.target().startsWith("cooked_")) || (s1.skill().equals("craft") && (s1.target().equals("bow") || s1.target().equals("arrow"))) || (s1.skill().equals("collect") && !s1.target().contains("ore") && !s1.target().equals("cobble") && !s1.target().equals("cobblestone"))) outdoor.add(s1); if (!outdoor.isEmpty() && outdoor.size() < order.size()) { order.removeAll(outdoor); order.addAll(outdoor); } } // night with no kit for the open: the mine work first (iron, diamonds), the hunts and fights after first light (he re-ran gear_up every 10 s at night, the beef hunt refused each time, the iron never started)
                 for (int i = order.size() - 1; i >= 0; i--) g.skillQueue.addFirst(order.get(i));
-                return "gearing up, missing " + Kit.describe(missing) + ": " + Procure.describe(plan.steps()) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, plan.fromChests());
+                return "gearing up, missing " + Kit.describe(missing) + ": " + Procure.describe(plan.steps()) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, plan.fromChests()) + (arrowsWait != null ? "; " + arrowsWait : "");
             }
             case "take_from_chest": { // "grab X from your chest" said to him: X out of his own chests into HIS pack, nothing to them (17:13 the chat model made it a give: he handed them the stack)
                 String bare = target.replaceFirst("^-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]+", "").replaceFirst("(?i)[ _,]+(?:at|from|in)?[ _,]*-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]*$", "");
@@ -14576,16 +14578,19 @@ public final class ClaudeLife {
      * craft); the short part from what's to hand: flint or feathers in a near chest, gravel in sight broken till the flint drops, a
      * chicken about for feathers; else it waits, logged, and the plan moves on. target "arrow@N": N on him is the goal.
      */
-    private static String getArrows(ClaudeEntity g, ServerLevel level, Skills.Step st) {
+    private static String getArrows(ClaudeEntity g, ServerLevel level, Skills.Step st) { return getArrows(g, level, st, false); }
+    /** What he saw when there are no arrows to be had right now (nothing queued, nothing said), or null when there's a way to them: gear_up asks before it queues get_arrows (live 17:30-17:51 11-12, D2D review 173648-114: asked six times, "no arrows to be had" each time; stage 1682). */
+    static String arrowsNone(ClaudeEntity g, ServerLevel level, int want) { return getArrows(g, level, new Skills.Step("get_arrows", "arrow@" + want, want, "near_you"), true); }
+    private static String getArrows(ClaudeEntity g, ServerLevel level, Skills.Step st, boolean dry) {
         int on = g.inventory.count(s -> s.is(Items.ARROW));
         int at = st.target().indexOf('@'), goal;
         try { goal = at >= 0 ? Integer.parseInt(st.target().substring(at + 1)) : on + Math.max(1, st.count()); } catch (NumberFormatException e) { goal = on + Math.max(1, st.count()); }
-        if (on >= goal) { ClaudeMod.LOGGER.info("[Claude life] get_arrows: {} arrows on him, {} wanted: on with the plan (ClaudeLife.getArrows)", on, goal); return "got the arrows: " + on + " on me"; }
+        if (on >= goal) { if (dry) return null; ClaudeMod.LOGGER.info("[Claude life] get_arrows: {} arrows on him, {} wanted: on with the plan (ClaudeLife.getArrows)", on, goal); return "got the arrows: " + on + " on me"; }
         int need = goal - on, crafts = (need + 3) / 4;
         Skills.Step again = new Skills.Step("get_arrows", "arrow@" + goal, need, st.where());
         boolean hard = bowHard(g, level);
         var spot = chestWith(g, level, Items.ARROW);
-        if (spot != null && (spot.dist() <= Kit.STRING_WALK || hard)) {
+        if (spot != null && (spot.dist() <= Kit.STRING_WALK || hard)) { if (dry) return null;
             int take = Math.min(need, spot.count());
             if (!g.inventory.hasRoomFor(new net.minecraft.world.item.ItemStack(Items.ARROW))) { String r = junkChestRound(g, level); ClaudeMod.LOGGER.info("[Claude life] get_arrows: pockets full, no room for arrows: {} first (ClaudeLife.getArrows)", r == null ? "no junk chest to empty into, taking what fits" : r); } // (live 01:14 World 15: 0 free slots, the take got nothing, the step re-ran every 0.6 s)
             g.tasks.add(new Task.GoTo(spot.pos(), 2)); g.tasks.add(new Task.Chest(spot.pos(), true, Items.ARROW, take)); g.skillQueue.addFirst(again);
@@ -14598,31 +14603,33 @@ public final class ClaudeLife {
         if (prey != null) {
             String unfit = unfitForDrops(g, level);
             if (unfit == null && g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty()) unfit = "no armor on, and it shoots";
-            if (unfit == null) {
+            if (unfit == null) { if (dry) return null;
                 g.tasks.add(new Task.Attack(prey.getUUID(), 600)); g.tasks.add(new Task.Pickup(40)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude life] get_arrows: a skeleton {} blocks off and fit for it: after it for its arrows ({} of {} on him) (ClaudeLife.getArrows)", (int) Math.sqrt(pd), on, goal);
                 return "after the skeleton " + (int) Math.sqrt(pd) + " blocks off for its arrows (" + on + " of " + goal + " on me)";
             }
-            ClaudeMod.LOGGER.info("[Claude life] get_arrows: a skeleton {} blocks off but not fit for that fight ({}): let be (ClaudeLife.getArrows)", (int) Math.sqrt(pd), unfit);
+            if (!dry) ClaudeMod.LOGGER.info("[Claude life] get_arrows: a skeleton {} blocks off but not fit for that fight ({}): let be (ClaudeLife.getArrows)", (int) Math.sqrt(pd), unfit);
         }
         int flint = g.inventory.count(s -> s.is(Items.FLINT)), feathers = g.inventory.count(s -> s.is(Items.FEATHER));
-        if (flint > 0 && feathers > 0) {
+        if (flint > 0 && feathers > 0) { if (dry) return null;
             int k = Math.min(crafts, Math.min(flint, feathers));
             g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("craft", "arrow", k * 4, st.where()));
             ClaudeMod.LOGGER.info("[Claude life] get_arrows: {} flint and {} feathers on him: crafting {} arrows ({} of {} on him) (ClaudeLife.getArrows)", flint, feathers, k * 4, on, goal);
             return "crafting " + k * 4 + " arrows from my flint and feathers (" + on + " of " + goal + " on me)";
         }
         String flintWhy = null, featherWhy = null;
-        if (flint == 0) {
+        boolean featherHope; { var fe0 = feathers > 0 ? null : chestWith(g, level, Items.FEATHER); featherHope = feathers > 0 || fe0 != null && (fe0.dist() <= Kit.STRING_WALK || hard) || !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.animal.Chicken.class, g.getBoundingBox().inflate(32, 8, 32), e -> e.isAlive() && !e.isBaby()).isEmpty(); } /* no flint hunt with no feathers to be had: gravel broken for arrows that can't be made (live 17:31-17:32 11-12, 3 collect gravel steps; stage 1682), as the chickens wait for the flint */
+        if (flint == 0 && !featherHope) flintWhy = "no flint (with no feathers to be had, no gravel broken for it)";
+        else if (flint == 0) {
             var fs = chestWith(g, level, Items.FLINT);
-            if (fs != null && (fs.dist() <= Kit.STRING_WALK || hard)) {
+            if (fs != null && (fs.dist() <= Kit.STRING_WALK || hard)) { if (dry) return null;
                 int take = Math.min(crafts, fs.count());
                 g.tasks.add(new Task.GoTo(fs.pos(), 2)); g.tasks.add(new Task.Chest(fs.pos(), true, Items.FLINT, take)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude life] get_arrows: flint for the arrows in his chest at {}, {} blocks off: getting {} (ClaudeLife.getArrows)", fs.pos().toShortString(), fs.dist(), take);
                 return "my flint is in my chest at " + fs.pos().toShortString() + " (" + fs.dist() + " blocks off), getting " + take + " for the arrows";
             }
             List<BlockPos> gravel = findAll(level, g.blockPosition(), 16, b -> b.is(Blocks.GRAVEL), 32); gravel.removeIf(p -> !canSee(g, level, p));
-            if (!gravel.isEmpty()) {
+            if (!gravel.isEmpty()) { if (dry) return null;
                 int n = Math.min(gravel.size(), 8);
                 g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("collect", "gravel", n, st.where()));
                 ClaudeMod.LOGGER.info("[Claude life] get_arrows: no flint, {} gravel in sight (nearest {}): breaking {} till the flint drops (ClaudeLife.getArrows)", gravel.size(), gravel.get(0).toShortString(), n);
@@ -14632,14 +14639,14 @@ public final class ClaudeLife {
         }
         if (feathers == 0) {
             var fe = chestWith(g, level, Items.FEATHER);
-            if (fe != null && (fe.dist() <= Kit.STRING_WALK || hard)) {
+            if (fe != null && (fe.dist() <= Kit.STRING_WALK || hard) && flint > 0) { if (dry) return null; /* (with no flint to be had, feathers alone make no arrow) */
                 int take = Math.min(crafts, fe.count());
                 g.tasks.add(new Task.GoTo(fe.pos(), 2)); g.tasks.add(new Task.Chest(fe.pos(), true, Items.FEATHER, take)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude life] get_arrows: feathers for the arrows in his chest at {}, {} blocks off: getting {} (ClaudeLife.getArrows)", fe.pos().toShortString(), fe.dist(), take);
                 return "my feathers are in my chest at " + fe.pos().toShortString() + " (" + fe.dist() + " blocks off), getting " + take + " for the arrows";
             }
             var hens = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.animal.Chicken.class, g.getBoundingBox().inflate(32, 8, 32), e -> e.isAlive() && !e.isBaby());
-            if (!hens.isEmpty() && flint > 0) { // (feathers only once the flint's in hand: no chicken chase for arrows that can't be made)
+            if (!hens.isEmpty() && flint > 0) { if (dry) return null; // (feathers only once the flint's in hand: no chicken chase for arrows that can't be made)
                 g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("collect", "feather", crafts, st.where()));
                 ClaudeMod.LOGGER.info("[Claude life] get_arrows: {} flint, no feathers, {} chicken(s) about: collect feather {} (ClaudeLife.getArrows)", flint, hens.size(), crafts);
                 return "after the chickens about for feathers (" + crafts + ")";
@@ -14647,6 +14654,7 @@ public final class ClaudeLife {
             featherWhy = "no feathers" + (hens.isEmpty() ? ", no chicken about" : "") + (fe != null ? ", my feathers are " + fe.dist() + " blocks off" : "");
         }
         String seen = on + " arrows on me, " + (spot == null ? "none in my chests" : spot.count() + " in my chest " + spot.dist() + " blocks off") + ", no skeleton about" + (prey != null ? " I'm fit for" : "") + (flintWhy != null ? ", " + flintWhy : "") + (featherWhy != null ? ", " + featherWhy : "");
+        if (dry) return seen;
         ClaudeMod.LOGGER.info("[Claude life] get_arrows: nothing to get arrows from right now ({}): the want waits, the plan moves on (ClaudeLife.getArrows)", seen);
         return "done: no arrows to be had right now (" + seen + "): skeletons at night, flint from gravel, feathers off chickens" + (hard ? "; the bow row is the run's next must" : "");
     }

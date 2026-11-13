@@ -255,6 +255,7 @@ public final class ClaudeChat {
             case com.claudemod.entity.life.Task.FinishTree f -> "checking the tree is chopped all the way, no floating logs left";
             case com.claudemod.entity.life.Task.ChopTree ct -> "chopping the tree at " + ct.base().toShortString() + " down whole";
             case com.claudemod.entity.life.Task.SealStep f -> "sealing off a cave the mine broke into, so the mine stays closed";
+            case com.claudemod.entity.life.Task.Pocket p -> "walled into a pocket beside the blaze spawner at " + p.spawner().toShortString() + ", hitting the blazes as they come to the window over it";
             case com.claudemod.entity.life.Task.Bore b -> "travelling straight to " + b.goal().toShortString() + " through the rock, flooring gaps and lava on the way";
             case com.claudemod.entity.life.Task.Replant f -> "putting a sapling back where the tree stood";
             case com.claudemod.entity.life.Task.Flee f -> "backing off from the mobs (hurt or outnumbered), then healing up";

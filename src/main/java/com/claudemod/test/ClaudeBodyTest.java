@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1714: return st1714(stage, t, c, h, level, mock);
             case 1713: return st1713(stage, t, c, h, level, mock);
             case 1712: return st1712(stage, t, c, h, level, mock);
             case 1711: return st1711(stage, t, c, h, level, mock);
@@ -23878,6 +23879,56 @@ public final class ClaudeBodyTest {
                 for (int y = 0; y <= 1; y++) { level.setBlock(s1713H.west().above(y), Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1713H.south().above(y), Blocks.AIR.defaultBlockState(), 2); }
                 check(in, "his hide diagonal past a pillar corner, him in the blaze's sight: not in it in 5 s (" + String.format("%.2f", d) + " off at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "into his hide round the pillar in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1714 (the rods benchmark, D2D 11-13: six deaths at the fortress today, 5/7 rods for hours; the user: "literally all he needs to do is get enough blaze rods ... preferably without dying"). The vanilla blaze spawner room (MonsterThrone, built by the game's own piece code) at the end of a fortress bridge over a lava sea, its spawner live, 4 blazes out and 2 wither skeletons about; he arrives at the bridge's far end with a live-like kit (iron armor, a shield, an iron sword, 16 meals, 64 cobblestone, a bow and 5 arrows) and the spawner on his map. Passes on 2 rods in hand with no death inside a player's time. */
+    private static int s1714T; private static float s1714Low; private static BlockPos s1714Sp;
+    private static boolean st1714(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13600, 70, 8200);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); c.commandActive = false; s1714T = -1; s1714Low = 20; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -2; cx <= 2; cx++) for (int cz = -3; cz <= 2; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) { // a lava sea 12 down, open air over it; the bridge (BridgeStraight, 19 long) into the spawner room (MonsterThrone), both facing south
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -14; x <= 16; x++) for (int z = -26; z <= 16; z++) for (int y = -14; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y == -14 ? Blocks.NETHERRACK : y <= -12 ? Blocks.LAVA : Blocks.AIR).defaultBlockState(), 2);
+            var rnd = net.minecraft.util.RandomSource.create(1714); var big = new net.minecraft.world.level.levelgen.structure.BoundingBox(o.getX() - 40, o.getY() - 40, o.getZ() - 40, o.getX() + 40, o.getY() + 40, o.getZ() + 40);
+            var br = new net.minecraft.world.level.levelgen.structure.structures.NetherFortressPieces.BridgeStraight(1, rnd, net.minecraft.world.level.levelgen.structure.BoundingBox.orientBox(o.getX(), o.getY(), o.getZ() - 19, -1, -3, 0, 5, 10, 19, net.minecraft.core.Direction.SOUTH), net.minecraft.core.Direction.SOUTH);
+            var th = new net.minecraft.world.level.levelgen.structure.structures.NetherFortressPieces.MonsterThrone(1, net.minecraft.world.level.levelgen.structure.BoundingBox.orientBox(o.getX(), o.getY(), o.getZ(), -2, 0, 0, 7, 8, 9, net.minecraft.core.Direction.SOUTH), net.minecraft.core.Direction.SOUTH);
+            br.postProcess(nl, nl.structureManager(), nl.getChunkSource().getGenerator(), rnd, big, new net.minecraft.world.level.ChunkPos(o), o);
+            th.postProcess(nl, nl.structureManager(), nl.getChunkSource().getGenerator(), rnd, big, new net.minecraft.world.level.ChunkPos(o), o);
+            s1714Sp = o.offset(1, 5, 5).immutable();
+            check(nl.getBlockState(s1714Sp).is(Blocks.SPAWNER), "setup: no spawner at " + s1714Sp.toShortString() + " (" + nl.getBlockState(s1714Sp) + ")");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 5));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(nl, o.getX() + 1.5, o.getY() + 2, o.getZ() - 16.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.clearFire();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear(); c.lastSkillLine = null;
+        }
+        if (t[0] == 20) {
+            com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            c.teleportTo(nl, o.getX() + 1.5, o.getY() + 2, o.getZ() - 16.5, 0f, 0f);
+            com.claudemod.entity.life.Atlas.note(c, nl, "blaze_spawner", s1714Sp); com.claudemod.entity.life.Perception.noteSignTest(c, s1714Sp, "a mob spawner"); // (on his map, as live: he has fought there all day)
+            for (BlockPos bp : new BlockPos[] {o.offset(-5, 4, -9), o.offset(7, 3, -3)}) { var b = EntityType.BLAZE.create(nl); b.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 0, 0); nl.addFreshEntity(b); } // (a fresh arrival, as live after a trip home: spawner blazes despawn 128+ off him, so the cage starts empty and spawns its waves (1-4 every 10-40 s) once he is within 16; two blazes from the fortress about, off the bridge)
+            for (BlockPos w : new BlockPos[] {o.offset(1, 2, 1), o.offset(1, 2, -8)}) { var ws = EntityType.WITHER_SKELETON.create(nl); ws.moveTo(w.getX() + 0.5, w.getY(), w.getZ() + 0.5, 180, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); nl.addFreshEntity(ws); }
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 2, "near_you")); s1714T = t[0];
+        }
+        if (s1714T > 0 && t[0] > s1714T) {
+            int rods = c.getInventory().countItem(Items.BLAZE_ROD); s1714Low = Math.min(s1714Low, c.getHealth()); double s = (t[0] - s1714T) / 20.0;
+            if ((t[0] - s1714T) % 200 == 0) { int bz = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(s1714Sp).inflate(24)).size(), ws = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new net.minecraft.world.phys.AABB(s1714Sp).inflate(32)).size();
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1714 {} s: at {} ({} off the spawner), health {}, low {}, rods {}, {} blaze(s), {} wither skeleton(s), arrows {}, food {}, doing {} next {}", (int) s, c.blockPosition().toShortString(), (int) Math.sqrt(c.blockPosition().distSqr(s1714Sp)), (int) c.getHealth(), (int) s1714Low, rods, bz, ws, c.getInventory().countItem(Items.ARROW), com.claudemod.director.Kit.food(c), c.currentTask, c.tasks.peekFirst()); }
+            boolean dead = !c.isAlive() || c.getHealth() <= 0;
+            if (dead || rods >= 2 || s > 300) {
+                String q = String.valueOf(c.currentTask); BlockPos at = c.blockPosition(); float low = s1714Low;
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> !(e instanceof ServerPlayer))) e.discard();
+                nl.setBlock(s1714Sp, Blocks.AIR.defaultBlockState(), 2);
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); if (c.isAlive()) c.setHealth(20);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+                nsHome(c, h, level);
+                check(!dead, "died at the blaze spawner after " + (int) s + " s with " + rods + " rod(s) (at " + at.toShortString() + ", " + q + ")");
+                check(rods >= 2, "5 min at the blaze spawner and " + rods + " rod(s) of 2 (lowest health " + (int) low + ", at " + at.toShortString() + ", " + q + ")");
+                check(low >= 6, "2 rods in " + (int) s + " s but down to " + (int) low + " health on the way: a player farming a spawner from a pocket keeps a margin");
+                pass(stage, t, "2 rods in " + (int) s + " s, lowest health " + (int) low);
             }
         }
         return true;

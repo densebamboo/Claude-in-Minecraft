@@ -494,7 +494,7 @@ public class WorkGoal extends Goal {
             boolean hitterNearer = hitter instanceof net.minecraft.world.entity.LivingEntity hn && hn.isAlive() && aimed != null && hn.distanceTo(g) < aimed.distanceTo(g) - 1.0 && g.hasLineOfSight(hn); // (live 07:40 11-02: a skeleton 5.4 off shot him 12 times while he stayed on one 9-12 off, full iron 20 -> 0)
             boolean creeperFirst = aimed instanceof net.minecraft.world.entity.monster.Creeper ac && ac.isAlive() && !(hitter instanceof net.minecraft.world.entity.monster.Creeper) && ac.distanceTo(g) < w("fight.creeper_focus_r", 5); // (a creeper near enough to go off on him stays the one he deals with: bench 1115, a zombie's hit turned him off one 3 off, 27.4 from its blast)
             if (creeperFirst && (hitterOn || hitterNearer) && !aimedInReach) sdSay("creeperfirst", "[Claude life] hit by a {} while a creeper is {} off: the creeper first, the {} after (WorkGoal.tick)", hitter == null ? "mob" : hitter.getType().getDescription().getString(), String.format("%.1f", aimed.distanceTo(g)), hitter == null ? "hitter" : hitter.getType().getDescription().getString());
-            if (!prey && !creeperFirst && (hitterOn || hitterNearer) && !aimedInReach) {
+            if (!prey && !creeperFirst && (hitterOn || hitterNearer) && !aimedInReach && !(hitter instanceof net.minecraft.world.entity.monster.Blaze && pocketBound())) { /* (bound for his spawner pocket: a blaze off his reach is no turn off the way, stage 1714) */
                 turnOnHitter = true;
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a {} hit him ({} off) while he went for a {} out of his reach ({} off): the {} first, the {} after (WorkGoal.tick)", hitter.getType().getDescription().getString(), String.format("%.1f", hitter.distanceTo(g)), aimed == null ? "mob gone" : aimed.getType().getDescription().getString(), aimed == null ? "?" : (int) aimed.distanceTo(g), hitter.getType().getDescription().getString(), aimed == null ? "fight" : aimed.getType().getDescription().getString());
             } else if (!prey) sdSay("busy", "[Claude life] hit by a {} ({} off) while fighting a {} {}: on with that one, the {} next (WorkGoal.tick)", hitter == null ? "mob gone" : hitter.getType().getDescription().getString(), hitter == null ? "?" : String.format("%.1f", hitter.distanceTo(g)), aimed == null ? "mob gone" : aimed.getType().getDescription().getString(), aimedInReach ? "in his reach" : "with the hitter not on him", hitter == null ? "hitter" : hitter.getType().getDescription().getString());
@@ -522,6 +522,9 @@ public class WorkGoal extends Goal {
             if (current instanceof Task.Eat && g.tickCount - cfEatTick < 60) { // the fight chose this meal where he stands (the way to cover went nowhere): a hit doesn't take it off him, the fight comes after it (death-220: [Eat] pushed back behind each new fight; stage 1321)
                 sdSay("fightmeal", "[Claude fight] hit by a {} mid-meal (health {}): eating on, the fight after it (WorkGoal.tick)", foe == null ? "?" : foe.getType().getDescription().getString(), (int) g.getHealth()); g.urgentAttacker = null; return;
             }
+            if (foe instanceof net.minecraft.world.entity.monster.Blaze && pocketBound() && !(current instanceof Task.Attack)) { /* (one in his reach too: the pocket hits it as he steps in, no fight task with its own cover and runs) */ /* bound for his spawner pocket or in it: a blaze's hit is no fight off the way; in there the shield and the window answer it (a player runs the bridge to the spawner and walls in; 0 rods in 5 min with every hit turned into a fight at the bridge's end, stage 1714) */
+                sdSay("pocketon", "[Claude fight] hit by a Blaze {} off {} (health {}): no fight off it, the blazes come to his window (WorkGoal.tick)", (int) foe.distanceTo(g), current instanceof Task.Pocket ? "in his pocket" : "on the way to his pocket", (int) g.getHealth()); g.urgentAttacker = null; return;
+            }
             if (foe instanceof net.minecraft.world.entity.monster.Blaze bh && !(current instanceof Task.Attack) && bh.getBoundingBox().minY > g.getY() + 3.2 && !(g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ARROW)) > 0)) { // a blaze up out of sword reach and no bow: a fight armed here is standing under it taking its volleys (live 23:18:40 11-09: 13 up and 25 off, 29 fireballs, no hit in, off at 8); the walk he's on goes on (up to its level, or away), standing still he gets out of its sight first (FortressFight's out-of-reach rule takes the job from there; stage 1325)
                 boolean still = current == null || current instanceof Task.Wait;
                 if (!still && !blazeHighWorkOnPays()) { clearCrack(); g.tasks.addFirst(current); still = true; } // (his job in its sight priced against getting out of it: a dig-and-pillar route under it, 20 -> 9, D2D review 116, live 13:24:49 11-11; stage 1553)
@@ -551,7 +554,7 @@ public class WorkGoal extends Goal {
             g.urgentAttacker = null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE;
         }
-        if (!(current instanceof Task.Attack) && !(current instanceof Task.Flee)) shieldDown(); // the shield is for fights: down again for mining, walking, eating (a run keeps its own: a lit creeper on it, 06:31)
+        if (!(current instanceof Task.Attack) && !(current instanceof Task.Flee) && !(current instanceof Task.Pocket)) shieldDown(); /* (the pocket holds its own shield: lowered here each tick, it never stayed up the 5 ticks a block needs, stage 1714) */ // the shield is for fights: down again for mining, walking, eating (a run keeps its own: a lit creeper on it, 06:31)
         if (g.dropCurrent) { // something was put in front of what he's doing (it was re-queued if it still matters)
             g.dropCurrent = false;
             clearCrack();
@@ -629,6 +632,7 @@ public class WorkGoal extends Goal {
                 case Task.ChopTree t -> doChopTree(t);
                 case Task.SealStep t -> doSealStep(t);
                 case Task.Bore t -> doBore(t);
+                case Task.Pocket t -> doPocket(t);
                 case Task.Replant t -> doReplant(t);
                 case Task.MineVisibleOres t -> doMineVisibleOres(t);
                 case Task.WallTorch t -> doWallTorch(t);
@@ -642,7 +646,7 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.warn("[Claude life] {} threw: skipped (WorkGoal.tick)", current, e); g.attempts.bandaid(current + " threw " + e); // (it was silent: a bug in the step, never seen)
         }
         // Watchdog: no single action should take 45s (cooking and long fights have their own limits). Skip it, never hang.
-        boolean longByNature = current instanceof Task.Smelt || current instanceof Task.FurnaceTake || current instanceof Task.Attack
+        boolean longByNature = current instanceof Task.Pocket || current instanceof Task.Smelt || current instanceof Task.FurnaceTake || current instanceof Task.Attack
                 || current instanceof Task.Wait || current instanceof Task.Fish || current instanceof Task.Bore; // (the bore ends itself after 3 s without a step)
         if (current instanceof Task.GoTo go0) { double d0 = Math.sqrt(go0.pos().distToCenterSqr(g.position())); if (goBestFor != current) { goBestFor = current; goBest = d0; goBestTick = ticks; } else if (d0 < goBest - 3) { goBest = d0; goBestTick = ticks; } }
         boolean stillNearing = current instanceof Task.GoTo && current == goBestFor && ticks - goBestTick < 20 * 15 && ticks < 20 * 300; // a walk 3+ nearer in the last 15 s is no stuck one: a long walk is long (D2D review 220203-157, live 21:56 11-11: ~250 blocks in its last 44 s, cut at 45 s, written off NO_PATH 154 short; stage 1578); 5 min at most
@@ -4236,6 +4240,8 @@ public class WorkGoal extends Goal {
             fallNote("placing at " + pos.toShortString());
             return false;
         }
+        if (g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos)) && pocketBound()) { var pt = g.tasks.stream().filter(x -> x instanceof Task.Pocket).map(x -> (Task.Pocket) x).findFirst().orElse(null); var pw = pt == null ? null : com.claudemod.entity.life.FortressFight.pocket(pt.spawner(), pt.cell());
+            if (pw != null && pw.walls().contains(pos)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] pocket: his body is over the wall cell at {} (knocked to {}): left to the pocket, which centres him and puts it then; no stepping out of the pocket for it (WorkGoal.doPlace)", pos.toShortString(), String.format("%.2f %.2f", g.getX(), g.getZ())); return exit("pocket wall: he is over its cell"); } } // (stepping out of the hole for the door block put him outside under 3 blazes, dead, stage 1714)
         if (g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos)) && !(current instanceof Task.Pillar) && coverCell(pos)) { if (nudgeIntoCover(t, "in his way")) return false; return deferCoverBlock(t); } // his body over the edge of a cell of his cover: into its middle, never the step-out onto the cell beside (that put him in the box's corner, out of it, and the arrows had him fighting back)
         if (g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos)) && !(current instanceof Task.Pillar)) {
             stepOutPatch = t.item() == net.minecraft.world.item.Items.COBBLESTONE || t.item() == net.minecraft.world.item.Items.COBBLED_DEEPSLATE;
@@ -5576,6 +5582,7 @@ public class WorkGoal extends Goal {
     public String fleeOddsForTest(net.minecraft.world.entity.Entity foe) { boolean r = shouldFlee(foe, true); return (r ? "run" : "fight") + " | " + fightOdds + " | fight " + Math.round(pricedFightS) + " run " + Math.round(pricedRunS); } // (tests: the fight-or-run price on this foe)
     private boolean fleePriced(net.minecraft.world.entity.Entity foe, java.util.List<net.minecraft.world.entity.Mob> crowd, boolean underground, boolean say) {
         java.util.List<net.minecraft.world.entity.LivingEntity> them = new java.util.ArrayList<>(crowd);
+        if (pocketBound() && !(foe instanceof net.minecraft.world.entity.monster.Blaze)) them.removeIf(m -> m instanceof net.minecraft.world.entity.monster.Blaze); /* bound for his spawner pocket: a melee mob in the way is fought as itself, the blazes are the pocket's (he broke off a wither skeleton on the bridge counting 2 blazes 11 off and ran, stage 1714) */
         if (foe instanceof net.minecraft.world.entity.LivingEntity lf && lf.isAlive() && !them.contains(lf)) them.add(lf);
         if (them.isEmpty()) { fightOdds = "nothing on him"; return false; }
         them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
@@ -7326,7 +7333,7 @@ public class WorkGoal extends Goal {
     }
     /** The blaze / wither skeleton fight is making his cover (walling in, or its blocks put up with the fight queued behind them): no second cover over it (the weak-kit dig-in built skytowers out of both, stages 1375 and 1376). */
     private boolean coverFightOwns() {
-        if (cfBoxAt != null) return true;
+        if (cfBoxAt != null || pocketBound()) return true; /* (his spawner pocket owns the blaze fight too, stage 1714) */
         for (Task q : g.tasks) if (q instanceof Task.Attack a && com.claudemod.entity.life.FortressFight.coverMob(((ServerLevel) g.level()).getEntity(a.target()))) return true;
         return false;
     }
@@ -7432,6 +7439,104 @@ public class WorkGoal extends Goal {
     /** A wall of his mine put back after a way cut it (ActionPath's restore, want cobblestone or cobbled deepslate): a patch, any stone does (D2D review 43, live 12:31:28 11-11: 12 granite on him, "no cobblestone on him for the build's cell", the wall left open; stage 1551). */
     private boolean stonePatch(Task.Place t) { return t.want() != null && (t.want().is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || t.want().is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) && t.want().getBlock().asItem() == t.item()
         && !g.inventory.find(st -> st.is(net.minecraft.world.item.Items.COBBLESTONE) || st.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || st.is(net.minecraft.world.item.Items.STONE) || st.is(net.minecraft.world.item.Items.ANDESITE) || st.is(net.minecraft.world.item.Items.DIORITE) || st.is(net.minecraft.world.item.Items.GRANITE) || st.is(net.minecraft.world.item.Items.TUFF) || st.is(net.minecraft.world.item.Items.DEEPSLATE)).isEmpty(); } // (and stone on him to do it with: none, the give-up as before, no walk for nothing, stage 1491)
+    /** Bound for his spawner pocket (the walk in front of it) or in it. */
+    public boolean pocketBound() { return current instanceof Task.Pocket || g.tasks.stream().anyMatch(x -> x instanceof Task.Pocket); }
+    private BlockPos pkDoor; /* the pocket side he walks in by (null: in, or none picked) */
+    private int pkSaidTick = -1000; private String pkSaidMode = ""; /* (the pocket's last line, once per mode in 5 s) */
+    private void pkSay(String mode, String why) { if (mode.equals(pkSaidMode) && g.tickCount - pkSaidTick < 100) return; pkSaidMode = mode; pkSaidTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] pocket: {}: {} (WorkGoal.doPocket)", mode, why); }
+    /** Blaze rods the way players farm a spawner: walled into the pocket beside the cage (FortressFight.pocketAt), each mob that comes to the window hit, volleys on the shield, meals in there, a rod that falls out of reach fetched in the quiet. */
+    private boolean doPocket(Task.Pocket t) {
+        ServerLevel lv = (ServerLevel) g.level();
+        int rods = g.inventory.count(s -> s.is(net.minecraft.world.item.Items.BLAZE_ROD));
+        if (!lv.getBlockState(t.spawner()).is(net.minecraft.world.level.block.Blocks.SPAWNER)) { shieldDown(); pkSay("done", "the spawner at " + t.spawner().toShortString() + " is gone"); return true; }
+        if (rods >= t.goal()) { shieldDown(); pkSay("done", rods + " rod(s) on him, " + t.goal() + " wanted"); return true; }
+        if (ticks >= t.maxTicks()) { shieldDown(); pkSay("a look round", t.maxTicks() / 20 + " s in the pocket, " + rods + " rod(s): the step weighs it again"); return true; }
+        var pk = com.claudemod.entity.life.FortressFight.pocket(t.spawner(), t.cell());
+        if (pk == null) return true;
+        BlockPos feet = com.claudemod.entity.life.FortressFight.feet(g);
+        Task.Pocket rest = new Task.Pocket(t.spawner(), t.cell(), t.goal(), Math.max(40, t.maxTicks() - ticks));
+        boolean shield = g.getOffhandItem().is(net.minecraft.world.item.Items.SHIELD);
+        var due = com.claudemod.entity.life.FortressFight.volleyDue(g, lv);
+        double hoff = Math.hypot(g.getX() - (t.cell().getX() + 0.5), g.getZ() - (t.cell().getZ() + 0.5)); boolean level0 = Math.abs(g.getY() - t.cell().getY()) < 0.6;
+        boolean in = level0 && hoff <= 0.6;
+        if (level0 && hoff <= 1.6) { // in it or a step off it: the walls first, they stop the knockback (a fireball's knockback put him out of the 1-wide cell again and again while the walls waited for him to be centred, stage 1714)
+            if (in) pkDoor = null; /* from outside: one side cell stays open, his way in, kept till he's in (it's walled from inside); the nearest open one when picked */
+            else if (pkDoor == null || pkDoor.distManhattan(t.cell()) != 1 || !lv.getBlockState(pkDoor).getCollisionShape(lv, pkDoor).isEmpty()) { pkDoor = null; for (net.minecraft.core.Direction d0 : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos sd = t.cell().relative(d0); if (sd.equals(t.spawner()) || !lv.getBlockState(sd).getCollisionShape(lv, sd).isEmpty()) continue; if (pkDoor == null || Vec3.atBottomCenterOf(sd).distanceToSqr(g.position()) < Vec3.atBottomCenterOf(pkDoor).distanceToSqr(g.position())) pkDoor = sd.immutable(); } }
+            BlockPos door = in ? null : pkDoor;
+            java.util.List<BlockPos> open = new java.util.ArrayList<>(); // the cells a block goes in right now: none with a mob or him in it (a blaze hovering in a wall cell: the block waits for it to go or die), each with a face to go against
+            for (BlockPos q : com.claudemod.entity.life.FortressFight.pocketOpen(lv, pk)) if (lv.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(q), x -> x != g && x.isAlive()).isEmpty() && !g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(q)) && !(door != null && q.getX() == door.getX() && q.getZ() == door.getZ()) && com.claudemod.entity.life.FortressFight.faced(lv, q, open)) open.add(q); /* (from outside, never his door: he walled himself out from its corner twice, stage 1714) */
+            open.removeIf(q -> { Integer last = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.PLACE, q); return last != null && g.tickCount - last >= 0 && g.tickCount - last < 200; }); /* (one that failed in the last 10 s waits) */
+            for (BlockPos q : open) g.attempts.forget(com.claudemod.entity.life.Attempts.Kind.PLACE, q); /* (older: a blaze was in the cell, it's clear now: no 5-minute lock on his own pocket's wall) */
+            if (!open.isEmpty() && (!in || due == null || !shield)) { // (in it with a volley due: the shield first)
+                var it = com.claudemod.entity.life.FortressFight.wallItem(g, open.size());
+                if (it != null) { shieldDown(); g.tasks.addFirst(rest); for (int i = open.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(open.get(i), it));
+                    pkSay("walling in", open.size() + " block(s) of " + BuiltInRegistries.ITEM.getKey(it).getPath() + " at " + open.stream().map(BlockPos::toShortString).toList() + (in ? "" : String.format(" from %.1f off the cell", hoff)) + ", the window over the cage at " + pk.window().toShortString() + " left open"); return true; }
+            }
+        }
+        { BlockPos win = pk.window(); boolean shut = !lv.getBlockState(win).getCollisionShape(lv, win).isEmpty(); // the window shut to heal, a player's move in a spawner pocket: one block on the cage, the box closed, food, then open again (with it open, low and burning he sat at 2-9 health eating under the fireballs until one killed him, stage 1714; and a shield wears out, ~56 fireballs)
+          float hp = g.getHealth(); boolean low = hp < w("blaze.pocket_seal_hp", 10) || (!shield && hp < w("blaze.pocket_seal_noshield_hp", 14));
+          if (in && !shut && low && lv.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(win), x -> x != g && x.isAlive()).isEmpty()) { var it = com.claudemod.entity.life.FortressFight.wallItem(g, 1);
+              if (it != null) { shieldDown(); g.tasks.addFirst(rest); g.tasks.addFirst(new Task.Place(win, it)); pkSay("shutting the window", "health " + (int) hp + (shield ? "" : ", no shield left") + (g.isOnFire() ? ", burning" : "") + ": a block in the window at " + win.toShortString() + " to heal shut in, open again at " + (int) w("blaze.pocket_open_hp", 18)); return true; } }
+          if (in && shut && hp >= w("blaze.pocket_open_hp", 18) && !g.isOnFire() && (shield || hp >= 20)) { shieldDown(); g.tasks.addFirst(rest); g.tasks.addFirst(new Task.Break(win)); pkSay("opening the window", "health " + (int) hp + ": the block at " + win.toShortString() + " out again, back to the blazes"); return true; }
+          if (in && shut) { g.getNavigation().stop(); shieldDown();
+              if (g.getFoodData().getFoodLevel() < 20) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6); if (food != null) { g.tasks.addFirst(rest); g.tasks.addFirst(new Task.Eat(food)); pkSay("eating", "health " + (int) hp + ", hunger " + g.getFoodData().getFoodLevel() + ", shut in: " + BuiltInRegistries.ITEM.getKey(food).getPath()); return true; } }
+              pkSay("healing shut in", "health " + (int) hp + ", hunger " + g.getFoodData().getFoodLevel() + (g.isOnFire() ? ", burning out" : "") + ", the window opens at " + (int) w("blaze.pocket_open_hp", 18)); return false; } }
+        var blazes = lv.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
+        net.minecraft.world.entity.monster.Blaze lit = null;
+        for (var b : blazes) if (b.isOnFire() && b.hasLineOfSight(g) && (lit == null || b.distanceTo(g) < lit.distanceTo(g))) lit = b;
+        if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // (the sword stays in hand between hits: a swap resets the swing's charge and the first hit after it lands with the old item)
+        net.minecraft.world.entity.Mob hit = null; // a mob in his reach (at the window, or on him as he steps in, the one in his way to the cell first): the hit
+        Vec3 key = in ? g.position() : Vec3.atBottomCenterOf(t.cell());
+        for (var m : lv.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(4), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && m.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(m)))
+            if (hit == null || m.position().distanceTo(key) < hit.position().distanceTo(key)) hit = m;
+        if (hit != null && g.getAttackStrengthScale(0.5f) >= 0.95f && !rodHold(hit)) {
+            if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem();
+            shieldDown(); equipWeapon(); g.getLookControl().faceNow(hit.getBoundingBox().getCenter());
+            float hp0 = hit.getHealth(); g.attack(hit); g.swing(InteractionHand.MAIN_HAND);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] pocket: the {} {} off {}: its hp {} -> {}, his {} (WorkGoal.doPocket)", BuiltInRegistries.ENTITY_TYPE.getKey(hit.getType()).getPath(), String.format("%.1f", hit.distanceTo(g)), in ? "at the window" : "on his way in", hp0, hit.getHealth(), (int) g.getHealth());
+            if (in) return false;
+        }
+        net.minecraft.world.entity.monster.Blaze sees = null; for (var b : blazes) if (b.distanceTo(g) <= 20 && b.hasLineOfSight(g) && (sees == null || b.distanceTo(g) < sees.distanceTo(g))) sees = b;
+        if (in && shield && (due != null || lit != null || sees != null)) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); g.getNavigation().stop(); var th = due != null ? due : lit != null ? lit : sees; shieldUp(th); pkSay("shield up", (due != null ? "a volley due from the " : lit != null ? "lit and in sight of him through the window: the " : "in sight of him through the window: the ") + th.getType().getDescription().getString() + " " + (int) th.distanceTo(g) + " off: the swing waits (a shield blocks only once it's been up a moment; swinging between the shots let all of them in, 0 blocked, stage 1714)"); return false; }
+        if (!in) { // not in it yet (or knocked out of it): back in, the shield up for a volley on the way
+            double off = Math.sqrt(t.cell().distSqr(feet));
+            if (g.getHealth() < w("blaze.pocket_back_hp", 9) && off > 2.0) { shieldDown(); pkSay("back out to heal", "health " + (int) g.getHealth() + " and not in yet (" + String.format("%.1f", off) + " off): the step heals him out of their sight first"); return true; }
+            if (off > 2.5) { shieldDown(); if (walkTo(t.cell(), 2.5) && Math.sqrt(t.cell().distSqr(com.claudemod.entity.life.FortressFight.feet(g))) > 3) { pkSay("out of it", "at " + feet.toShortString() + ", " + (int) off + " off the pocket at " + t.cell().toShortString() + " and the walk to it gave up: the step weighs it again"); return true; } pkSay("to the pocket", (int) off + " off " + t.cell().toShortString() + ", what gets in his reach on the way hit as he goes"); return false; } /* (the walk is the pocket's own: a GoTo first left him unarmed against blazes on him, 20 -> 3 on the bridge, stage 1714) */
+            if (due != null && shield && off <= 1.5) { g.getNavigation().stop(); shieldUp(due); pkSay("shield up", "a volley due from the " + due.getType().getDescription().getString() + " " + (int) due.distanceTo(g) + " off, a step off his pocket"); return false; }
+            shieldDown();
+            if (level0 && hoff < 1.6 && straightIn(lv, t.cell())) cfMove(t.cell(), 1.0); /* (a straight step only where his body passes: from its corner it pushed into the corner, stage 1714) */
+            else { var p0 = g.getNavigation().getPath(); if (g.getNavigation().isDone() || p0 == null || !t.cell().equals(p0.getTarget())) { var way = g.getNavigation().createPath(t.cell(), 0); if (way != null && way.canReach()) g.getNavigation().moveTo(way, 1.0); else cfMove(t.cell(), 1.0); } } /* (to the cell itself, up the throne's steps: vanilla's moveTo stops within 1 of it, a step below, stage 1714) */
+            pkSay("into the pocket", "a step to " + t.cell().toShortString() + String.format(" (%.2f off its middle, y %.2f)", hoff, g.getY())); return false;
+        }
+        if (hoff > 0.2) g.getMoveControl().setWantedPosition(t.cell().getX() + 0.5, t.cell().getY(), t.cell().getZ() + 0.5, 0.6); /* (to its middle as he works: his body clear of the wall cells round it) */
+        g.setSprinting(false);
+        if (g.getFoodData().getFoodLevel() < 20 && due == null && lit == null) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6);
+            if (food != null) { shieldDown(); g.tasks.addFirst(rest); g.tasks.addFirst(new Task.Eat(food)); pkSay("eating", "health " + (int) g.getHealth() + ", hunger " + g.getFoodData().getFoodLevel() + ", walled in: " + BuiltInRegistries.ITEM.getKey(food).getPath()); return true; } }
+        if (lit == null) { for (var b : blazes) { double d = b.distanceTo(g); if (d >= 4 && d <= 20 && canHit(b) && shootAt(b)) { pkSay("shooting", "the blaze " + (int) d + " off is in view through the window and quiet: arrows"); return false; } } }
+        else if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem();
+        boolean quiet = lit == null && due == null && g.getHealth() >= w("blaze.pocket_out_hp", 16) && blazes.stream().noneMatch(b -> b.isOnFire() && b.distanceTo(g) < 16) && lv.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(10), net.minecraft.world.entity.Entity::isAlive).isEmpty();
+        if (quiet) { // a rod out of his pickup's reach: out for it while nothing's on him, the wall it went by put back after
+            net.minecraft.world.entity.item.ItemEntity rod = null;
+            for (var it : lv.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(t.cell()).inflate(6, 3, 6), x -> x.isAlive() && x.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) && lv.getFluidState(x.blockPosition()).isEmpty() && x.distanceTo(g) > 1.3))
+                if (rod == null || it.distanceTo(g) < rod.distanceTo(g)) rod = it;
+            if (rod != null) {
+                net.minecraft.core.Direction toSp = net.minecraft.core.Direction.getNearest(t.spawner().getX() - t.cell().getX(), 0, t.spawner().getZ() - t.cell().getZ());
+                double dx = rod.getX() - (t.cell().getX() + 0.5), dz = rod.getZ() - (t.cell().getZ() + 0.5);
+                net.minecraft.core.Direction out = Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? net.minecraft.core.Direction.EAST : net.minecraft.core.Direction.WEST) : (dz > 0 ? net.minecraft.core.Direction.SOUTH : net.minecraft.core.Direction.NORTH);
+                if (out == toSp) out = Math.abs(dx) >= Math.abs(dz) ? (dz > 0 ? net.minecraft.core.Direction.SOUTH : net.minecraft.core.Direction.NORTH) : (dx > 0 ? net.minecraft.core.Direction.EAST : net.minecraft.core.Direction.WEST);
+                BlockPos door = t.cell().relative(out);
+                if (!com.claudemod.entity.nav.ActionPath.structureBlock(lv, door) && !com.claudemod.entity.nav.ActionPath.structureBlock(lv, door.above())) {
+                    shieldDown(); g.tasks.addFirst(rest); g.tasks.addFirst(new Task.GoTo(t.cell(), 0.3)); g.tasks.addFirst(new Task.Pickup(60)); g.tasks.addFirst(new Task.GoTo(rod.blockPosition(), 0.6));
+                    if (!lv.getBlockState(door.above()).getCollisionShape(lv, door.above()).isEmpty()) g.tasks.addFirst(new Task.Break(door.above()));
+                    if (!lv.getBlockState(door).getCollisionShape(lv, door).isEmpty()) g.tasks.addFirst(new Task.Break(door));
+                    pkSay("out for a rod", "a rod " + String.format("%.1f", rod.distanceTo(g)) + " off at " + rod.blockPosition().toShortString() + ", no blaze lit on him, no wither skeleton within 10, health " + (int) g.getHealth() + ": out by " + door.toShortString() + ", back in and walled after"); return true; }
+            }
+        }
+        if (lit == null && due == null) shieldDown();
+        g.getNavigation().stop(); g.getLookControl().setLookAt(Vec3.atCenterOf(pk.window()));
+        pkSay("waiting", blazes.size() + " blaze(s) about, " + rods + "/" + t.goal() + " rod(s) on him, the window over the cage at " + pk.window().toShortString());
+        return false;
+    }
     private boolean cfSwing(net.minecraft.world.entity.LivingEntity mob) {
         if (g.getAttackStrengthScale(0.5f) < 0.95f) return false;
         if (rodHold(mob)) return false; // the killing hit over lava: held

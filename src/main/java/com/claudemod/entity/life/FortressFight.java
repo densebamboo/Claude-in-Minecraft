@@ -145,7 +145,7 @@ public final class FortressFight {
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = -2; dy <= 1; dy++) { /* (two down too: 2.4 tall, one standing two down beside the gap reaches his feet; D2D death 01:51:49 11-13, stage 1706) */ if (dx == 0 && dz == 0) continue; if (tall(level, c.offset(dx, dy, dz))) return false; }
         return true;
     }
-    static BlockPos feet(ClaudeEntity g) { return BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); }
+    public static BlockPos feet(ClaudeEntity g) { return BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); }
     public static boolean at(ClaudeEntity g, BlockPos cell) {
         return cell != null && Math.abs(g.getX() - (cell.getX() + 0.5)) < 0.35 && Math.abs(g.getZ() - (cell.getZ() + 0.5)) < 0.35 && Math.abs(g.getY() - cell.getY()) < 0.6;
     }
@@ -271,6 +271,32 @@ public final class FortressFight {
         for (int i = 0; i < WALLS.length; i++) { final var it = WALLS[i]; int c = g.inventory.count(x -> x.is(it)); if (i <= 12 && c >= n) return it; if (c > bestN) { best = it; bestN = c; } }
         return best;
     }
+    /** The pocket beside a blaze spawner, the way players farm one: a cell level with the cage and beside it, walled feet and head on its three other sides, roofed, the cell over the cage left open (the window) and capped, so a hole looks out over the cage: nothing gets in at him but through it, and what comes to it is in his reach, only the blazes in front of the window see him, and the fresh ones (within 4 of the cage) come to his sword. */
+    public record Pocket(BlockPos cell, BlockPos window, List<BlockPos> walls) {}
+    public static Pocket pocket(BlockPos sp, BlockPos cell) {
+        Direction toCell = null; for (Direction e : Direction.Plane.HORIZONTAL) if (sp.relative(e).equals(cell)) toCell = e;
+        if (toCell == null) return null;
+        List<BlockPos> walls = new ArrayList<>(); walls.add(cell.below().immutable());
+        for (Direction e : Direction.Plane.HORIZONTAL) if (e != toCell.getOpposite()) { walls.add(cell.relative(e).immutable()); walls.add(cell.relative(e).above().immutable()); }
+        for (Direction e : Direction.Plane.HORIZONTAL) if (e.getAxis() != toCell.getAxis()) walls.add(cell.relative(e).above(2).immutable()); // (a block on each side wall's top: the roof goes against them, as a player props a roof; none had a face, and the pocket stayed open to the blazes over it, stage 1714)
+        walls.add(cell.above(2).immutable()); // (the roof; no cap over the window: from inside he sees no face to set one against, 36 tries in a fight, stage 1714; a blaze or a wither skeleton up in the window is in his reach)
+        return new Pocket(cell.immutable(), sp.above().immutable(), walls);
+    }
+    /** The pocket's walls still open, each a block to put, bottom up (each against the one under or beside it). */
+    public static List<BlockPos> pocketOpen(ServerLevel level, Pocket p) { List<BlockPos> out = new ArrayList<>(); for (BlockPos q : p.walls()) if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) out.add(q); out.sort(java.util.Comparator.comparingInt(BlockPos::getY)); return out; }
+    /** The pocket to make at this spawner: a cell beside the cage with room to stand, the cell over the cage open, every open wall cell one a block goes in; fewest blocks, then nearest him. Null: none. */
+    public static Pocket pocketAt(ClaudeEntity g, ServerLevel level, BlockPos sp) {
+        if (!level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty()) return null;
+        Pocket best = null; double bs = Double.MAX_VALUE;
+        for (Direction e : Direction.Plane.HORIZONTAL) { BlockPos c = sp.relative(e);
+            if (!open(level, c) || !open(level, c.above())) continue;
+            Pocket p = pocket(sp, c); List<BlockPos> put = pocketOpen(level, p); boolean ok = true;
+            for (BlockPos q : put) if (!level.getBlockState(q).canBeReplaced()) { ok = false; break; }
+            if (!ok) continue;
+            double s = put.size() + Math.sqrt(c.distSqr(g.blockPosition())) * 0.3;
+            if (s < bs) { bs = s; best = p; } }
+        return best;
+    }
     /** A cover his own walker reaches (no digging, a block put down where he has them); a way that puts one over lava is said, with the cells: D2D death-220 / Loops asked whether the cover at 326,61,497 (live 21:52:35 11-09) was reached only by bridging over the drop the bridge rule forbids under fire; the log there didn't show the way's acts, and no stage repro'd it (a 1-wide gap with lava 30 down: no way at all), so this says it next time. */
     static boolean reachNoLavaPut(ClaudeEntity g, ServerLevel level, BlockPos me, BlockPos c, int budget) {
         var p = com.claudemod.entity.nav.ActionPath.plan(g, level, me, c, 0.5, true, budget, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
@@ -298,7 +324,7 @@ public final class FortressFight {
      * when they're above), and a step beside it, clear of the blocks, that sees what he's fighting. Fewest blocks, then nearest.
      */
     /** A face to put a block in q against: a solid block beside it, or one of {@code up} (put there before it). */
-    static boolean faced(ServerLevel level, BlockPos q, List<BlockPos> up) { for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (up.contains(n) || !level.getBlockState(n).getCollisionShape(level, n).isEmpty()) return true; } return false; }
+    public static boolean faced(ServerLevel level, BlockPos q, List<BlockPos> up) { for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (up.contains(n) || !level.getBlockState(n).getCollisionShape(level, n).isEmpty()) return true; } return false; }
     private static String buildWhy = ""; // why the last buildBlaze built nothing (for the no-cover line)
     static Cover buildBlaze(ClaudeEntity g, ServerLevel level, List<Vec3> eyes, Vec3 anchor, int seen, BlockPos spawner, LivingEntity foe) {
         var item = wallItem(g); if (item == null || eyes.isEmpty()) { buildWhy = item == null ? "; no blocks to build with" : ""; return null; }
@@ -560,6 +586,21 @@ public final class FortressFight {
             ClaudeMod.LOGGER.info("[Claude fight] no shield, {} iron and {} planks' worth on him: a shield first, it blocks every fireball of a volley (FortressFight.blazeRods)", iron, planks + logs * 4);
             return "a shield first (6 planks and an iron ingot): it takes the blazes' fireballs";
         }
+        { // the spawner pocket (the user 11-13: rods "preferably without dying"; six deaths at the fortress that day, each a fight in the open or from cover found on the spot): a spawner he knows of near and blocks enough: walled in beside the cage, the blazes come to him (stage 1714)
+          BlockPos sp = blazeSpawner(g, level, 20);
+          if (sp == null) for (BlockPos q : Atlas.spots(g, level, "blaze_spawner")) if (level.isLoaded(q) && level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SPAWNER) && q.distSqr(g.blockPosition()) <= 48 * 48 && (sp == null || q.distSqr(g.blockPosition()) < sp.distSqr(g.blockPosition()))) sp = q;
+          if (sp != null) { Pocket pk = pocketAt(g, level, sp); int blocks = 0; for (var it0 : WALLS) blocks += g.inventory.count(x -> x.is(it0));
+            int need = pk == null ? 0 : pocketOpen(level, pk).size();
+            if (pk != null && blocks >= need && !feet(g).equals(pk.cell()) && g.getHealth() < Weights.w("blaze.pocket_go_hp", 16) && food > 0) { g.skillQueue.addFirst(again); return healHere(g, level, "the walk into the pocket at " + pk.cell().toShortString() + " is under their fire: " + (int) Weights.w("blaze.pocket_go_hp", 16) + "+ health first, he's at " + (int) g.getHealth()); } /* (a player heals before he goes in: 11 HP on arrival, dead at the pocket's edge, stage 1714) */
+            final BlockPos sp0 = sp; int crowd = pk == null ? 0 : (int) level.getEntitiesOfClass(Blaze.class, new net.minecraft.world.phys.AABB(sp).inflate(12), x -> x.isAlive() && g.hasLineOfSight(x)).size(); // (the ones he sees round the cage: a room full is thinned from cover first, the walk in under 5 of them took 20 -> 9 and he died a step off the cell, stage 1714)
+            if (pk != null && blocks >= need && crowd > Weights.w("blaze.pocket_go_blazes", 2) && Math.sqrt(pk.cell().distSqr(feet(g))) > 2.5) ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blazes in sight round the spawner at {}: thinned from cover before the walk into the pocket at {} (FortressFight.blazeRods)", have, goal, crowd, sp0.toShortString(), pk.cell().toShortString());
+            else if (pk != null && blocks >= need) {
+                g.tasks.add(new Task.Pocket(sp, pk.cell(), onHim + goal - have, 20 * 240)); g.skillQueue.addFirst(again);
+                ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: the pocket beside the spawner at {}: {}, {} block(s) to wall it, the window over the cage at {} (FortressFight.blazeRods)", have, goal, sp.toShortString(), pk.cell().toShortString(), need, pk.window().toShortString());
+                return "blaze rods " + have + "/" + goal + ": into a pocket beside the spawner at " + sp.toShortString() + " (" + need + " block(s) to wall it), the blazes hit as they come to the window over the cage";
+            }
+            if (pk == null || blocks < need) com.claudemod.director.ClaudeLife.nookSay(g, "blazeNoPocket", "[Claude fight] no pocket at the spawner at " + sp.toShortString() + ": " + (pk == null ? "no cell beside the cage with room to stand and the cell over it open" : blocks + " wall block(s) on him, " + need + " wanted") + " (FortressFight.blazeRods)");
+          } }
         { // fight now or get ready first, priced (D2D 04:52 World 17: no armor, every fireball the full 5, 20 -> 3 in 18 s, burned to death; the user's rule: a price, never a gate)
           double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); int left = goal - have;
           // the crowd where he'd fight: the blazes about the spawner (or him) shoot at once, not one after another (D2D death 07:13:08 11-12: 16 blazes, 56 shots in 23 s by the spawner at 315,63,489; the job walked him back to it each time; stage 1613)

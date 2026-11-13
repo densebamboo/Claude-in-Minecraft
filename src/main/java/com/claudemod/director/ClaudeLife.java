@@ -14552,6 +14552,7 @@ public final class ClaudeLife {
             if (m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) continue;
             if (m instanceof net.minecraft.world.entity.monster.piglin.Piglin && goldOn) continue;
             if (m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.Phantom) continue; // (out of a sword's reach: the bow or the fireball reflex)
+            if (m instanceof net.minecraft.world.entity.monster.Blaze && (g.currentTask instanceof Task.Pocket || g.tasks.stream().anyMatch(t -> t instanceof Task.Pocket))) continue; /* bound for his spawner pocket or in it: the blazes come to his window (stage 1714) */
             if (m instanceof net.minecraft.world.entity.monster.Creeper) continue; // never gone after: a creeper in melee is how a player dies (live 12:44 World 15 "after it", 26.8 damage at night with skeletons on him); one that closes in is the hazard layer's
             if (m instanceof net.minecraft.world.entity.monster.EnderMan && !endermanTime(g)) continue; /* the user 01:40: endermen case by case: at the pearl stage and geared, yes; otherwise leave them be */
             if (Math.abs(m.getY() - g.getY()) > 4) continue;

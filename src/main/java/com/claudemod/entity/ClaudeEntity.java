@@ -385,6 +385,7 @@ public class ClaudeEntity extends ServerPlayer {
         }
         super.tick();  // the light per-tick player stuff (block breaking progress, menus, criteria)
         doTick();      // the full player tick: movement physics, hunger, item pickup, using items
+        armedItem = getMainHandItem().getItem(); // (what his attack attributes now belong to: doTick's equipment check applied them)
         // fall damage, the way the server applies it to a real player (from their movement packets): without this he never took a fall hit in two days of logs and walked off a 50-block drop into a cave
         if (isAlive() && !isSleeping()) doCheckFallDamage(getX() - xo, getY() - yo, getZ() - zo, onGround());
         traceMovement();
@@ -499,7 +500,7 @@ public class ClaudeEntity extends ServerPlayer {
         boolean took = super.hurt(source, amount);
         if (!level().isClientSide && getHealth() < before0 && source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.SmallFireball sf) com.claudemod.entity.life.FortressFight.fireballHit(this, sf); // (a fireball that got through: his blaze cover failed him there)
         if (!level().isClientSide && amount >= 1.0f) { // every hit, mobs too, written once it's resolved (16:30: shield-blocked hits logged as damage)
-            String res0 = blocked0 ? "blocked by his shield" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken: " + notTakenWhy(source, amount, inv0, last0) + ")"; hurtSaid = res0;
+            String res0 = blocked0 ? "blocked by his shield" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken: " + notTakenWhy(source, amount, inv0, last0) + ")"; if (!blocked0 && getOffhandItem().is(net.minecraft.world.item.Items.SHIELD)) res0 += isUsingItem() && getUsedItemHand() == net.minecraft.world.InteractionHand.OFF_HAND ? " [shield up " + getTicksUsingItem() + "t, not facing it or not warm]" : " [shield down]"; hurtSaid = res0;
             if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE) || source.getMsgId().startsWith("explosion")) { /* the user 01:38: do ghast fireballs and soul fire set him alight like any player? his burn clock and the block he's in, on every fire hit */
                 net.minecraft.core.BlockPos fp = blockPosition();
                 String in = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp).getBlock()).getPath(), under = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp.below()).getBlock()).getPath();
@@ -522,8 +523,12 @@ public class ClaudeEntity extends ServerPlayer {
     }
 
     private int sweepJumpTick = -100; // his last jump to keep a swing off a calm bystander
+    private net.minecraft.world.item.Item armedItem; private int armSaidTick = -100; // the item his attack damage belongs to (vanilla applies a new item's attributes in the next tick)
     @Override
     public void attack(net.minecraft.world.entity.Entity target) { // every swing at a mob, landed or not (the fight episode's swings)
+        if (!level().isClientSide && getMainHandItem().getItem() != armedItem) { // swapped to it this tick: the hit would land with the old item's damage (a sword swapped in over cobblestone hit blazes for 1, 0-1 kills a run, stage 1714); a player's hit comes once it's in hand
+            if (tickCount - armSaidTick > 100) { armSaidTick = tickCount; ClaudeMod.LOGGER.info("[Claude fight] the swing at the {} waits a tick: the {} just came into his hand, its damage counts from the next tick ({} before) (ClaudeEntity.attack)", target.getType().getDescription().getString(), net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(getMainHandItem().getItem()).getPath(), armedItem == null ? "-" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(armedItem).getPath()); }
+            return; }
         if (!level().isClientSide) { var by = com.claudemod.entity.goals.CombatBrain.sweepBystander(this, target); // (death 20:55:49 11-11: a ground hit on a wither skeleton swept a calm enderman beside it; stage 1075)
             if (by != null && tickCount - sweepJumpTick > 10) { sweepJumpTick = tickCount; getJumpControl().jump();
                 ClaudeMod.LOGGER.info("[Claude fight] the swing at the {} held for a jump: on the ground it would sweep the {} {} off beside it, calm; the hit lands in the air (ClaudeEntity.attack)", target.getType().getDescription().getString(), by.getType().getDescription().getString(), String.format("%.1f", by.distanceTo(target)));

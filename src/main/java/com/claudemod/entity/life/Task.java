@@ -62,4 +62,6 @@ public sealed interface Task {
     record Dragon(int maxTicks) implements Task {}
     /** Nether travel the way players do it (WorkGoal.doBore): straight through, an L along the axes at feet height y; rock dug 1x2, gaps and lava floored, rails over lava, lava that shows plugged. */
     record Bore(BlockPos goal, int y) implements Task {}
+    /** Blaze rods the way players farm a spawner (WorkGoal.doPocket): walled into the cell beside the cage (FortressFight.pocketAt), the blazes hit as they come to the window over it, till {@code goal} rods are on him. */
+    record Pocket(BlockPos spawner, BlockPos cell, int goal, int maxTicks) implements Task {}
 }

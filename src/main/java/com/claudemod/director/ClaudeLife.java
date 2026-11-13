@@ -4150,6 +4150,7 @@ public final class ClaudeLife {
                 if (spot == null) { g.attempts.counters.put("fishNoWater", g.tickCount); return "failed: no water to fish in within " + (int) com.claudemod.entity.life.Weights.w("kit.rod_water_range", 48) + " (water on all sides of the cast's spot, a dry bank a cast off)"; }
                 BlockPos water = spot[0], stand = spot[1];
                 int n = Math.max(1, Math.min(count, 16));
+                { String no = nightOutsideNo(g, level, stand, 2 * Math.sqrt(stand.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint() + n * com.claudemod.entity.life.Weights.w("kit.rod_catch_s", 20)); if (no != null) return no; } // the night out on the bank, as collect weighs a hunt's (live 23:25:24 11-12, D2D 232809-35: into his mine for cover, then 1.5 s on out to an open bank in the dark, no iron armor or sword; stage 1332)
                 g.tasks.add(new Task.GoTo(stand, 0.6));
                 g.tasks.add(new Task.Fish(water, n, 20 * 240));
                 g.tasks.add(new Task.Pickup(60));

@@ -11164,6 +11164,7 @@ public final class ClaudeBodyTest {
             case 1606: return st1606(stage, t, c, h, level, mock);
             case 1330: return st1330(stage, t, c, h, level, mock);
             case 1331: return st1331(stage, t, c, h, level, mock);
+            case 1332: return st1332(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26449,6 +26450,34 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(near, Blocks.AIR.defaultBlockState(), 3); level.setBlock(far, Blocks.AIR.defaultBlockState(), 3);
             check(d != null && !d.contains("rides home"), "his furnace 30 off: the raw iron \"rides home\" to the one 45 off: \"" + d + "\"");
             pass(stage, t, "smelt with his furnace 30 off: \"" + d + "\"");
+        }
+        return true;
+    }
+    /** Stage 1332 (D2D 232809-35, live 23:24:42-23:26:30 11-12: dusk "fish set aside till morning: his lit mine", into his mine for cover, then 1.5 s on the queued "fish x24 -> fishing at -39, 62, -16 from the bank at -35, 64, -14", out on the open bank in the dark with no iron armor or sword, night.out saying "wait for first light" meanwhile). Night, no armor, a rod, a pond on open ground: the fish step holds the night as collect does; by day it fishes. */
+    private static boolean st1332(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(18000); flatBox(h); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 2); // a pond, one deep
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.FISHING_ROD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 10)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(18); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "fish", "", 24);
+            boolean out = c.tasks.stream().anyMatch(x -> x instanceof Task.Fish) || c.currentTask instanceof Task.Fish; String q = c.tasks.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(6000);
+            check(!out && r != null && !r.startsWith("fishing at"), "night, no armor, no sword: the fish step sent him out to the bank: \"" + r + "\" " + q);
+        }
+        if (t[0] == 25) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "fish", "", 24);
+            boolean out = c.tasks.stream().anyMatch(x -> x instanceof Task.Fish);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2);
+            check(out, "the control: by day the fish step didn't fish: \"" + r + "\"");
+            pass(stage, t, "the fish waits on the night, fishes by day: \"" + r + "\"");
         }
         return true;
     }

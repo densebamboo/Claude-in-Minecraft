@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1702: return st1702(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23432,6 +23433,33 @@ public final class ClaudeBodyTest {
             check(placed, "setup: his table never went down");
             check(!lb.startsWith("crafting_table@"), "his last table set down read as worn out: " + lb);
             pass(stage, t, "table down, no wear on record (" + lb + ")");
+        }
+        return true;
+    }
+    /** Stage 1702 (D2D death 22:46:06 11-12 at the fortress: walk.blocked "clear them ~68 s ...; wait out (the Wither Skeleton 2 off is after him: it comes to him, it doesn't move off his way): clear them", the only option left; fight.flee 2 s on priced the run under the fight, 20 -> 7 in those two seconds; the walk never had turning back as a choice). Armor 15, three wither skeletons on and by his way, one already after him, the fight dearer than the run: the walk doesn't start the fight. */
+    private static final java.util.List<net.minecraft.world.entity.monster.WitherSkeleton> s1702W = new java.util.ArrayList<>(); private static String s1702Q;
+    private static boolean st1702(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 8)), goal = o.offset(22, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var w0 : s1702W) w0.discard(); s1702W.clear(); s1702Q = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = -4; x <= 26; x++) for (int z = -8; z <= 8; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (double[] at : new double[][] {{3, 0}, {6, 0}, {6, -13}}) { var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); ws.moveTo(o.getX() + at[0] + 0.5, o.getY(), o.getZ() + at[1] + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setNoAi(true); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c); s1702W.add(ws); }
+        }
+        if (t[0] == 14) c.tasks.add(new Task.GoTo(goal, 1.0));
+        if (t[0] > 14 && t[0] < 60) { for (var ws : s1702W) ws.setTarget(c);
+            var q = new java.util.ArrayList<>(c.tasks); boolean att = false; for (var x : q) { if (x instanceof Task.Attack) att = true; else if (att && x instanceof Task.GoTo go && go.pos().equals(goal)) { if (s1702Q == null) s1702Q = q.stream().limit(5).toList().toString(); break; } } }
+        if (t[0] == 60) {
+            String q = s1702Q;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var w0 : s1702W) w0.discard(); s1702W.clear(); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (int x = -4; x <= 26; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(q == null, "three wither skeletons on his way, one after him, the fight dearer than the run: the walk cleared them anyway: " + q);
+            pass(stage, t, "the walk didn't start the fight");
         }
         return true;
     }

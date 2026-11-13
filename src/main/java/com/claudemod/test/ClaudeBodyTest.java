@@ -11132,6 +11132,7 @@ public final class ClaudeBodyTest {
             case 1638: return st1638(stage, t, c, h, level, mock);
             case 1639: return st1639(stage, t, c, h, level, mock);
             case 1640: return st1640(stage, t, c, h, level, mock);
+            case 1641: return st1641(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25543,6 +25544,34 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.Highway.reset(c); nsHome(c, h, level);
             check(p == null || !p.partial() || endH < from0 - 12, "a part-way plan whose end is no nearer the goal (" + (int) endH + " off, he " + (int) from0 + "): planned again from there, the same plan, round and round (" + why + ")");
             pass(stage, t, "no part-way plan back to where he stands: " + why);
+        }
+        return true;
+    }
+    /** Stage 1641 (D2D reviews 175208-176, 175645-178, 180152-192, live 17:51-17:59 11-12: at his furnace with salmon cooking, the side job "the salmon 23 off while it cooks" priced by the line at a sprint, 22 of the 23 blocks back were swimming, the batch waited; collect itself said "no short way on foot" to one at 17:59). 1453's furnace and kit, the salmon out in a lake 9 from its shore: no chase off the batch; 1453 (a pond by him) still goes. */
+    private static int s1641T; private static net.minecraft.world.entity.animal.Salmon s1641S; private static BlockPos s1641F;
+    private static boolean st1641(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = new BlockPos(14000, 200, 7600), me = base.offset(new BlockPos(4, 2, 8)); // (up top: preyWalk reads a spot under the surface as underground, the test floor at -58 is)
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 48; k += 16) for (int m = -16; m <= 48; m += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(base.offset(k, 0, m)), 2, base.offset(k, 0, m));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1641T = 0; com.claudemod.entity.life.Perception.reset(c); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 34; x++) for (int z = -4; z <= 26; z++) { level.setBlock(base.offset(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(base.offset(new BlockPos(x, 0, z)), Blocks.DIRT.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(base.offset(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 5; x <= 34; x++) for (int z = -4; z <= 26; z++) for (int yy = -2; yy <= 1; yy++) level.setBlock(base.offset(new BlockPos(x, yy, z)), Blocks.WATER.defaultBlockState(), 2); // a lake, 4 deep, its shore at x 4, by him
+            level.setDayTime(1000); s1641F = me.west();
+            level.setBlock(s1641F, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(s1641F);
+            if (level.getBlockEntity(s1641F) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.SALMON, 3)); fb.setItem(1, new ItemStack(Items.COAL, 2)); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 2));
+            c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+            s1641S = EntityType.SALMON.create(level); BlockPos sp = base.offset(new BlockPos(27, 1, 8)); s1641S.moveTo(sp.getX() + 0.5, sp.getY() + 0.3, sp.getZ() + 0.5, 0, 0); s1641S.setNoAi(true); s1641S.setPersistenceRequired(); level.addFreshEntity(s1641S);
+        }
+        if (t[0] == 40) { com.claudemod.entity.life.Perception.felt(c, s1641S); c.tasks.add(new Task.FurnaceTake(s1641F)); s1641T = t[0]; }
+        if (s1641T > 0) {
+            boolean on = !s1641S.isAlive() || c.currentTask instanceof Task.Attack a && a.target().equals(s1641S.getUUID()) || c.tasks.stream().anyMatch(k -> k instanceof Task.Attack a2 && a2.target().equals(s1641S.getUUID()));
+            if (on || t[0] - s1641T >= 20 * 10) { double walk = com.claudemod.director.ClaudeLife.preyWalk(c, level, s1641S); s1641S.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(s1641F); level.setBlock(s1641F, Blocks.AIR.defaultBlockState(), 3); c.getInventory().clearContent();
+                for (int x = 5; x <= 34; x++) for (int z = -4; z <= 26; z++) for (int yy = -2; yy <= 1; yy++) level.setBlock(base.offset(new BlockPos(x, yy, z)), Blocks.DIRT.defaultBlockState(), 2);
+                for (int x = -4; x <= 34; x++) for (int z = -4; z <= 26; z++) for (int yy = -2; yy <= 1; yy++) level.setBlock(base.offset(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level);
+                check(!on, "the salmon out in the lake, " + (walk < 0 ? "no way on foot by collect's own check" : walk + " walk") + ": he left the batch to chase it (" + (t[0] - s1641T) + " ticks in)");
+                pass(stage, t, "no chase off the batch after the salmon in the lake (collect's walk " + walk + ")"); }
         }
         return true;
     }

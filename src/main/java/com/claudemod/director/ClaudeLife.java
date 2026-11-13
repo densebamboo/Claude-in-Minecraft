@@ -597,7 +597,8 @@ public final class ClaudeLife {
                     && (a instanceof net.minecraft.world.entity.animal.Cow || a instanceof net.minecraft.world.entity.animal.Pig || a instanceof net.minecraft.world.entity.animal.Sheep || a instanceof net.minecraft.world.entity.animal.Chicken || a instanceof net.minecraft.world.entity.animal.Rabbit
                         || (a instanceof net.minecraft.world.entity.animal.Salmon || a instanceof net.minecraft.world.entity.animal.Cod) && shallowFish(level, a)))); // (fish the kit counts as food too: 10 salmon 11 off and "wait at the furnace ~39 s" twice, D2D review 094354-74; stage 1453)
             meat.sort(java.util.Comparator.comparingDouble(a -> a.distanceToSqr(g)));
-            for (var a : meat) if (2 * com.claudemod.entity.life.Clocks.eta(g.blockPosition(), a.blockPosition()) + kill <= budget) { prey = a; break; }
+            int looked = 0; for (var a : meat) { if (looked++ >= 4) break; double wk = preyWalk(g, level, a); if (wk < 0) continue; // (collect's own way to it, swims at swim time: by the line at a sprint he left the batch for salmon he swam 22 of 23 blocks back from, D2D 175208-176 / 175645-178; stage 1641)
+                if (2 * Math.max(wk / com.claudemod.entity.life.Decide.sprint(), com.claudemod.entity.life.Clocks.eta(g.blockPosition(), a.blockPosition())) + kill <= budget) { prey = a; break; } }
         }
         boolean mineSide = false; // his mine while it cooks, priced: the walk to its face and back against standing here the rest of the batch (was: a face within 12, live 19:51 11-06 "his mine's face 60 off", 30 s watching; the user: "nearby busy work he can do. in this context mining")
         if (g.mineFace != null && f.getItem(0).getCount() >= 2 && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD) { double walkS = 2 * com.claudemod.entity.life.Clocks.eta(g.blockPosition(), g.mineFace);
@@ -10097,6 +10098,7 @@ public final class ClaudeLife {
         if (Math.max(Math.abs(at.getX() - me.getX()), Math.abs(at.getZ() - me.getZ())) <= com.claudemod.entity.nav.Route.FAR) {
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, me, at, fish ? 4.0 : 3.0, false, 2500, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
             len = plan == null ? -1 : plan.acts().size();
+            if (plan != null) { int wet = 0; for (var a0 : plan.acts()) if (a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w0 && (level.getFluidState(w0.feet()).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(w0.feet().below()).is(net.minecraft.tags.FluidTags.WATER))) wet++; len += wet * Math.max(0, com.claudemod.entity.life.Weights.w("path.swim_cell_s", 0.5) * com.claudemod.entity.life.Decide.sprint() - 1); } // a cell swum is no step walked: priced as the walk it's worth in time (a salmon 23 off, 22 of it swum, read as 23 blocks at a sprint; D2D 175208-176, 180152-192; stage 1641)
         } else len = com.claudemod.entity.nav.Route.walkLength(g, level, me, at, limit, fish ? 6 : 2);
         if (len > limit) len = -1;
         if (len < 0) ClaudeMod.LOGGER.info("[Claude life] no short way on foot to the {} at {} ({} across)", e.getType().getDescription().getString(), at.toShortString(), (int) d);

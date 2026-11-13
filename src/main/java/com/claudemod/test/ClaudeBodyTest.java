@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1687: return st1687(stage, t, c, h, level, mock);
+            case 1686: return st1686(stage, t, c, h, level, mock);
             case 1685: return st1685(stage, t, c, h, level, mock);
             case 1684: return st1684(stage, t, c, h, level, mock);
             case 1683: return st1683(stage, t, c, h, level, mock);
@@ -23008,6 +23010,59 @@ public final class ClaudeBodyTest {
             check(there, "30 s along his highway and not at its end (at " + at.subtract(o).toShortString() + ", o-relative) | " + segs);
             check(bad.isEmpty(), "walked it, the record still off his floor at z " + (bad.length() > 120 ? bad.substring(0, 120) + "..." : bad) + "| " + segs);
             pass(stage, t, segs);
+        }
+        return true;
+    }
+    /** Stage 1686 (D2D HP-by-source table 11-12: blaze fire while he runs, 164 HP of today's 1203, the top pair; live 06:51:16-06:51:31: "out of the shooters' sight at 316, 60, 507 (6 off)", 0.3 s later "the Blaze 16 off sees him again", the next spot 1 off, ten hops in 10 s along a wall, hit again at 06:51:31; hideSpot took the nearest cell out of the shooters' sight from where they hung that tick, a cell at the edge of the shadow that a blaze's drift of a block or two sees again). A blaze 9 off, a wall beside him: the hide he picks stays out of its sight when it drifts 3 blocks any way, or 2 up or down. */
+    private static net.minecraft.world.entity.monster.Blaze s1686B;
+    private static boolean st1686(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (s1686B != null) s1686B.discard(); s1686B = null; }
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = 1; z <= 8; z++) for (int y = 0; y <= 4; y++) level.setBlock(o.offset(2, y, z), Blocks.STONE.defaultBlockState(), 2); /* a wall north-east of him, the blaze east */
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1686B = EntityType.BLAZE.create(level); s1686B.moveTo(o.getX() + 9.5, o.getY() + 4, o.getZ() + 0.5, 90, 0); s1686B.setNoAi(true); s1686B.setPersistenceRequired(); level.addFreshEntity(s1686B);
+        }
+        if (t[0] == 16) {
+            BlockPos hide = null; String err = null;
+            try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("hideSpot", ServerLevel.class, BlockPos.class, java.util.List.class); m.setAccessible(true); hide = (BlockPos) m.invoke(c.work, level, c.blockPosition(), java.util.List.of(s1686B)); } catch (ReflectiveOperationException e) { err = String.valueOf(e); }
+            String seenFrom = ""; int seen = 0, tried = 0;
+            if (hide != null) { net.minecraft.world.phys.Vec3 head = net.minecraft.world.phys.Vec3.atBottomCenterOf(hide).add(0, 1.6, 0), eye0 = s1686B.getEyePosition();
+                for (int[] dd : new int[][] {{3, 0, 0}, {-3, 0, 0}, {0, 0, 3}, {0, 0, -3}, {2, 0, 2}, {2, 0, -2}, {-2, 0, 2}, {-2, 0, -2}, {0, 2, 0}, {0, -2, 0}}) { tried++; net.minecraft.world.phys.Vec3 e = eye0.add(dd[0], dd[1], dd[2]);
+                    if (com.claudemod.entity.life.Perception.clear(level, e, head)) { seen++; seenFrom += "(" + dd[0] + "," + dd[1] + "," + dd[2] + ") "; } } }
+            String at = hide == null ? "none" : hide.subtract(o).toShortString();
+            s1686B.discard(); s1686B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(err == null && hide != null, "setup: no hide at all (" + err + ")");
+            check(seen == 0, "his hide at " + at + " (o-relative), behind the wall from the blaze 9 off: seen again from " + seen + " of " + tried + " spots a blaze drifts to: " + seenFrom);
+            pass(stage, t, "hide at " + at + ", out of sight from all " + tried + " drifts");
+        }
+        return true;
+    }
+    /** Stage 1687 (D2D 193501, live 19:30:59 11-12: at 17:13 in the overworld "obtain blaze_rod x7 -> blaze_rods blaze_rod 1 (fetching from my chests: 6 at -40,51,-19)"; the trip stash (6bd8b5bf) banked the 6 rods; planned again in the Nether, "to get 7 blaze_rod: blaze_rods blaze_rod 7", "blaze rods 0/7", and at 19:38:42 he died at the fortress fighting for the 7 when 1 was wanted: ClaudeLife.stored read his chests in the Nether only). 6 rods banked in his overworld chest, none on him, his rods job and plan read from the Nether: the 6 count. */
+    private static BlockPos s1687C;
+    private static boolean st1687(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] == 10) {
+            s1687C = h.absolutePos(new BlockPos(6, 2, 8)); level.setBlock(s1687C, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(s1687C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch) ch.setItem(0, new ItemStack(Items.BLAZE_ROD, 6));
+            c.storageChests.add(s1687C); com.claudemod.entity.life.ChestLedger.look(c, level, s1687C);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            int stored = com.claudemod.director.ClaudeLife.stored(c, nl).getOrDefault(Items.BLAZE_ROD, 0);
+            String r = com.claudemod.entity.life.FortressFight.blazeRods(c, null, nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@6", 6, "near_you"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+            if (level.getBlockEntity(s1687C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch) ch.clearContent();
+            level.setBlock(s1687C, Blocks.AIR.defaultBlockState(), 3); c.storageChests.remove(s1687C); com.claudemod.entity.life.ChestLedger.look(c, level, s1687C);
+            check(stored == 6, "6 rods banked in his overworld chest, read from the Nether: " + stored + " stored");
+            check(r != null && r.startsWith("done"), "6 rods banked at home, blaze_rod@6 from the Nether: \"" + r + "\"");
+            pass(stage, t, stored + " stored, " + r);
         }
         return true;
     }

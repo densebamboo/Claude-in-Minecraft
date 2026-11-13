@@ -106,6 +106,12 @@ public final class ChestLedger {
         for (var e : book(g).entrySet()) if (here(g, level, e.getKey(), e.getValue(), reach)) e.getValue().items().forEach((k, v) -> m.merge(k, v, Integer::sum));
         return m;
     }
+    /** What his chests in the other dimensions hold, by his last look in each, of the items picked. */
+    public static Map<Item, Integer> otherDims(ClaudeEntity g, ServerLevel level, Predicate<Item> which) {
+        Map<Item, Integer> m = new HashMap<>();
+        for (var e : book(g).entrySet()) if (!e.getValue().dim().equals(dim(level))) e.getValue().items().forEach((k, v) -> { if (which.test(k)) m.merge(k, v, Integer::sum); });
+        return m;
+    }
     public static int count(ClaudeEntity g, ServerLevel level, Item item) { return totals(g, level).getOrDefault(item, 0); }
 
     /** The chests that hold what he wants, nearest first (one spot per chest and item). */

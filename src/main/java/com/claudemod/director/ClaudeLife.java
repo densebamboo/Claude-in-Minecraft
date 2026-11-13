@@ -12898,6 +12898,7 @@ public final class ClaudeLife {
     public static java.util.Map<Item, Integer> stored(ClaudeEntity g, ServerLevel level) {
         java.util.Map<Item, Integer> m = new java.util.HashMap<>(com.claudemod.entity.life.ChestLedger.totals(g, level)); // his chests as of his last look in each, from anywhere (the user: "does he know he have 7 diamonds": 190 off, past the old 48, they counted as none)
         for (var sp : com.claudemod.entity.life.ChestLedger.furnacesWith(g, level, x -> true)) m.merge(sp.item(), sp.count(), Integer::sum); // his furnaces' done food and smelts, from anywhere in this world as he last saw them (an unloaded one 317 off was none: live 03:27 11-08)
+        com.claudemod.entity.life.ChestLedger.otherDims(g, level, it -> bankedOutput(g, it)).forEach((k, v) -> m.merge(k, v, Integer::sum)); // what he banks for a goal he brings home counts wherever he is (live 19:30 11-12: 6 rods banked at home read as 0 of 7 in the Nether, he died fighting for 7; stage 1687)
         return m;
     }
 

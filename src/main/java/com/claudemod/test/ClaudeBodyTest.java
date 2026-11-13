@@ -11138,6 +11138,7 @@ public final class ClaudeBodyTest {
             case 1641: return st1641(stage, t, c, h, level, mock);
             case 1642: return st1642(stage, t, c, h, level, mock);
             case 1643: return st1643(stage, t, c, h, level, mock);
+            case 1644: return st1644(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25705,6 +25706,39 @@ public final class ClaudeBodyTest {
             check("cook his raw".equals(s1643Kept), "his pick \"cook his raw\" standing, the hunt a few seconds cheaper: flipped to " + s1643Kept + " (" + s1643Said + ")");
             check("hunt cow".equals(gone), "a standing pick no longer an option (fish): not switched to the best, " + gone);
             pass(stage, t, "the standing pick kept against a near tie, switched when it's gone: " + s1643Said);
+        }
+        return true;
+    }
+    /** Stage 1644 (D2D review 191949-60, live 19:15:44-19:16:13 11-12 at 35,71,-66: kit.food "hunt cow ~24 s (1 of 1, nearest 43 walk)", collect beef "nothing to hunt in reach, but a rod and open water: fishing for it", and before that "no cow in sight: walking west" 6 legs with the kit pricing the cow 43-59 walk). Collect's herd kept only animals within 6 of his height or at the surface; the kit's has no such cut, both walk-check by preyWalk. A cow 10 below him under an overhang, a stair down to it: in the hunt. */
+    private static String s1644R = "", s1644W = "";
+    private static boolean st1644(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = new BlockPos(14200, 200, 7800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 48; k += 16) for (int m = -16; m <= 16; m += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(base.offset(k, 0, m)), 2, base.offset(k, 0, m));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; c.prefs.put("stay_close", "no"); c.attempts.clear(); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 14; y++) {
+                boolean solid = y == 0 || x <= 6 && y <= 10 || x >= 7 && x <= 15 && y <= 16 - x || x >= 17 && y == 5; // (floor; his ledge, top 10 up; a stair down; the overhang over the cow)
+                level.setBlock(base.offset(x, y, z), (solid ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(base).inflate(60), m -> !m.getUUID().equals(c.getUUID()))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.FISHING_ROD));
+            c.teleportTo(level, base.getX() + 2.5, base.getY() + 11, base.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(1000);
+            /* (the cow at t20, its chunk loaded by then: spawned at 10 it was sometimes not there) */
+        }
+        if (t[0] == 20) { var cow = EntityType.COW.create(level); cow.moveTo(base.getX() + 22.5, base.getY() + 1, base.getZ() + 0.5, 0, 0); cow.setNoAi(true); cow.setPersistenceRequired(); level.addFreshEntity(cow); }
+        if (t[0] == 44) {
+            var cows = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, new net.minecraft.world.phys.AABB(base).inflate(40));
+            s1644W = cows.isEmpty() ? "no cow" : com.claudemod.director.ClaudeLife.preyWalk(c, level, cows.get(0)) + " walk, he at " + c.blockPosition().toShortString();
+            s1644R = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 2);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 46) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(base).inflate(60), m -> !m.getUUID().equals(c.getUUID()))) m.discard();
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 14; y++) level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); nsHome(c, h, level);
+            check(!s1644W.startsWith("-") && !s1644W.startsWith("no"), "setup: the cow down the stair not walkable: " + s1644W);
+            check(!s1644R.contains("no cow in sight") && !s1644R.contains("fishing"), "a cow 10 below him under an overhang, " + s1644W + ", left out of the hunt: " + s1644R);
+            pass(stage, t, "the cow under the overhang is in the hunt (" + s1644W + "): " + (s1644R.length() > 100 ? s1644R.substring(0, 100) : s1644R));
         }
         return true;
     }

@@ -11147,6 +11147,7 @@ public final class ClaudeBodyTest {
             case 1644: return st1644(stage, t, c, h, level, mock);
             case 1645: return st1645(stage, t, c, h, level, mock);
             case 1646: return st1646(stage, t, c, h, level, mock);
+            case 1647: return st1647(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25965,6 +25966,38 @@ public final class ClaudeBodyTest {
             check("search for animals".equals(s1646P), "setup: the kit's pick with no animals and a pond: " + s1646P + " (" + com.claudemod.director.Kit.foodSaidTest(c) + ")");
             check(!s1646R.contains("fishing"), "the kit's pick the search for animals, collect beef went fishing: " + s1646R);
             pass(stage, t, "the kit's search stands: " + s1646R);
+        }
+        return true;
+    }
+    /** Stage 1647 (D2D review 203000-45, live 20:28:05-20:28:13 11-12 at -81,16..18,-553: gold mined out of his wall's top cell, the hole patched with cobble; the gold beside it in his tunnel's ceiling (-81,19,-554, seen) was dug from inside his hole column, the line through the fresh patch: "his patch is over Gold Ore he saw: out, the ore, the patch back", PLACE_BREAK and the referee flipping the cell). Ore in his tunnel's ceiling, his fresh patch beside it, he in his hole under the patch: a step to the clear view below the ore, the patch stays. */
+    private static BlockPos s1647P, s1647G; private static int s1647T; private static boolean s1647Broke;
+    private static boolean st1647(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s1647T = -1; s1647Broke = false; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 12000;
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && !level.getBlockState(d.relative(dd)).isAir()) side = dd;
+            check(side != null, "setup: no wall beside the row");
+            int hgt = 0; while (hgt < 6 && b.isWalk(d.above(hgt))) hgt++;
+            check(hgt >= 3, "setup: the walk " + hgt + " high");
+            s1647G = d.above(hgt).immutable(); s1647P = d.relative(side).above(hgt - 1).immutable(); // (the ore in his ceiling; his patch, the wall's top cell beside it)
+            for (int y = 0; y < hgt - 1; y++) level.setBlock(d.relative(side).above(y), Blocks.AIR.defaultBlockState(), 2); // his hole column under the patch
+            level.setBlock(s1647P, Blocks.COBBLESTONE.defaultBlockState(), 3);
+            level.setBlock(s1647G, Blocks.GOLD_ORE.defaultBlockState(), 2);
+            lnStand(c, mock, d.relative(side), b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            com.claudemod.director.ClaudeLife.seenOre(c).add(s1647G);
+        }
+        if (t[0] == 30) { c.tasks.add(new Task.Break(s1647G)); s1647T = t[0]; }
+        if (s1647T > 0 && t[0] > s1647T) {
+            if (!level.getBlockState(s1647P).is(Blocks.COBBLESTONE)) s1647Broke = true;
+            boolean gone = !level.getBlockState(s1647G).is(Blocks.GOLD_ORE);
+            if (gone && c.tasks.isEmpty() && c.currentTask == null || t[0] - s1647T > 20 * 20) {
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+                check(gone, "the gold in his ceiling not mined in " + (t[0] - s1647T) + " ticks");
+                check(!s1647Broke, "his fresh patch at " + s1647P.toShortString() + " broken for the ore beside it in his ceiling (a clear view from the tunnel below it)");
+                pass(stage, t, "the ore taken from the tunnel, the patch stayed, " + (t[0] - s1647T) + " ticks");
+            }
         }
         return true;
     }

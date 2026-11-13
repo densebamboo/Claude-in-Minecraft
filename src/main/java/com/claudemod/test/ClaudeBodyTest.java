@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1681: return st1681(stage, t, c, h, level, mock);
             case 1680: return st1680(stage, t, c, h, level, mock);
             case 1679: return st1679(stage, t, c, h, level, mock);
             case 1678: return st1678(stage, t, c, h, level, mock);
@@ -22857,6 +22858,45 @@ public final class ClaudeBodyTest {
             check(off <= 1.5, "75 s on, a pond he hadn't seen in the way: " + String.format("%.1f", off) + " off the spot past it, at " + at + " (o-relative), " + wet / 20 + " s in water");
             check(wet <= 20 * 15, "got there but " + wet / 20 + " s in the water");
             pass(stage, t, "there in " + secs + " s, " + wet / 20 + " s in water");
+        }
+        return true;
+    }
+    /** Stage 1681 (D2D review 174651-160/161, live 17:45:35-41 11-12 at 304,62,481: 5 blazes, health 16 burning, "walled in where he stands"; the referee refused the wall at 304,63,482: "filled by WorkGoal.doPlace, dug out by WorkGoal.walkTo 2 s ago ... leave it dug out ~0 s (no plan for the cell)", the walk that dug it dropped for the wall but its Breaks still queued; the box never closed, he ran, 14 -> 7 on fire). A bare hall, two blazes up, health 10 burning, his wall cells filled and dug out by a walk a moment ago, one of that walk's Breaks still queued: he walls in, all four sides and the roof. */
+    private static int s1681T, s1681Boxed;
+    private static boolean st1681(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13240, 70, 7940);
+        if (t[0] == 1) { scenarioReset(c); s1681T = -1; s1681Boxed = -1; com.claudemod.entity.life.Gate.reset(c); }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 12 || Math.abs(x) == 14 || Math.abs(z) == 14 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) for (int k = 0; k < 2; k++) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(o.getX() + 9.5, o.getY() + 4, o.getZ() + 0.5 + k * 3, 90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nl.addFreshEntity(bz); }
+        if (t[0] == 18) { /* his wall cells: filled by a placement of his, then dug out by a walk, as live */
+            BlockPos f = c.blockPosition();
+            for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) for (int dy = 0; dy <= 1; dy++) { BlockPos p = f.relative(d).above(dy);
+                var put = new Task.Place(p, Items.COBBLED_DEEPSLATE); com.claudemod.entity.ClaudeEntity.ORIGIN.put(put, "WorkGoal.doPlace:4404"); com.claudemod.entity.life.Gate.started(c, put, null); nl.setBlock(p, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 3); com.claudemod.entity.life.Gate.ended(c, put, null);
+                var dig = new Task.Break(p); com.claudemod.entity.ClaudeEntity.ORIGIN.put(dig, "WorkGoal.walkTo"); com.claudemod.entity.life.Gate.started(c, dig, null); nl.setBlock(p, Blocks.AIR.defaultBlockState(), 3); com.claudemod.entity.life.Gate.ended(c, dig, null); }
+        }
+        if (t[0] == 20) { var b = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20)).get(0);
+            c.setHealth(10); c.setRemainingFireTicks(100); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.Attack(b.getUUID(), 20 * 30));
+            var left = new Task.Break(c.blockPosition().east(2).above()); com.claudemod.entity.ClaudeEntity.ORIGIN.put(left, "WorkGoal.walkTo"); c.tasks.add(left); /* that walk's step still queued */
+            s1681T = t[0]; }
+        if (s1681T > 0 && s1681Boxed < 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            BlockPos f = c.blockPosition(); int walls = 0, roof = nl.getBlockState(f.above(2)).isAir() ? 0 : 1; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!nl.getBlockState(f.relative(d)).isAir() && !nl.getBlockState(f.relative(d).above()).isAir()) walls++;
+            if (walls == 4 && roof == 1) s1681Boxed = t[0]; }
+        if (s1681T > 0 && (s1681Boxed > 0 || t[0] >= s1681T + 20 * 15)) {
+            boolean boxed = s1681Boxed > 0; float hp = c.getHealth(); BlockPos at = c.blockPosition(); int secs = (s1681Boxed > 0 ? s1681Boxed - s1681T : t[0] - s1681T) / 20; String why = com.claudemod.entity.life.Gate.LAST_WHY.getOrDefault(c.getUUID(), "-");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); com.claudemod.entity.life.Gate.reset(c);
+            for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) b.discard();
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(boxed, "15 s, two blazes up, health 10 burning, never walled in (at " + at.toShortString() + ", health " + hp + "); the last refusal: " + why);
+            pass(stage, t, "walled in in " + secs + " s");
         }
         return true;
     }

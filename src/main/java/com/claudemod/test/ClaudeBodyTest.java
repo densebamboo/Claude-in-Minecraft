@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1708: return st1708(stage, t, c, h, level, mock);
             case 1707: return st1707(stage, t, c, h, level, mock);
             case 1706: return st1706(stage, t, c, h, level, mock);
             case 1705: return st1705(stage, t, c, h, level, mock);
@@ -23637,6 +23638,36 @@ public final class ClaudeBodyTest {
             check(got[1] == null, "an iron axe on him, health 20, fed, by day: \"" + got[1] + "\"");
             check(got[2] != null, "bare hands: fit to pick a fight");
             pass(stage, t, "his best weapon read: wooden sword \"" + got[0] + "\", iron axe fit, bare hands \"" + got[2] + "\"");
+        }
+        return true;
+    }
+    /** Stage 1708 (D2D death 03:43:56 11-13 at the fortress, incident 033939-drag-291: the way out to 276, 65, 502 stepped from 313, 65, 487 onto 313, 65, 486, its floor a nether brick fence (1.5 high), his own cell lidded at 313, 67, 487; "dragging along air at 313, 66, 486", hcoll at z 487.30 for 22 ticks, then "1.5 s stepping into 313, 65, 486 ... that's there" with him still in 313, 65, 487; the way never walked, 8-11 blazes round him). A step up onto a fence rises half a block while still in his own cell: no step with a lid over it. A 1-wide row, a fence for the next cell's floor, a lid over his: he gets along the row. */
+    private static int s1708T;
+    private static boolean st1708(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(10, 3, 12)), goal = o.offset(0, 0, -4);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1708T = -1; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -3; x <= 3; x++) for (int y = -2; y <= 4; y++) for (int z = -7; z <= 3; z++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int z = -5; z <= 0; z++) for (int y = 0; y <= 2; y++) level.setBlock(o.offset(0, y, z), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(o.offset(0, 2, 0), Blocks.COBBLESTONE.defaultBlockState(), 2); /* the lid over his own cell */
+            level.setBlock(o.offset(0, -1, -1), Blocks.NETHER_BRICK_FENCE.defaultBlockState(), 3); /* the next cell's floor: a fence */
+            level.setDayTime(6000); c.blueprint = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(180); c.setYHeadRot(180); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.GoTo(goal.immutable(), 0.9)); s1708T = t[0]; }
+        if (s1708T > 0 && t[0] > s1708T) {
+            boolean there = c.blockPosition().distSqr(goal) <= 1;
+            if (there || t[0] - s1708T >= 200) {
+                BlockPos at = c.blockPosition().subtract(o); String tasks = c.tasks + " / " + c.currentTask; int took = t[0] - s1708T;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+                for (int x = -3; x <= 3; x++) for (int y = -2; y <= 4; y++) for (int z = -7; z <= 3; z++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
+                check(there, "4 along a 1-wide row, a fence the next cell's floor and a lid over his own: not there in 10 s, him at " + at.toShortString() + " (o-relative), tasks " + tasks);
+                check(took <= 140, "along the row in " + took + " ticks (a dig and four steps: 7 s at most)");
+                pass(stage, t, "along the row past the fence in " + took + " ticks");
+            }
         }
         return true;
     }

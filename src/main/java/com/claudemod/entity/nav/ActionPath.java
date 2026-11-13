@@ -719,7 +719,7 @@ public final class ActionPath {
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
                     // something under his feet there: a solid block, water to swim in, a ladder; else a block put down (a bridge, a step), if he can
                     BlockPos under = t.below();
-                    if (tall(under) && (dy > 0 || !head(t.above(2)))) continue; // (a fence or wall is 1.5 high: no jump gets onto one from a block lower, and on top his head is in the cell above)
+                    if (tall(under) && (dy > 0 || !head(t.above(2)) || !head(feet.above(2)))) continue; /* (and the room over his own cell: the step up the half block onto it starts there, his head rising into a lid over him; D2D death 03:43:56 11-13, 22 ticks pressed against 313, 65, 486 from under 313, 67, 487; stage 1708) */ // (a fence or wall is 1.5 high: no jump gets onto one from a block lower, and on top his head is in the cell above)
                     if (!solid(under) && !water(t)) { // ponytail: live 14:32, vines -49,40..44,-887: stepped into mid-vine he slid off and spun at the foot; a vine is got onto at its foot (ground under it), then the climb move below
                         if (dy != 0 || !canPlace) continue; // (a block put down is a flat bridge or a tower step, never a step down into a drop: the body can't set one from up there)
                         if (!lavaFloor && (floor(under) || water(under.below()))) continue; // the user: a block put down for movement is for real terrain (a gap, a drop), never a raised line over flat ground or a causeway over water he can swim

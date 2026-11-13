@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1677: return st1677(stage, t, c, h, level, mock);
+            case 1676: return st1676(stage, t, c, h, level, mock);
             case 1675: return st1675(stage, t, c, h, level, mock);
             case 1674: return st1674(stage, t, c, h, level, mock);
             case 1673: return st1673(stage, t, c, h, level, mock);
@@ -22722,6 +22724,47 @@ public final class ClaudeBodyTest {
             flatBox(h);
             check(floor && s1675D < 0, "his bore stepped down into the floor it had just put down: dug at tick " + s1675D + ", floor there now " + floor + ", incident " + inc + ", he's at " + at);
             pass(stage, t, "walked on over his floor, at " + at);
+        }
+        return true;
+    }
+    /** Stage 1676 (Loops / D2D review 154353-38, live 15:42:55-15:43:16 11-12: from his storage to the portal, through it, and at -2,59,1 blaze.ready chose "get ready first" (armor 14 -> 20 in gear_up's kit, ~705 s against ~1592 s) and sent him straight back: 2 WASTED_WALKs, an out-and-back in 14 s; the readiness was asked only on the Nether side). In the overworld, enter_portal with blaze_rods next, gear_up's kit adding armor: he gears up first, before he walks to the portal. */
+    private static boolean st1676(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.HuntPatrol.reset(c); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 24)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 40)); c.getInventory().add(new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 6));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            var ready = com.claudemod.director.Kit.ready(c);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you"));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "", 1);
+            String q = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); com.claudemod.entity.life.HuntPatrol.reset(c);
+            check(ready.adds(c) || ready.armor() > 0, "setup: gear_up's kit adds nothing (" + ready + ")");
+            check(r.startsWith("gearing up first"), "enter_portal for blaze rods, armor 0, gear_up's kit at armor " + ready.armor() + ": \"" + r + "\", queue " + q);
+            pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 1677 (Loops / D2D review 154353-38, live 15:43:09-15:43:31 11-12: "get ready first ... to bank my 6 rod(s)" priced with the rods banked, then "stored 0, still on him {... blaze_rod=6 ...}": blazeRods counted rods on him only, so banked rods would have reset the job, and the trip stash kept them as the job's own). The rods job counts his chests too: 7 rods in his chest, none on him, blaze_rod@7 is done. */
+    private static BlockPos s1677C;
+    private static boolean st1677(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] == 10) {
+            s1677C = h.absolutePos(new BlockPos(6, 2, 8)); level.setBlock(s1677C, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(s1677C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch) ch.setItem(0, new ItemStack(Items.BLAZE_ROD, 7));
+            c.storageChests.add(s1677C); com.claudemod.entity.life.ChestLedger.look(c, level, s1677C);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            String r = com.claudemod.entity.life.FortressFight.blazeRods(c, null, level, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+            if (level.getBlockEntity(s1677C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch) ch.clearContent();
+            level.setBlock(s1677C, Blocks.AIR.defaultBlockState(), 3); c.storageChests.remove(s1677C); com.claudemod.entity.life.ChestLedger.look(c, level, s1677C);
+            check(r != null && r.startsWith("done"), "7 rods in his chest, none on him, blaze_rod@7: \"" + r + "\"");
+            pass(stage, t, r);
         }
         return true;
     }

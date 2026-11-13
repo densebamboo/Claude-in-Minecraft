@@ -11172,6 +11172,7 @@ public final class ClaudeBodyTest {
             case 1333: return st1333(stage, t, c, h, level, mock);
             case 1334: return st1334(stage, t, c, h, level, mock);
             case 1335: return st1335(stage, t, c, h, level, mock);
+            case 1336: return st1336(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26682,6 +26683,25 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1336 (D2D 010228-36, live 01:01:43-01:02:15 11-13: "no trees close by; nearest ones are ~8 blocks north/west, heading there" every ~10 s, while the search near him threw the same treetops out: "no log under them within 2 across and 8 up (leaves alone)"). A leaf bush 10 off with no log under it, a real tree 15 off: the far scan heads for the tree, never the bush. */
+    private static boolean st1336(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), bush = h.absolutePos(new BlockPos(12, 2, 2)), trunk = h.absolutePos(new BlockPos(12, 2, 13));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 5) {
+            for (BlockPos q : BlockPos.betweenClosed(bush.offset(-1, 0, -1), bush.offset(1, 1, 1))) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState(), 2);
+            for (int y = 0; y < 5; y++) level.setBlock(trunk.above(y), Blocks.OAK_LOG.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(trunk.offset(-2, 3, -2), trunk.offset(2, 5, 2))) if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState(), 2);
+            BlockPos got = null; String err = "";
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("reachableTreetops", ClaudeEntity.class, ServerLevel.class, int.class); m.setAccessible(true); got = (BlockPos) m.invoke(null, c, level, 100); } catch (Exception e) { err = String.valueOf(e); }
+            for (BlockPos q : BlockPos.betweenClosed(bush.offset(-1, 0, -1), bush.offset(1, 1, 1))) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(trunk.offset(-2, 0, -2), trunk.offset(2, 5, 2))) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            check(err.isEmpty(), "no call: " + err);
+            check(got != null && got.distSqr(trunk) <= 3 * 3, "the far scan picked " + (got == null ? "nothing" : got.toShortString()) + ", not the tree at " + trunk.toShortString() + " (the leaf bush at " + bush.toShortString() + ")");
+            pass(stage, t, "a leaf bush with no log under it is no tree to the far scan either: the tree at " + got.toShortString());
+        }
+        return true;
+    }
     private static int s1511At = -1;
     private static boolean st1511(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = h.absolutePos(new BlockPos(0, 0, 0)), me = o.offset(3, 2, 8), to = o.offset(40, 2, 8), log = o.offset(4, 2, 8);
@@ -32811,7 +32831,7 @@ public final class ClaudeBodyTest {
             for (int z = -2; z <= 17; z++) for (int yy = 2; yy <= 5; yy++) { if (z <= 14) level.setBlock(h.absolutePos(new BlockPos(14, yy, z)), Blocks.STONE.defaultBlockState(), 2); if (z >= 1) level.setBlock(h.absolutePos(new BlockPos(28, yy, z)), Blocks.STONE.defaultBlockState(), 2); if (z <= 14) level.setBlock(h.absolutePos(new BlockPos(42, yy, z)), Blocks.STONE.defaultBlockState(), 2); } // zig-zag walls, their gaps at the far sides
             for (int x = 50; x <= 58; x++) for (int z = -2; z <= 17; z++) for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.WATER.defaultBlockState(), 2); // a pond right across, 2 deep
             for (int yy = 0; yy <= 4; yy++) level.setBlock(tree.above(yy), Blocks.OAK_LOG.defaultBlockState(), 2);
-            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int yy = 3; yy <= 5; yy++) { BlockPos q = tree.offset(dx, yy, dz); if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2); }
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int yy = 3; yy <= 5; yy++) { BlockPos q = tree.offset(dx, yy, dz); if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState(), 2); }
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000);
             BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
         }

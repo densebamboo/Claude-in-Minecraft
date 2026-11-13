@@ -10179,6 +10179,7 @@ public final class ClaudeLife {
         for (BlockPos p : tops) {
             if (looked.size() >= 8 || Math.sqrt(p.distSqr(from)) - 4 >= bw) break; // (none farther could be a shorter walk)
             if (looked.stream().anyMatch(q -> q.distSqr(p) <= 8 * 8)) continue; // the same stand of trees: looked at once
+            { boolean log = false; for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -1, -2), p.offset(2, 10, 2))) if (level.getBlockState(q).is(BlockTags.LOGS) && !structureLog(level, q) && hasCrown(level, q)) { log = true; break; } if (!log) continue; } // a tree's log under the treetops, as the search near him wants one: leaves alone (a bush) are no tree (live 01:01:43-01:02:15 11-13, D2D 010228-36: "nearest ones are ~8 blocks north/west" every ~10 s, the search there "no log under them"; stage 1336)
             looked.add(p);
             double w = reachWalk(g, level, p, 4, true, com.claudemod.entity.life.Weights.w("trees.known_walk_max", 240)); // (trees he sees, a minute's walk round a pond and a wall: still better than a scouting leg over bare ground; the 1.6x-the-line cutoff sent him 5 times over the same leg south, 13 logs short at nightfall, live 13:18-13:30 11-09, stage 1275)
             if (w >= 0 && w < bw) { bw = w; best = p; }

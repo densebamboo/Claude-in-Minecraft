@@ -160,7 +160,14 @@ public final class NetherRoute {
     /** The feet cell on a segment's line at that point along it. */
     static BlockPos feet(com.claudemod.entity.life.PortalMap.Segment s, int al) { return s.axis == net.minecraft.core.Direction.Axis.X ? new BlockPos(al, s.y() + 1, s.line()) : new BlockPos(s.line(), s.y() + 1, al); }
 
+    /** Floors he looked for from the edge and still couldn't see (cell key -> tick): no node there till he sees it (D2D review 150220-35, live 14:53-15:01 11-12; stage 1671). */
+    private static final java.util.WeakHashMap<ClaudeEntity, Map<Long, Integer>> UNSEEN_FLOORS = new java.util.WeakHashMap<>();
+    private static final Plan RETRY = new Plan(List.of(), true, 0, 0, 0, 0, 0, 0);
     private static Plan search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, boolean entering) {
+        Plan p = RETRY; for (int i = 0; i < 4 && p == RETRY; i++) p = searchOnce(g, level, from, to, entering);
+        return p == RETRY ? null : p;
+    }
+    private static Plan searchOnce(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, boolean entering) {
         long t0 = System.nanoTime();
         com.claudemod.entity.life.FarSight.lookAllRound(g, level); // (a look all round first: the way is planned over what he sees)
         Reader r = new Reader(g, level); r.to = to; r.entering = entering;
@@ -189,6 +196,7 @@ public final class NetherRoute {
                     if (n.puts + c[2] > r.blocks) continue; // (blocks he hasn't got: no bridge, no pillar)
                     double ng = n.g + c[0];
                     long k = key(cx, ny, cz); Double b0 = best.get(k);
+                    Integer uf = UNSEEN_FLOORS.getOrDefault(g, Map.of()).get(k); if (uf != null && g.tickCount - uf < 20 * 120 && g.tickCount >= uf && !r.known(cx, ny - 1, cz)) continue; // (its floor unseen from the edge he looked from)
                     if (b0 != null && b0 <= ng) continue;
                     best.put(k, ng);
                     open.add(new Node(cx, ny, cz, ng, ng + 1.3 * h(cx, ny, cz, to) * hf, n, n.digs + (int) c[1], n.puts + (int) c[2]));
@@ -211,7 +219,21 @@ public final class NetherRoute {
         java.util.Collections.reverse(path);
         for (int i = 1; i < path.size(); i++) if (!r.known(path.get(i).x, path.get(i).y, path.get(i).z) || r.known(path.get(i).x, path.get(i).y, path.get(i).z) && !r.solid(path.get(i).x, path.get(i).y, path.get(i).z) && !r.known(path.get(i).x, path.get(i).y - 1, path.get(i).z)) { // into ground he hasn't seen: a leg into it, then a look and the plan again from there (what he sees there decides the rest)
             boolean noFloor = r.known(path.get(i).x, path.get(i).y, path.get(i).z); /* open air he sees, its floor unseen (a cell in rock he hasn't seen is a bore, the old rule: stage 910) */ // a floor he hasn't seen (the open air over it in view): no leg ends on it, the legs stop at the edge he looks down from (reviews 75, 138 11-10: legs on "Air (unseen, read as netherrack)" over 26-37 drops; stage 1472)
-            int keep = noFloor ? Math.max(2, i) : Math.min(path.size(), i + LEG_NODES);
+            if (noFloor && i == 1) { // the first node's floor unseen from where he stands: the leg ends at the edge toward it, the last cell he sees a floor under (live 14:53 11-12: keep = max(2, i) put the leg on it, air over a lava sea 26 down; stage 1671)
+                Node s0 = path.get(0), b = path.get(1); int[] edge = null; int steps = Math.max(Math.abs(b.x - s0.x), Math.abs(b.z - s0.z));
+                for (int k = 1; k <= steps; k++) { int ex = s0.x + Math.round((b.x - s0.x) * k / (float) steps), ez = s0.z + Math.round((b.z - s0.z) * k / (float) steps), ey = Integer.MIN_VALUE;
+                    for (int dy : new int[] {0, -1, 1}) if (r.known(ex, s0.y + dy - 1, ez) && r.known(ex, s0.y + dy, ez) && r.stand(ex, s0.y + dy, ez)) { ey = s0.y + dy; break; }
+                    if (ey == Integer.MIN_VALUE) break; edge = new int[] {ex, ey, ez}; }
+                if (edge == null) { // he's at the edge and still can't see it: no node there, the search again
+                    UNSEEN_FLOORS.computeIfAbsent(r.g, q -> new HashMap<>()).put(key(b.x, b.y, b.z), r.g.tickCount);
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: the floor under {},{},{} unseen from the edge he's at: no way over it till he sees it, the search again (NetherRoute.done)", from.toShortString(), to.toShortString(), b.x, b.y, b.z);
+                    return RETRY;
+                }
+                Node at = new Node(edge[0], edge[1], edge[2], Math.hypot(edge[0] - s0.x, edge[2] - s0.z) * WALK, 0, s0, 0, 0);
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: into ground he hasn't seen at {},{},{} (its floor unseen): as far as the edge at {},{},{}, a look down and the plan again from there (NetherRoute.done)", from.toShortString(), to.toShortString(), b.x, b.y, b.z, at.x, at.y, at.z);
+                path.clear(); path.add(s0); path.add(at); end = at; partial = true; break;
+            }
+            int keep = noFloor ? i : Math.min(path.size(), i + LEG_NODES);
             if (keep < path.size()) { Node at = path.get(keep - 1); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: into ground he hasn't seen at {},{},{}{}: as far as {},{},{} for now, a look and the plan again from there (NetherRoute.done)", from.toShortString(), to.toShortString(), path.get(i).x, path.get(i).y, path.get(i).z, noFloor ? " (its floor unseen)" : "", at.x, at.y, at.z); while (path.size() > keep) path.remove(path.size() - 1); end = at; partial = true; }
             break;
         }

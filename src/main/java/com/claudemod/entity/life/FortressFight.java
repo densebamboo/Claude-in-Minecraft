@@ -442,7 +442,7 @@ public final class FortressFight {
         boolean bow = g.inventory.count(s -> s.is(Items.BOW)) > 0 && g.inventory.count(s -> s.is(Items.ARROW)) > 0;
         boolean shield = g.getOffhandItem().is(Items.SHIELD) || g.inventory.count(s -> s.is(Items.SHIELD)) > 0;
         List<String> no = new ArrayList<>();
-        if (!fireRes) no.add("no fire res"); if (!bow) no.add("no bow"); if (!shield) no.add("no shield");
+        if (!fireRes) no.add("no fire res"); if (!bow) no.add(g.inventory.count(x -> x.is(Items.BOW)) > 0 ? "no arrows" : "no bow"); /* (a bow and no arrows: live 14:39:01 11-12 said "no bow"; stage 1670) */ if (!shield) no.add("no shield");
         String where = c == null ? "from the best corner i can find" : c.how().startsWith("a doorway") ? "from that doorway" : c.how().startsWith("a nook") ? "from that nook" : "from that corner";
         if (no.isEmpty()) return "blaze time: shield up for the volleys, fighting them " + where;
         return String.join(" and ", no) + ": i'll fight them " + where + ", it's risky";

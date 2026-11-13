@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1671: return st1671(stage, t, c, h, level, mock);
+            case 1670: return st1670(stage, t, c, h, level, mock);
             case 1669: return st1669(stage, t, c, h, level, mock);
             case 1668: return st1668(stage, t, c, h, level, mock);
             case 1667: return st1667(stage, t, c, h, level, mock);
@@ -22551,6 +22553,50 @@ public final class ClaudeBodyTest {
             check(noted, "a blaze 6 up out of his swing, his fight on it, no bow or arrows: the rods' bow need never noted");
             check(bow && arrows >= 16, "the need noted, gear_up's kit: bow " + bow + ", " + arrows + " arrow(s) (no flint or feathers on him)");
             pass(stage, t, "noted; the kit wants the bow and " + arrows + " arrows");
+        }
+        return true;
+    }
+    /** Stage 1670 (D2D review 144000-22, live 14:39:25 11-12): "no fire res and no bow" said with bow=1 and no arrows in his pack (14:39:01): riskLine read "a bow and arrows" as "a bow". A bow and no arrows: he says no arrows, never no bow; arrows and no bow: no bow. */
+    private static boolean st1670(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            String a, b;
+            try {
+                var rl = com.claudemod.entity.life.FortressFight.class.getDeclaredMethod("riskLine", ClaudeEntity.class, Class.forName("com.claudemod.entity.life.FortressFight$Cover")); rl.setAccessible(true);
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BOW)); a = String.valueOf(rl.invoke(null, c, null));
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.ARROW, 16)); b = String.valueOf(rl.invoke(null, c, null));
+            } catch (ReflectiveOperationException e) { a = b = "threw " + e; }
+            c.getInventory().clearContent();
+            check(!a.contains("no bow") && a.contains("no arrows"), "a bow and no arrows on him, he says: " + a);
+            check(b.contains("no bow"), "arrows and no bow on him, he says: " + b);
+            pass(stage, t, "bow, no arrows: \"" + a + "\"");
+        }
+        return true;
+    }
+    /** Stage 1671 (D2D review 150220-35/36/37, live 14:53:50-15:01 11-12: at 292,57,425 the route's first leg ended on 292,48,421, "on Air (unseen, read as netherrack)" over a lava sea 26 down; NetherRoute.done keeps a leg on an unseen floor when it's the first node (keep = max(2, i)), the walk to it ran out of budget, and he planned it again for 8 min). Him on a ledge whose drop starts 2 on, the floor under its lip out of his sight, the goal 20 down and 44 on: no leg ends over the drop; the route goes to the edge first, a look, the plan again. */
+    private static String s1671W;
+    private static boolean st1671(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(19800, 80, 11400), dest = o.offset(0, -20, 44);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.FarSight.reset(c); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 48; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 30) {
+            for (int x = -9; x <= 9; x++) for (int z = -9; z <= 53; z++) for (int y = -44; y <= 22; y++) {
+                boolean wall = Math.abs(x) > 6 || z < -6 || z > 50 || y < -42 || y > 20 /* a closed box: the way stays in it */, ledge = z <= 2 && y <= -1 && y >= -30, floor = y == -41, far = z >= 40 && y <= -21;
+                nl.setBlock(o.offset(x, y, z), wall || ledge || floor || far ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+        }
+        if (t[0] == 32) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); com.claudemod.entity.life.FarSight.reset(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 10f); c.setYHeadRot(0f); }
+        if (t[0] == 36) {
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, dest);
+            String bad = "";
+            if (p != null) for (BlockPos l : p.legs()) if (l.getZ() > o.getZ() + 2 && l.getZ() < o.getZ() + 40 && nl.getBlockState(l.below()).isAir()) bad += l.toShortString() + "; ";
+            s1671W = "from " + o.toShortString() + ": " + (p == null ? "no plan" : p.legs().size() + " legs, partial " + p.partial() + ": " + p.legs());
+            for (int x = -9; x <= 9; x++) for (int z = -9; z <= 53; z++) for (int y = -44; y <= 22; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.FarSight.reset(c); c.getInventory().clearContent();
+            check(p != null && !p.legs().isEmpty(), "a route off his ledge: " + s1671W);
+            check(bad.isEmpty(), "legs ending over the drop he can't see down, on a floor read as netherrack: " + bad + " | " + s1671W);
+            nsHome(c, h, level); pass(stage, t, s1671W);
         }
         return true;
     }

@@ -11115,6 +11115,7 @@ public final class ClaudeBodyTest {
             case 1631: return st1631(stage, t, c, h, level, mock);
             case 1632: return st1632(stage, t, c, h, level, mock);
             case 1633: return st1633(stage, t, c, h, level, mock);
+            case 1634: return st1634(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25063,6 +25064,38 @@ public final class ClaudeBodyTest {
             check(!farGone, "mid-hunt, the plan thinking: off 30 for 2 cover blocks past a hoglin by his way");
             check(nearTaken, "2 cover blocks 3 off with nothing about: left (they come up when it's this cheap)");
             pass(stage, t, "the far blocks by the hoglin wait for between jobs; the near ones taken up meanwhile");
+        }
+        return true;
+    }
+    /** Stage 1634 (D2D review 155908-89, live 15:56:17-15:56:40 11-12 in the Nether at -4,55,215): setting off 220 off, "back up first" took his old nerd-pole block 3 over him; the walk's own way climbed by that cell, so the pillar put it back 11 s later and left it standing. A block of his the walk out stands on is the walk's: it stays. */
+    private static boolean s1634Gone; private static BlockPos s1634O = new BlockPos(23600, 90, 23600);
+    private static boolean st1634(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = s1634O;
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 48; x++) for (int z = -5; z <= 5; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), y == -1 || x >= 3 && y <= 1 || Math.abs(z) == 5 && y <= 4 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (the ground; a ledge 2 up from x 3 on; walls either side)
+            BlockPos his = o.offset(2, 0, 0); c.teleportTo(level, o.getX() + 2.5, o.getY() + 1, o.getZ() + 0.5, -90f, 0f); level.setBlock(his, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, his, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); // (his step up the ledge, put down long ago)
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.COOKED_BEEF, 16)); inv.selected = 0; // (no blocks on him: the step is his only way up)
+            c.teleportTo(level, o.getX() - 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            c.tasks.clear(); c.currentTask = null; c.nextPlanTick = c.tickCount + 20 * 600; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f);
+            s1634Gone = false; c.tasks.add(new Task.GoTo(o.offset(40, 2, 0), 1.5)); // (setting off at once: idle, the tidy takes it before any walk)
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 14) {
+            check(com.claudemod.entity.life.TempLedger.has(c, o.offset(2, 0, 0)), "setup: his step not booked as temporary: " + com.claudemod.entity.life.TempLedger.book(c).values());
+
+        }
+        if (t[0] > 14 && level.getBlockState(o.offset(2, 0, 0)).isAir()) s1634Gone = true;
+        if (t[0] == 14 + 300) {
+            boolean gone = s1634Gone; double at = c.getX() - o.getX(), y = c.getY() - o.getY();
+            for (int x = -8; x <= 48; x++) for (int z = -5; z <= 5; z++) for (int yy = -1; yy <= 6; yy++) level.setBlock(o.offset(x, yy, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard();
+            com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.currentTask = null; c.getInventory().clearContent(); c.prefs.remove("stay_close");
+            check(!gone, "his step up the ledge taken up as he set off up it");
+            check(at > 25 && y > 1.5, "not up the ledge and on in 15 s: at " + String.format("%.1f", at) + ", " + String.format("%.1f", y) + " up");
+            pass(stage, t, "his step left for the walk up it, on along the ledge (at " + String.format("%.1f", at) + ")");
         }
         return true;
     }

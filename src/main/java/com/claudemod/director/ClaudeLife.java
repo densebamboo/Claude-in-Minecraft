@@ -565,6 +565,7 @@ public final class ClaudeLife {
      * Waiting on a furnace with a few items still to go: like a player, do a short job nearby (a couple more steps of
      * his mine, a few logs) and come back for the whole batch, instead of standing there watching it.
      */
+    private static java.util.Map<java.util.UUID, String> sideNothing; // the last side-job try that queued nothing, by what it saw (static, lazily: a field added live starts null)
     private static void sideJobWhileCooking(ClaudeEntity g, ServerPlayer player) {
         if (!(g.currentTask instanceof Task.FurnaceTake ft) || g.tickCount - g.sideJobTick < 100) return; // (a look every 5 s: back from a side job with time still on the batch, the next one)
         ServerLevel level = ((ServerLevel) g.level());
@@ -608,6 +609,9 @@ public final class ClaudeLife {
             || (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64)
             || mineSide || !g.pillarBlocks.isEmpty() || free != null;
         if (!anyJob) { int logs9 = 0; for (int i9 = 0; i9 < g.inventory.items.getContainerSize(); i9++) if (g.inventory.items.getItem(i9).is(net.minecraft.tags.ItemTags.LOGS)) logs9 += g.inventory.items.getItem(i9).getCount(); ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job near ({}s left; kit short of food: " + (Kit.foodAsk(g) != null ? "yes, no animal in reach of the clock" : "no") + "; tree within {}: {}, logs on him {}; his mine's face {}; plan step free of the batch: {}; his blocks about: {}) (ClaudeLife.sideJobWhileCooking)", left, treeRange, tree == null ? "none" : tree.toShortString(), logs9, g.mineFace == null ? "none" : (int) Math.sqrt(g.blockPosition().distSqr(g.mineFace)) + " off", free == null ? "none" : free.skill() + " " + free.target(), g.pillarBlocks.size()); return; } // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
+        String nothingKey = progressStamp(g) + "|" + (prey == null ? "" : prey.getUUID()) + "|" + tree + "|" + mineSide + "|" + free + "|" + g.pillarBlocks.size() + "|" + g.skillQueue + "|" + ft.pos(); // what the side job would be tried on: none of it changed since a try that queued nothing, the same try queues nothing again (live 01:22:25-34 11-13, D2D 012300-7: strip_mine tried every 5 s, "no coal, so smelting logs into charcoal", the batch in the furnace, the queue dropped and put back each round; stage 1338)
+        if (sideNothing == null) sideNothing = new java.util.HashMap<>();
+        if (nothingKey.equals(sideNothing.get(g.getUUID()))) return;
         List<Task> rest = new ArrayList<>(g.tasks);
         List<Skills.Step> plan0 = new ArrayList<>(g.skillQueue); // (a side job that queues no work leaves his plan as it was: the strip_mine tried each 5 s pushed its prep and itself again every round, 4 charcoal steps burned 16 logs, live 07:16 11-10; stage 1378)
         clearTasks(g);
@@ -634,7 +638,7 @@ public final class ClaudeLife {
         } else if (!g.pillarBlocks.isEmpty()) { // the cover blocks he left about: down while it cooks
             tidyLitter(g, level); r = "tidying the blocks i left";
         }
-        if (g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] at the furnace: the side job queued nothing ({}): waiting ({}s left) (ClaudeLife.sideJobWhileCooking)", r, left); g.tasks.addAll(rest); g.skillQueue.clear(); g.skillQueue.addAll(plan0); return; } // nothing useful to do nearby: keep waiting
+        if (g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] at the furnace: the side job queued nothing ({}): waiting ({}s left) (ClaudeLife.sideJobWhileCooking)", r, left); sideNothing.put(g.getUUID(), nothingKey); g.tasks.addAll(rest); g.skillQueue.clear(); g.skillQueue.addAll(plan0); return; } // nothing useful to do nearby: keep waiting
         dropCurrent(g); // off the furnace for now...
         g.tasks.add(ft);      // ...and back to it after
         g.tasks.addAll(rest);

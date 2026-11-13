@@ -11173,6 +11173,7 @@ public final class ClaudeBodyTest {
             case 1334: return st1334(stage, t, c, h, level, mock);
             case 1335: return st1335(stage, t, c, h, level, mock);
             case 1336: return st1336(stage, t, c, h, level, mock);
+            case 1338: return st1338(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26699,6 +26700,31 @@ public final class ClaudeBodyTest {
             check(err.isEmpty(), "no call: " + err);
             check(got != null && got.distSqr(trunk) <= 3 * 3, "the far scan picked " + (got == null ? "nothing" : got.toShortString()) + ", not the tree at " + trunk.toShortString() + " (the leaf bush at " + bush.toShortString() + ")");
             pass(stage, t, "a leaf bush with no log under it is no tree to the far scan either: the tree at " + got.toShortString());
+        }
+        return true;
+    }
+    /** Stage 1338 (D2D 012300-7, live 01:22:25-01:22:34 11-13 at his furnace: the side job tried strip_mine every 5 s, "no coal, so smelting logs into charcoal" each time, the furnace's own batch, then "the side job queued nothing", the queue dropped and put back each round). Stage 1378's furnace, no coal, the plan strip_mine: one try; nothing changed, no second. */
+    private static int s1338T;
+    private static boolean st1338(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1338T = -1; level.setDayTime(3000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) { f.setItem(0, new ItemStack(Items.SALMON, 8)); f.setItem(1, new ItemStack(Items.OAK_PLANKS, 8)); }
+            c.getInventory().clearContent(); for (var it : new net.minecraft.world.item.Item[] {Items.IRON_PICKAXE, Items.STONE_SWORD}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 22)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 20));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.mineFace = me.offset(300, -40, 0); c.stairStart = me.offset(300, 0, 0); c.mineDir = net.minecraft.core.Direction.EAST;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22)); c.sideJobTick = -100000; s1338T = t[0]; }
+        if (s1338T > 0 && t[0] > s1338T) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1338T > 0 && t[0] - s1338T == 20 * 16) {
+            String log = com.claudemod.entity.life.MindLog.recent(); int n = 0; for (int k = log.indexOf("the side job queued nothing"); k >= 0; k = log.indexOf("the side job queued nothing", k + 1)) n++;
+            String q = String.valueOf(c.skillQueue);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; c.getInventory().clearContent();
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.clearContent(); level.setBlock(fp, Blocks.AIR.defaultBlockState(), 2);
+            check(n <= 1, "16 s at the furnace, nothing changed: the same side job tried and dropped " + n + " times");
+            pass(stage, t, "one try, " + n + " \"queued nothing\", the plan as it was: " + q);
         }
         return true;
     }

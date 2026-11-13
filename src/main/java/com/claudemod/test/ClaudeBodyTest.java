@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1685: return st1685(stage, t, c, h, level, mock);
             case 1684: return st1684(stage, t, c, h, level, mock);
             case 1683: return st1683(stage, t, c, h, level, mock);
             case 1682: return st1682(stage, t, c, h, level, mock);
@@ -22972,6 +22973,39 @@ public final class ClaudeBodyTest {
             flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
             check(at.equals(land), "a walk-jump over 1, 3 down, its landing seen from the lip's edge, him crouched at the lip's back: at " + at.subtract(o).toShortString() + " (o-relative), not on the landing (refused: " + refused + ")");
             pass(stage, t, "landed in " + (t[0] - 14) + " ticks");
+        }
+        return true;
+    }
+    /** Stage 1685 (D2D / Loops review 172641-80, live 17:26 11-12 on the z 509 road: its segment on record at y 58 (merged before d62a7baa), the floor he laid at x 133-193 one up; every leg there ended at once in his own floor, "a route cell not dug?" 42 times, and the record never changed). His highway on record one flat segment, its second half's floor one up: he walks it, and the record ends at the floor he saw. */
+    private static int s1685T;
+    private static boolean st1685(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15400, 70, 10600), end = o.offset(0, 1, 40);
+        if (t[0] == 1) { scenarioReset(c); s1685T = -1; com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 48; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 8) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 44; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), (y <= -2 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 0; x++) for (int z = -2; z <= 42; z++) for (BlockPos fl : z >= 20 ? new BlockPos[] {o.offset(x, -1, z), o.offset(x, 0, z)} : new BlockPos[] {o.offset(x, -1, z)}) { /* his floor, his build (live: the walk ended at his block, never dug it): z 20 on one up */
+                com.claudemod.entity.life.TempLedger.planBuild(c, fl, "Highway.build"); nl.setBlock(fl, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, nl, fl, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), Blocks.AIR.defaultBlockState()); }
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.below(), o.below().offset(0, 0, 42), net.minecraft.core.Direction.Axis.Z, 2); /* on record as one flat run, as live */
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new Task.GoTo(end, 1.0)); s1685T = t[0]; }
+        if (s1685T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        if (s1685T > 0 && (c.blockPosition().distManhattan(end) <= 1 || t[0] >= s1685T + 20 * 30)) {
+            BlockPos at = c.blockPosition(); boolean there = at.distManhattan(end) <= 1;
+            String bad = "", segs = "";
+            for (int z = 0; z <= 42; z++) { int floorY = z >= 20 ? o.getY() : o.getY() - 1; BlockPos fl = new BlockPos(o.getX(), floorY, o.getZ() + z);
+                for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) if (sg.axis == net.minecraft.core.Direction.Axis.Z && Math.abs(sg.a.getX() - fl.getX()) <= 1 && fl.getZ() >= Math.min(sg.a.getZ(), sg.b.getZ()) && fl.getZ() <= Math.max(sg.a.getZ(), sg.b.getZ()) && sg.y() != floorY) { bad += z + " "; break; } }
+            for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) segs += sg.describe() + "; ";
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear();
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 44; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(there, "30 s along his highway and not at its end (at " + at.subtract(o).toShortString() + ", o-relative) | " + segs);
+            check(bad.isEmpty(), "walked it, the record still off his floor at z " + (bad.length() > 120 ? bad.substring(0, 120) + "..." : bad) + "| " + segs);
+            pass(stage, t, segs);
         }
         return true;
     }

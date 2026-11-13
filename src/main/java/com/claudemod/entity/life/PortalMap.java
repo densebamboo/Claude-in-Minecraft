@@ -278,6 +278,24 @@ public final class PortalMap {
         for (BlockPos[] p : net(g).stairs) if (p[0].distSqr(a) <= 2 && p[1].distSqr(b) <= 2 || p[0].distSqr(b) <= 2 && p[1].distSqr(a) <= 2) return;
         net(g).stairs.add(new BlockPos[] {a.immutable(), b.immutable()}); ClaudeMod.LOGGER.info("[Claude portal] highway staircase on record: {} to {} (PortalMap.addStair)", a.toShortString(), b.toShortString());
     }
+    /** The floor under his feet on a segment of his highway, at another height than its record: the run of it he can see at that height (along the segment's line, loaded, solid with room over it) goes on record at its own height, the pieces joined by steps (a player's memory of his road set right by walking it; D2D / Loops review 172641-80, live 17:26 11-12: the z 509 road on record at y 58 with its floor at 59 for x 133-193, every leg in his floor; stage 1685). */
+    public static void floorWalked(ClaudeEntity g, net.minecraft.server.level.ServerLevel level, BlockPos floor) {
+        String dim = dim(level); if (level.getBlockState(floor).getCollisionShape(level, floor).isEmpty()) return;
+        for (Segment s : new ArrayList<>(net(g).segments)) {
+            if (!s.dim.equals(dim) || s.y() == floor.getY() || Math.abs(s.y() - floor.getY()) > 2 || Math.abs(s.across(floor) - s.line()) > Math.max(1, s.width / 2)) continue;
+            int al = s.along(floor); if (al < s.lo() || al > s.hi()) continue;
+            java.util.function.IntPredicate at = k -> { BlockPos q = s.axis == Direction.Axis.X ? new BlockPos(k, floor.getY(), s.line()) : new BlockPos(s.line(), floor.getY(), k); return level.isLoaded(q) && !level.getBlockState(q).getCollisionShape(level, q).isEmpty() && level.getBlockState(q.above()).getCollisionShape(level, q.above()).isEmpty(); };
+            if (!at.test(al)) continue;
+            int a = al, b = al; while (a - 1 >= s.lo() && at.test(a - 1)) a--; while (b + 1 <= s.hi() && at.test(b + 1)) b++;
+            int y0 = s.y(), lo = s.lo(), hi = s.hi(); String was = s.describe(); net(g).segments.remove(s);
+            java.util.function.BiFunction<int[], Integer, BlockPos> cell = (r, y) -> s.axis == Direction.Axis.X ? new BlockPos(r[0], y, s.line()) : new BlockPos(s.line(), y, r[0]);
+            Segment mid = new Segment(); mid.dim = dim; mid.axis = s.axis; mid.width = s.width; mid.a = cell.apply(new int[] {a}, floor.getY()); mid.b = cell.apply(new int[] {b}, floor.getY()); net(g).segments.add(mid);
+            if (a > lo) { Segment p = new Segment(); p.dim = dim; p.axis = s.axis; p.width = s.width; p.a = cell.apply(new int[] {lo}, y0); p.b = cell.apply(new int[] {a - 1}, y0); net(g).segments.add(p); addStair(g, p.b.above(), mid.a.above()); }
+            if (b < hi) { Segment q = new Segment(); q.dim = dim; q.axis = s.axis; q.width = s.width; q.a = cell.apply(new int[] {b + 1}, y0); q.b = cell.apply(new int[] {hi}, y0); net(g).segments.add(q); addStair(g, mid.b.above(), q.a.above()); }
+            ClaudeMod.LOGGER.info("[Claude portal] his highway's floor at {} is at y {}, its record y {}: {} set right, {} along it at y {} (PortalMap.floorWalked)", floor.toShortString(), floor.getY(), y0, was, b - a + 1, floor.getY());
+            return;
+        }
+    }
     /** A crossing he built, on record: joined to the segment it extends (same axis, line and floor), else a new one. */
     public static Segment addSegment(ClaudeEntity g, String dim, BlockPos a, BlockPos b, Direction.Axis axis, int width) {
         Segment s = segmentFor(g, dim, a, axis, 0); if (s == null) s = segmentFor(g, dim, b, axis, 0); /* (its own floor height only: a run 1 up joined the segment it touched at the first one's y, and the route walked it in his floor, live 17:26 11-12, stage 1683) */

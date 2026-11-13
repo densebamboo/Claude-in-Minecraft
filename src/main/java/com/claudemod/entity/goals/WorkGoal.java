@@ -981,6 +981,7 @@ public class WorkGoal extends Goal {
     }
 
     private boolean walkTo(BlockPos pos, double within) {
+        if (g.tickCount % 10 == 0 && g.onGround() && g.level() instanceof ServerLevel sl0 && sl0.dimension() == net.minecraft.world.level.Level.NETHER) com.claudemod.entity.life.PortalMap.floorWalked(g, sl0, BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ())); /* the floor he walks sets his highway's record right (stage 1685) */
         { var np = g.getNavigation().getPath(); // never walk in under gravel still coming down (04:01 Nov 4: the walk took the fresh step under a falling column, he suffocated)
             if (np != null && !np.isDone()) { BlockPos nn = np.getNextNodePos(); BlockPos falling = nn.equals(g.blockPosition()) ? null : gravelComing((ServerLevel) g.level(), nn);
                 if (falling != null) { g.getNavigation().stop(); if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] waits before {}: gravel at {} still coming down into it (WorkGoal.walkTo)", nn.toShortString(), falling.toShortString()); return false; } } }

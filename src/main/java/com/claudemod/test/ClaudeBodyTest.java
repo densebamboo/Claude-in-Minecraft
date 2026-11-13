@@ -11166,6 +11166,7 @@ public final class ClaudeBodyTest {
             case 1331: return st1331(stage, t, c, h, level, mock);
             case 1332: return st1332(stage, t, c, h, level, mock);
             case 1333: return st1333(stage, t, c, h, level, mock);
+            case 1334: return st1334(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26510,6 +26511,28 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.getInventory().clearContent(); level.setDayTime(6000);
             check(after == 6, "the control: 8 meals on him, the dig set aside anyway (" + after + " tasks)");
             pass(stage, t, "food queued behind the dig isn't on its way: the food first; 8 meals on him, the dig goes on");
+        }
+        return true;
+    }
+    /** Stage 1334 (D2D 000350-41, live 00:03:50 11-13: "smelt iron_ingot -> done: the raw_iron rides home to my furnace at -147, 16, -516 (62 off)" three times with the iron gear queued behind it, then the failed-3x skip). His only furnace 62 off, 10 raw iron, an iron sword queued: the raw doesn't ride home while the queue needs the ingots; with nothing queued it still does. */
+    private static boolean st1334(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), far = me.offset(62, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); flatBox(h); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        java.util.function.Supplier<String> run = () -> { level.setBlock(far.below(), Blocks.STONE.defaultBlockState(), 3); level.setBlock(far, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.clear(); c.myStations.add(far);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 16)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 10)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            String d = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 10);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; return d; };
+        if (t[0] == 5) {
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_sword", 1));
+            String d = run.get();
+            check(d != null && !d.contains("rides home"), "an iron sword queued behind the smelt: the raw iron \"rides home\" 62 off: \"" + d + "\"");
+        }
+        if (t[0] == 10) {
+            String d = run.get();
+            c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(far, Blocks.AIR.defaultBlockState(), 3);
+            check(d != null && d.contains("rides home"), "the control: nothing queued, the raw iron no longer rides home 62 off: \"" + d + "\"");
+            pass(stage, t, "the ingots wanted next: smelted here; nothing wanting them: they ride home");
         }
         return true;
     }

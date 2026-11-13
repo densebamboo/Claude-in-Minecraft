@@ -14383,6 +14383,17 @@ public final class ClaudeLife {
         return null;
     }
 
+    /** Nothing gives arrows right now, by day in the overworld: a search for chickens now against the arrows waiting for the night's skeletons, priced by what they're worth now; the wait as the time-of-day wait (no replan for them till dusk). Null: the search, or no day wait to be had. Live 21:17-21:34 11-12: a chicken search 350+ blocks out, planned again and again off "feathers off chickens", 1 rod still to get and the End past the pearls; stage 1694. */
+    private static String arrowsWaitDay(ClaudeEntity g, ServerLevel level, boolean hard, String seen) {
+        if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD || !dayHere(level)) return null;
+        long tod = level.getDayTime() % 24000; double toDusk = Math.max(0, 12542 - tod) / 20.0;
+        double search = com.claudemod.entity.life.Weights.w("arrows.chicken_search_s", 400), wait = hard ? toDusk : com.claudemod.entity.life.Weights.w("arrows.wait_s", 30); /* (not the run's must: the wait costs him nothing, the plan goes on; the must: the run waits for dusk) */
+        var pick = com.claudemod.entity.life.Decide.choose(g, "arrows.when", "no arrows to be had right now (" + seen + "), by day" + (hard ? ", the bow row the run's next must" : ", the bow row not the run's must yet"), true, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("search for chickens now", search, "none known: fresh ground walked till some show"), com.claudemod.entity.life.Decide.Option.of("wait for the night", wait, (hard ? "the run held " + (int) toDusk + " s till dusk" : "the rest of the plan goes on") + ", then the night's skeletons")));
+        if (pick == null || !pick.name().equals("wait for the night")) return null;
+        ClaudeMod.LOGGER.info("[Claude life] get_arrows: by day with nothing to get them from ({}): they wait for the night, no chicken search (ClaudeLife.getArrows)", seen);
+        return "failed: it's day, the arrows wait for the night's skeletons (" + seen + "; a chicken search with none known ~" + (int) search + " s, not worth it now" + (hard ? "" : ": the bow isn't the run's must yet") + ")";
+    }
     /** The bow is the dragon run's next must (everything before it done): his string anywhere is worth the walk now. */
     public static boolean bowHard(ClaudeEntity g, ServerLevel level) {
         String goal = g.playerGoal == null ? "" : g.playerGoal.toLowerCase();
@@ -14678,6 +14689,7 @@ public final class ClaudeLife {
         }
         String seen = on + " arrows on me, " + (spot == null ? "none in my chests" : spot.count() + " in my chest " + spot.dist() + " blocks off") + ", no skeleton about" + (prey != null ? " I'm fit for" : "") + (flintWhy != null ? ", " + flintWhy : "") + (featherWhy != null ? ", " + featherWhy : "");
         if (dry) return seen;
+        String waitDay = arrowsWaitDay(g, level, hard, seen); if (waitDay != null) return waitDay;
         ClaudeMod.LOGGER.info("[Claude life] get_arrows: nothing to get arrows from right now ({}): the want waits, the plan moves on (ClaudeLife.getArrows)", seen);
         return "done: no arrows to be had right now (" + seen + "): skeletons at night, flint from gravel, feathers off chickens" + (hard ? "; the bow row is the run's next must" : "");
     }

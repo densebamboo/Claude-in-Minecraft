@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1694: return st1694(stage, t, c, h, level, mock);
             case 1693: return st1693(stage, t, c, h, level, mock);
             case 1692: return st1692(stage, t, c, h, level, mock);
             case 1691: return st1691(stage, t, c, h, level, mock);
@@ -23234,6 +23235,25 @@ public final class ClaudeBodyTest {
             check(!failed, "a placement into a void shut in on all six sides: a failed placement (NO_FACE) on record");
             check(!still, "a placement into a sealed void still queued after 3 s: " + q);
             pass(stage, t, "the sealed void left as it is");
+        }
+        return true;
+    }
+    /** Stage 1694 (D2D 212402-49, 212917-66/69/70, 213401-82, live 21:17-21:34 11-12: a bow, 8 flint, 64 gravel, no feathers, no chicken known, day; get_arrows "done: no arrows to be had right now (...): skeletons at night, flint from gravel, feathers off chickens", the planner on that read "explore plains", "explore forest", "explore birch_forest" for chickens, 350+ blocks out, five obtain-arrow rounds in 3 min, SPLIT_JOB each; nothing priced the search against the night's skeletons). A bow, flint, no feathers, no chicken or skeleton known, day in the overworld: get_arrows prices the two and the arrows wait for the night (the time-of-day wait), no chicken search. */
+    private static boolean st1694(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.Perception.reset(c); }
+        if (t[0] == 10) {
+            level.setDayTime(6000); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.FLINT, 8)); c.getInventory().add(new ItemStack(Items.STICK, 16)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            String r = null;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("runSkill", ClaudeEntity.class, ServerPlayer.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                r = String.valueOf(m.invoke(null, c, mock[0], new com.claudemod.entity.life.Skills.Step("get_arrows", "arrow", 32))); } catch (Exception e) { check(false, "runSkill: " + e); }
+            String q = String.valueOf(c.skillQueue); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            check(r != null && r.startsWith("failed: it's day,"), "a bow, flint, no feathers, no chicken or skeleton known, by day: \"" + r + "\" (not the time-of-day wait for the night's skeletons)");
+            check(!q.contains("explore"), "a chicken search queued: " + q);
+            pass(stage, t, r);
         }
         return true;
     }

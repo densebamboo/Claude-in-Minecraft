@@ -25719,26 +25719,37 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
-    /** Stage 1643 (D2D review 185601-52 (and 175645-179), live 18:54:48-18:55:15 11-12 in the Nether: kit.food picked "hunt hoglins -> 11 cooked_porkchop" (~194 s), the plan went for the porkchop; 4 s on "cook his raw ~482 s" beat "hunt hoglins ~486 s" and the pick flipped to 1 cooked cod; collect stood the porkchop hunt down as "done", the step never met, re-planned). A cow and 1 raw cod, his furnace by him: two options a few seconds apart; the pick standing keeps unless the other is clearly better. */
-    private static String s1643Said = "", s1643Kept = "";
+    /** Stage 1643 (D2D review 185601-52 (and 175645-179), live 18:54:48-18:54:52 11-12 in the Nether at -54,43,52, in a crimson forest: kit.food "hunt hoglins ~194 s (a crimson forest at -58, 39, 53)" picked, 11 porkchop; 4 s on one hoglin came in view 49 off and the hunt was "~490 s (1 of 1 hoglin(s))": the one in view capped the hunt, the rest of the shortfall priced as if there were no forest; "cook his raw ~482 s" took the pick, collect stood the porkchop hunt down as done, re-planned). His forest on the map, his furnace by him, 1 raw cod: a hoglin coming into view never makes the hunt dearer. */
+    private static String s1643A = "", s1643B = "", s1643PA = "", s1643PB = "";
     private static boolean st1643(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
-        BlockPos me = c.blockPosition().immutable();
-        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.attempts.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11600, 80, 7720);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); c.commandActive = false; c.myStations.clear(); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c); }
+        nsTick(nl, c, o, t);
         if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
         if (t[0] == 10) {
-            for (int x = -4; x <= 24; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
-            BlockPos f = me.offset(-1, 0, 2); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable());
-            var cow = EntityType.COW.create(level); cow.moveTo(me.getX() + 12.5, me.getY(), me.getZ() + 0.5, 0, 0); cow.setNoAi(true); cow.setPersistenceRequired(); level.addFreshEntity(cow);
+            for (int x = -6; x <= 50; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) nl.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            BlockPos f = o.offset(-1, 0, 2); nl.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable());
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            com.claudemod.entity.life.Atlas.note(c, nl, "crimson_forest", o.offset(-3, 0, 1)); // (he stands in it, as live)
             var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.items.set(1, new ItemStack(Items.COD, 1)); inv.items.set(2, new ItemStack(Items.COAL, 8)); inv.items.set(3, new ItemStack(Items.COOKED_BEEF, 2));
-            c.getFoodData().setFoodLevel(18); c.getFoodData().setSaturation(0); level.setDayTime(3000);
+            c.getFoodData().setFoodLevel(18); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
         }
-        if (t[0] == 60) { com.claudemod.director.Kit.foodPickTest(c, "cook his raw"); com.claudemod.director.Kit.foodAsk(c); s1643Said = com.claudemod.director.Kit.foodSaidTest(c); s1643Kept = com.claudemod.director.Kit.foodPick(c); }
-        if (t[0] == 62) { com.claudemod.director.Kit.foodPickTest(c, "fish"); com.claudemod.director.Kit.foodAsk(c); String gone = com.claudemod.director.Kit.foodPick(c);
-            BlockPos f = me.offset(-1, 0, 2); level.setBlock(f, Blocks.AIR.defaultBlockState(), 3); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, c.getBoundingBox().inflate(40))) m.discard();
-            c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20);
-            check("cook his raw".equals(s1643Kept), "his pick \"cook his raw\" standing, the hunt a few seconds cheaper: flipped to " + s1643Kept + " (" + s1643Said + ")");
-            check("hunt cow".equals(gone), "a standing pick no longer an option (fish): not switched to the best, " + gone);
-            pass(stage, t, "the standing pick kept against a near tie, switched when it's gone: " + s1643Said);
+        if (t[0] == 13) { com.claudemod.director.Kit.foodPickTest(c, null); com.claudemod.director.Kit.foodAsk(c); s1643A = com.claudemod.director.Kit.foodSaidTest(c); s1643PA = String.valueOf(com.claudemod.director.Kit.foodPick(c));
+            var hog = EntityType.HOGLIN.create(nl); hog.moveTo(o.getX() + 40.5, o.getY(), o.getZ() + 0.5, 0, 0); hog.setNoAi(true); hog.setPersistenceRequired(); hog.setImmuneToZombification(true); nl.addFreshEntity(hog); }
+        if (t[0] == 15) { // (before nsTick's mob sweep at 20)
+            com.claudemod.director.Kit.foodPickTest(c, null); com.claudemod.director.Kit.foodAsk(c); s1643B = com.claudemod.director.Kit.foodSaidTest(c); s1643PB = String.valueOf(com.claudemod.director.Kit.foodPick(c));
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            for (int x = -6; x <= 50; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.myStations.clear(); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); nsHome(c, h, level);
+            check("hunt hoglins".equals(s1643PA), "setup: in his crimson forest, his furnace by him, the hunt not the pick: " + s1643PA + " (" + s1643A + ")");
+            java.util.regex.Matcher ma = java.util.regex.Pattern.compile("hunt hoglins ~(\\d+) s").matcher(s1643A), mb = java.util.regex.Pattern.compile("hunt hoglins ~(\\d+) s").matcher(s1643B);
+            check(ma.find() && mb.find(), "the hunt priced both times: " + s1643A + " | " + s1643B);
+            int pa = Integer.parseInt(ma.group(1)), pb = Integer.parseInt(mb.group(1));
+            check(pb <= pa + 30 && "hunt hoglins".equals(s1643PB), "a hoglin 40 off came into view in his crimson forest: the hunt ~" + pa + " s -> ~" + pb + " s, the pick " + s1643PB + " (" + s1643B + ")");
+            pass(stage, t, "a hoglin in view keeps the forest's price: ~" + pa + " s -> ~" + pb + " s, the pick " + s1643PB);
         }
         return true;
     }

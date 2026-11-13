@@ -2135,6 +2135,13 @@ public class WorkGoal extends Goal {
     private int bridged; // blocks placed bridging during the current task
 
     /** A block that stays where it's put (for plugs and patches): the scaffold choice without gravel or sand. */
+    /** A block lava sets alight (logs, planks, wool: vanilla's ignitedByLava): never a plug for it. */
+    static boolean burns(ItemStack s) { return s.getItem() instanceof BlockItem bi && bi.getBlock().defaultBlockState().ignitedByLava(); }
+    /** What he plugs lava with: his scaffold block if it can't burn, else his most of a solid block that neither burns nor falls. EMPTY: none on him (the 15:39:26 11-12 plug was an oak log, D2D 154353-36; stage 1639). */
+    private ItemStack lavaPlug() {
+        ItemStack s = solidScaffold(); if (!s.isEmpty() && !burns(s)) return s;
+        return biggestStack(x -> com.claudemod.entity.life.ClaudeInventory.isBuildingBlock(x) && !burns(x) && !(x.getItem() instanceof BlockItem bi && bi.getBlock() instanceof net.minecraft.world.level.block.FallingBlock));
+    }
     private ItemStack solidScaffold() {
         ItemStack s = scaffoldBlock();
         if (!s.is(net.minecraft.world.item.Items.GRAVEL) && !s.is(net.minecraft.world.item.Items.SAND)) return s;
@@ -2513,7 +2520,7 @@ public class WorkGoal extends Goal {
             boolean waterIn = false; for (Direction d : Direction.Plane.HORIZONTAL) { var wf = level.getFluidState(pos.relative(d)); if (wf.is(net.minecraft.tags.FluidTags.WATER)) waterIn = true; } // (a water source beside the opening runs in and makes the lava behind it obsidian: the user's pocket technique, 15:33 the dirt put back undid it)
             if (lv != null && !waterIn && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !com.claudemod.director.ClaudeLife.obsOpening(g, pos)) { // the lava itself plugged through the hole, the same tick: a click on the block past it, the way kept open (stage 939, live 04:15 11-07 in basalt deltas: every face had lava behind it, the block went back each time and the bore went round and round)
                 java.util.List<BlockPos> lavas = new java.util.ArrayList<>(); for (Direction d : Direction.values()) { BlockPos q = pos.relative(d); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) && (d != Direction.DOWN || standsOn(pos))) lavas.add(q.immutable()); }
-                ItemStack f0 = g.inventory.find(com.claudemod.entity.life.ClaudeInventory::isBuildingBlock);
+                ItemStack f0 = lavaPlug();
                 boolean all = !f0.isEmpty() && g.hold(st0 -> st0.is(f0.getItem())); String how = "";
                 for (BlockPos q : lavas) { if (!all) break; Object[] pk = plugThrough(level, pos, q); if (pk == null) { all = false; how = "no face bordering " + q.toShortString() + " in sight and reach through the hole"; break; }
                     g.useOnAt((BlockPos) pk[0], (Direction) pk[1], true, (Vec3) pk[2]); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { all = false; how = "the click at " + ((BlockPos) pk[0]).toShortString() + " didn't take"; break; } }
@@ -2521,7 +2528,7 @@ public class WorkGoal extends Goal {
                 else if (!lavas.isEmpty() && !how.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] lava behind {} as it came out: not plugged through the hole ({}): the block back instead (WorkGoal.doBreak)", pos.toShortString(), how);
             }
             if (lv != null && !waterIn && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !com.claudemod.director.ClaudeLife.obsOpening(g, pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "lava running in", "lava came in behind it at " + lv.toShortString(), lv)) {
-                ItemStack fill = g.inventory.find(com.claudemod.entity.life.ClaudeInventory::isBuildingBlock);
+                ItemStack fill = lavaPlug();
                 boolean plugged = false;
                 if (!fill.isEmpty() && g.hold(st0 -> st0.is(fill.getItem()))) { // the block straight back, this tick, from where he stands: a player's right click, no walk to a stand spot (live 06:53 World 15: the queued placement walked him to a step that never took while the lava came on, and he burned with his whole diamond kit)
                     for (Direction d0 : Direction.values()) { BlockPos n0 = pos.relative(d0); if (n0.equals(lv) || lv.equals(pos)) continue; var ns0 = level.getBlockState(n0); if (ns0.getCollisionShape(level, n0).isEmpty() || !ns0.getFluidState().isEmpty()) continue;
@@ -4134,6 +4141,10 @@ public class WorkGoal extends Goal {
     /** A cell of his mine's blueprint within r of p (his mine's ore-hole patches are for by his mine, not out in the world). */
     private boolean nearBlueprint(BlockPos p, int r) { BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos(); for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) if (g.blueprint.touches(q.setWithOffset(p, dx, dy, dz))) return true; return false; }
     private boolean doPlace(Task.Place t) {
+        if (ticks == 1 && t.want() == null && burns(new ItemStack(t.item()))) { boolean byLava = false; for (Direction d : Direction.values()) if (g.level().getFluidState(t.pos().relative(d)).is(net.minecraft.tags.FluidTags.LAVA) || g.level().getFluidState(t.pos()).is(net.minecraft.tags.FluidTags.LAVA)) byLava = true;
+            ItemStack safe = byLava ? lavaPlug() : ItemStack.EMPTY;
+            if (!safe.isEmpty()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} is beside lava: {} instead, lava sets it alight (WorkGoal.doPlace, queued by {})", itemName(new ItemStack(t.item())), t.pos().toShortString(), itemName(safe), com.claudemod.entity.ClaudeEntity.originOf(current));
+                g.tasks.addFirst(new Task.Place(t.pos(), safe.getItem(), t.facing(), null)); return exit("a block lava can't burn instead (doPlace)"); } }
         if (ticks == 1 && !g.level().getBlockState(t.pos()).canBeReplaced() && g.pillarBlocks.remove(t.pos())) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his pillar block at {} is where a {} is wanted: it stays, off his tower list (WorkGoal.doPlace)", t.pos().toShortString(), itemName(new ItemStack(t.item()))); // (the jump out of a hole put the patch in: never taken down as a tower over it, stage 1604)
         ServerLevel level = (ServerLevel) g.level();
         BlockPos pos = t.pos();

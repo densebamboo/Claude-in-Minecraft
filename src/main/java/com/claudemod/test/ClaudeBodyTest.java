@@ -11124,6 +11124,7 @@ public final class ClaudeBodyTest {
             case 1636: return st1636(stage, t, c, h, level, mock);
             case 1637: return st1637(stage, t, c, h, level, mock);
             case 1638: return st1638(stage, t, c, h, level, mock);
+            case 1639: return st1639(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25293,12 +25294,12 @@ public final class ClaudeBodyTest {
     private static boolean st1638(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos me = c.blockPosition().immutable();
         if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); }
-        if (t[0] == 10) {
+        if (t[0] == 40) { // (settled: the stage before may have left him in another dimension, the move clears his attempts)
             for (int x = -12; x <= 12; x++) for (int z = -3; z <= 3; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
             BlockPos ore = me.offset(3, 0, 3); for (BlockPos q : BlockPos.betweenClosed(ore.offset(-1, -1, 1), ore.offset(1, 1, 2))) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); level.setBlock(ore, Blocks.DEEPSLATE_LAPIS_ORE.defaultBlockState(), 2); level.setBlock(ore.south(), Blocks.LAVA.defaultBlockState(), 2); // (the lava shut in: stone round it, the ore its one open side)
             c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, ore, c.tickCount, me.offset(-12, 0, 0), com.claudemod.entity.life.Attempts.Reason.GUARD, "lava he knows of beside it", null); // (refused from 12 off: where he stands now is somewhere new; a teleport would clear his attempts)
         }
-        if (t[0] == 20) {
+        if (t[0] == 50) {
             BlockPos ore = me.offset(3, 0, 3);
             boolean held = c.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.BREAK, ore, c.tickCount, 0); String moved = held ? null : "dropped while he stood 12 off" + (c.onGround() ? "" : " (not on the ground)");
             level.setBlock(ore.south(), Blocks.STONE.defaultBlockState(), 2); // (the lava plugged: the blocks round it changed)
@@ -25308,6 +25309,32 @@ public final class ClaudeBodyTest {
             check(moved == null, "lava beside the ore, he walked 12 off: the refusal back on (" + moved + ")");
             check(plugged != null, "the lava beside it plugged: the refusal still held");
             pass(stage, t, "the lava refusal holds where he stands, back on when the blocks change: " + plugged);
+        }
+        return true;
+    }
+    /** Stage 1639 (D2D 154353-36 (b), live 15:39:26 11-12: "lava behind -428, -56, -19 as it came out: plugged at once with minecraft:oak_log"; logs, planks and wool burn by lava). Oak logs first in his pack, cobblestone after: the ore with unseen lava behind it broken, the hole plugged with stone; a plank placement queued beside lava goes in as stone too. */
+    private static int s1639At; private static BlockPos s1639Me;
+    private static boolean st1639(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); s1639At = 0; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition().immutable(); s1639Me = me;
+            for (int x = -4; x <= 8; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), (x >= 2 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            level.setBlock(me.offset(2, 0, 0), Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(me.offset(3, 0, 0), Blocks.LAVA.defaultBlockState(), 2); // (the lava behind the ore, unseen: stone all round it)
+            level.setBlock(me.offset(2, 0, 3), Blocks.LAVA.defaultBlockState(), 2); // (a second pool for the plank placement beside it)
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.STONE_PICKAXE)); inv.items.set(1, new ItemStack(Items.OAK_LOG, 32)); inv.items.set(2, new ItemStack(Items.OAK_PLANKS, 32)); inv.items.set(3, new ItemStack(Items.COBBLESTONE, 16)); inv.items.set(4, new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Break(me.offset(2, 0, 0)));
+            s1639At = t[0];
+        }
+        if (s1639At > 0 && t[0] == s1639At + 60) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Place(s1639Me.offset(1, 0, 3), Items.OAK_PLANKS)); }
+        if (s1639At > 0 && t[0] == s1639At + 120) {
+            BlockPos me = s1639Me; var plug = level.getBlockState(me.offset(2, 0, 0)).isAir() ? level.getBlockState(me.offset(3, 0, 0)) : level.getBlockState(me.offset(2, 0, 0)); var placed = level.getBlockState(me.offset(1, 0, 3));
+            for (int x = -4; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.setHealth(20); s1639At = 0;
+            check(!plug.isAir() && !plug.ignitedByLava(), "the ore's hole with lava behind it plugged with " + plug.getBlock() + ", a block lava sets alight (or none)");
+            check(!placed.ignitedByLava(), "a plank placement queued beside lava went in as " + placed.getBlock() + ": it burns");
+            pass(stage, t, "lava plugs never wood: " + plug.getBlock() + " in the ore's hole, " + placed.getBlock() + " beside the pool");
         }
         return true;
     }

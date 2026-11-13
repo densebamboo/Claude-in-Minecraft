@@ -11104,6 +11104,7 @@ public final class ClaudeBodyTest {
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1626: return st1626(stage, t, c, h, level, mock);
             case 1627: return st1627(stage, t, c, h, level, mock);
+            case 1629: return st1629(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24762,6 +24763,39 @@ public final class ClaudeBodyTest {
             check(!s1627Chest || standing, "a chest put down out in the world for his spare boots, taken back up as clutter within 8 s");
             check(boots == 0, "the spare boots back in his pack after the choice to put them away (" + boots + ")");
             pass(stage, t, s1627Chest ? "the chest for his spare stands" : "no chest out in the world: the spare dropped, left");
+        }
+        return true;
+    }
+    /** Stage 1629 (D2D family TempLedger.leaving, live 15:06:50 11-12 in the Nether, 151014-59/61): his 3-block bridge crossed, dug from the far end as left behind, the cobble fell 2-3 down into the gap, his pickup went down after it, and the way back up was east and the gap jumped again: "setting off with temp blocks standing: back up first", back over the gap for them, the gap bridged again for the walk, the bridge dug as left behind, round and round. A player takes up what's in reach and goes on; never back over a gap he's crossed. */
+    private static double s1629MaxX; private static BlockPos s1629O = new BlockPos(23200, 90, 23200);
+    private static boolean st1629(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = s1629O;
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -64; k <= 16; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -56; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 6; y++) level.setBlock(o.offset(x, y, z), y <= -4 || y == -1 && (x <= 0 || x >= 4) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (A: x to 0, a 3-wide gap over lava 6 down, B: x 4 on)
+            c.teleportTo(level, o.getX() + 4.5, o.getY(), o.getZ() + 0.5, 90f, 0f); for (int x = 3; x >= 1; x--) { BlockPos his = o.offset(x, -1, 0); level.setBlock(his, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, his, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); } // (his bridge over the pit, put down from the east as he crossed)
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.COBBLESTONE, 32)); inv.add(new ItemStack(Items.COOKED_BEEF, 16)); inv.selected = 0;
+            c.teleportTo(level, o.getX() - 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            c.tasks.clear(); c.currentTask = null; c.nextPlanTick = c.tickCount + 20 * 600; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f);
+            s1629MaxX = -100;
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 14) {
+            check(com.claudemod.entity.life.TempLedger.has(c, o.offset(2, -1, 0)), "setup: his bridge not booked as temporary: " + com.claudemod.entity.life.TempLedger.book(c).values());
+            c.tasks.add(new Task.GoTo(o.offset(-48, 0, 0), 1.5));
+        }
+        if (t[0] > 14 && c.getY() < o.getY() - 1.5) s1629MaxX = Math.max(s1629MaxX, c.getX() - o.getX() + 100); // (down in the pit: marked)
+        if (t[0] == 14 + 300) {
+            double mx = s1629MaxX; boolean bridged = false;
+            double at = c.getX() - o.getX();
+            for (int x = -56; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard();
+            com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.currentTask = null; c.getInventory().clearContent(); c.prefs.remove("stay_close");
+            check(mx < 50, "down into the pit after the drops of his bridge (at x " + String.format("%.1f", mx - 100) + ")");
+            check(at < -30, "the walk west not done in 15 s: at " + String.format("%.1f", at));
+            pass(stage, t, "his bridge left or taken from the edge, never down the pit after it, the walk on (" + String.format("%.1f", mx) + ", at " + String.format("%.1f", at) + ")");
         }
         return true;
     }

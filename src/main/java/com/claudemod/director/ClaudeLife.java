@@ -13083,6 +13083,7 @@ public final class ClaudeLife {
             if (extra == null) break;
             furnaces.add(extra);
         }
+        if (furnaces.size() < Math.min(6, est)) ClaudeMod.LOGGER.info("[Claude smelt] {} furnace(s) for {} batch(es) of 8: no more because {} (table near {}, furnaces on him {}, stone {}, a table on him {}) (ClaudeLife.smeltInParallel)", furnaces.size(), est, placeNoSpotWhy.length() > 0 ? "no spot: " + placeNoSpotWhy : g.inventory.count(t -> t.is(Items.FURNACE)) == 0 && !table ? "no furnace on him and no table to craft one" : "the craft or the placing gave none", table, g.inventory.count(t -> t.is(Items.FURNACE)), g.inventory.count(t -> t.is(ItemTags.STONE_CRAFTING_MATERIALS)), g.inventory.count(t -> t.is(Items.CRAFTING_TABLE))); // (live 01:17:53 11-13, D2D 012300-6: 26 raw iron in 1 furnace, 111 cobble and a table on him, ~4 min stood by it; no repro, stage 1337 split it in 2: this says why live)
         // batches: each job split evenly over all the furnaces (the user: all of them at once, in groups): 32 raw iron in six furnaces is 6,6,5,5,5,5, not 8,8,8,8
         List<Object[]> batches = new ArrayList<>();
         int[] parts = new int[loads.size()]; int sum = 0;

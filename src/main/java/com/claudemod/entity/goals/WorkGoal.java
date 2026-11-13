@@ -7312,6 +7312,7 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         java.util.function.Predicate<BlockPos> hidden = c -> { if (com.claudemod.entity.life.FortressFight.burntCell(g, c)) return false; for (var b : blazes) if (com.claudemod.entity.life.FortressFight.sees(level, b, c)) return false; return true; }; // (a cell a fireball just got him in hides him from nothing, whatever the sight lines say: stage 1376)
         if (hidden.test(feet)) {
+            if (meleeFirst(t, mob, meleeByMeal(), "out of the blazes' sight")) return true; /* (blaze sight isn't all that reaches him: stage 1712) */
             g.getNavigation().stop(); g.setSprinting(false); shieldDown(); g.getLookControl().setLookAt(mob);
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;
             if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); cfSay("eating out of their sight", "health " + (int) g.getHealth() + ", hunger " + g.getFoodData().getFoodLevel() + ", no blaze sees " + feet.toShortString() + ": " + BuiltInRegistries.ITEM.getKey(food).getPath()); return true; }
@@ -7490,8 +7491,9 @@ public class WorkGoal extends Goal {
                 net.minecraft.world.item.Item meal = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;
                 String why = "the way back to cover hasn't brought him nearer in " + (g.tickCount - cfBackTick) / 20 + " s (" + String.format("%.1f", dc) + " off)";
                 if (due != null && shield) { g.getNavigation().stop(); g.setSprinting(false); shieldUp(due); cfSay("shield up where he stands", why + ": the volley on the shield here"); return false; }
-                if (meal != null) { g.getNavigation().stop(); shieldDown(); cfBackTick = g.tickCount; cfEatTick = g.tickCount; g.tasks.removeIf(x -> x instanceof Task.Eat); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(meal)); cfSay("eating where he stands", why + ", health " + (int) hp + ", hunger " + g.getFoodData().getFoodLevel() + ", no volley due: " + BuiltInRegistries.ITEM.getKey(meal).getPath() + " now"); return true; }
-                cfSay("fighting where he stands", why + (g.getFoodData().getFoodLevel() >= 20 ? ", too full to eat" : ", nothing to eat") + ": the fight here, not a walk that goes nowhere"); /* (at hunger 20 it read "nothing to eat" with 10 meals on him: review 144447-78) */ cfBackTick = g.tickCount; cfHealing = false; backing = false;
+                var onMeal = meal != null ? meleeByMeal() : null; if (meleeFirst(t, mob, onMeal, why)) return true; /* (the meal checked the volley only: D2D death 850, a porkchop at 4 with a wither skeleton 2.8 off, its 8.0 mid-meal; stage 1711) */
+                if (meal != null && onMeal == null) { g.getNavigation().stop(); shieldDown(); cfBackTick = g.tickCount; cfEatTick = g.tickCount; g.tasks.removeIf(x -> x instanceof Task.Eat); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(meal)); cfSay("eating where he stands", why + ", health " + (int) hp + ", hunger " + g.getFoodData().getFoodLevel() + ", no volley due: " + BuiltInRegistries.ITEM.getKey(meal).getPath() + " now"); return true; }
+                cfSay("fighting where he stands", why + (onMeal != null ? ", the " + onMeal.getType().getDescription().getString() + " " + String.format("%.1f", onMeal.distanceTo(g)) + " off on him is in before a meal's down" : g.getFoodData().getFoodLevel() >= 20 ? ", too full to eat" : ", nothing to eat") + ": the fight here, not a walk that goes nowhere"); /* (at hunger 20 it read "nothing to eat" with 10 meals on him: review 144447-78) */ cfBackTick = g.tickCount; cfHealing = false; backing = false;
             }
         } else if (inCover) cfBackTick = -1;
         if (backing) { // (an expert backs off with health to spare and heals all the way: food's plenty)
@@ -7512,6 +7514,7 @@ public class WorkGoal extends Goal {
                 cfSay("shield up in cover", "health " + (int) hp + ", a volley due from the " + due.getType().getDescription().getString() + " " + (int) due.distanceTo(g) + " off at " + due.blockPosition().toShortString() + " even here: on the shield, the heal after");
                 return false;
             }
+            if (blaze && meleeFirst(t, mob, meleeByMeal(), "in cover from the blazes")) return true; /* (a blaze's cover keeps no sword out: stage 1712) */
             g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
             if (withered && g.inventory.count(s -> s.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk", "Wither on at health " + (int) hp + ": the milk clears it"); return true; }
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;
@@ -7698,9 +7701,18 @@ public class WorkGoal extends Goal {
     }
 
     /** A melee mob on him that walks into reach before a meal (1.6 s) is down: vanilla's pace, ~44 x (speed x its chase modifier)^2 blocks a second (a zombie 2.3, a wither skeleton at its 1.2 about 4). Live 18:39 11-08: "eating first" at 2 HP, a wither skeleton 5 off was on him in 1.1 s. */
-    private boolean meleeInByMeal() {
-        return !level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper)
-            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < mobPace(m, 1.2) * w("food.eat_s", 1.6)).isEmpty();
+    private boolean meleeInByMeal() { return meleeByMeal() != null; }
+    /** The nearest of those (meleeInByMeal), or null. */
+    private net.minecraft.world.entity.Mob meleeByMeal() {
+        return level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) /* (a blaze hangs back and shoots; its touch inside 2 is blazeInReach's: 1321 read one 6 off as walking in) */
+            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < mobPace(m, 1.2) * w("food.eat_s", 1.6)).stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).orElse(null);
+    }
+    /** A melee mob on him, in before a meal's down (meleeByMeal): no standing still to eat or heal with it coming, shield down and facing the blaze; it's fought first, this fight after it (D2D death 850, live 09:20:15-27 11-13: "healing out of their sight" as a wither skeleton walked up, 15 -> 10, then "eating where he stands" at 4 with one 2.8 off, dead; stages 1711, 1712). */
+    private boolean meleeFirst(Task.Attack t, net.minecraft.world.entity.LivingEntity mob, net.minecraft.world.entity.Mob on, String where) {
+        if (on == null || on == mob) return false;
+        g.getNavigation().stop(); shieldDown(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Attack(on.getUUID(), 20 * 30));
+        cfSay("the " + on.getType().getDescription().getString() + " first", "health " + (int) g.getHealth() + ", " + where + ": the " + on.getType().getDescription().getString() + " " + String.format("%.1f", on.distanceTo(g)) + " off is on him and in before a meal's down; it's fought first, the " + mob.getType().getDescription().getString() + " after");
+        return true;
     }
     /** Blocks a second a mob walks at its goal's speed modifier: vanilla moves it speed x speed (setSpeed sets its input too), a player at 0.98 x 0.1 for 4.317. */
     static double mobPace(net.minecraft.world.entity.LivingEntity m, double mod) { return 44.05 * Math.pow(m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) * mod, 2); }

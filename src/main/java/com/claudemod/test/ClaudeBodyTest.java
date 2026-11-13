@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1712: return st1712(stage, t, c, h, level, mock);
+            case 1711: return st1711(stage, t, c, h, level, mock);
             case 1710: return st1710(stage, t, c, h, level, mock);
             case 1709: return st1709(stage, t, c, h, level, mock);
             case 1708: return st1708(stage, t, c, h, level, mock);
@@ -23738,6 +23740,72 @@ public final class ClaudeBodyTest {
             pass(stage, t, "killed in " + secs + " s at health " + hp);
         }
         return true;
+    }
+    /** Stage 1711 (D2D death 850, live 09:20:25-27 11-13 at the blaze fortress: "eating where he stands: the way back to cover hasn't brought him nearer in 2 s (9.6 off), health 4 ... cooked_porkchop now" with a wither skeleton 2.8 off on him; the stall's meal checked the blaze volley only, never melee, and its 8.0 landed mid-meal, 4 -> 0): 1321's stalled walk to cover, a wither skeleton 5.5 off on him: no meal while it's there, it's fought first; gone, the meal comes. */
+    private static net.minecraft.world.entity.monster.Blaze s1711B; private static net.minecraft.world.entity.monster.WitherSkeleton s1711W;
+    private static boolean st1711(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13500, 64, 8200);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1711B = null; s1711W = null; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] > 40 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1711B && e != s1711W) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -3; z <= 3; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(5, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(10); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) { s1711B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s1711B.moveTo(o.getX() - 4.5, o.getY() + 1, o.getZ() + 0.5, 0, 0); s1711B.setPersistenceRequired(); nl.addFreshEntity(s1711B); s1711B.setTarget(c);
+            s1711W = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(nl); s1711W.moveTo(o.getX() + 0.5, o.getY(), o.getZ() - 5, 0, 0); s1711W.setNoAi(true); s1711W.setPersistenceRequired(); s1711W.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); nl.addFreshEntity(s1711W); s1711W.setTarget(c); com.claudemod.entity.life.Perception.noteSeenTest(c, s1711W); }
+        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(10); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1711B.getUUID(), 20 * 60)); }
+        if (t[0] == 36) { c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20 * 30, 255, false, false)); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0); }
+        if (t[0] > 36 && s1711W != null && s1711W.isAlive()) { s1711W.setTarget(c); s1711W.setPos(o.getX() + 0.5, o.getY(), o.getZ() - 5); }
+        boolean ate = t[0] > 36 && (c.getFoodData().getFoodLevel() > 17 || c.isUsingItem() && c.getUseItem().is(Items.COOKED_SALMON));
+        if (t[0] > 36 && t[0] <= 36 + 100 && ate) { cleanup1711(nl, o, c); check(false, "health 10, a wither skeleton 5 off on him, the walk to cover stalled: a meal started with it there " + (t[0] - 36) + " ticks in (" + c.lastSkillLine + ")"); }
+        if (t[0] == 36 + 100) { com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1711 no meal with the skeleton there, doing {} queue {}", c.currentTask, c.tasks); s1711W.discard(); }
+        if (t[0] > 36 + 100 && (ate || t[0] - 136 >= 200)) { cleanup1711(nl, o, c); check(ate, "the skeleton gone, health 10, food 17, salmon on him: no meal in 10 s (" + c.lastSkillLine + ")"); nsHome(c, h, level); pass(stage, t, "no meal with the skeleton on him, the meal " + (t[0] - 136) + " ticks after it's gone"); }
+        return true;
+    }
+    private static void cleanup1711(ServerLevel nl, BlockPos o, ClaudeEntity c) {
+        if (s1711B != null) s1711B.discard(); if (s1711W != null) s1711W.discard(); c.removeAllEffects(); c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+        for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+    }
+    /** Stage 1712 (D2D death 850, live 09:20:15-18 11-13: "healing out of their sight: health 17 at 271, 65, 509, no blaze sees it", shield down and facing the blaze 19 off, while a wither skeleton he'd heard 12 off walked up and hit for 8, 15 -> 10; the heal spot was checked against blaze sight only): in his cover from the blaze (the wall's corner) at health 10, a wither skeleton 8 off on him: it's fought first, not stood still for. */
+    private static net.minecraft.world.entity.monster.Blaze s1712B; private static net.minecraft.world.entity.monster.WitherSkeleton s1712W;
+    private static boolean st1712(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13540, 64, 8200);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1712B = null; s1712W = null; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] > 40 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1712B && e != s1712W) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -3; z <= 3; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(5, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 7.5, o.getY(), o.getZ() - 3.5, 90f, 0f); c.setHealth(10); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) { s1712B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s1712B.moveTo(o.getX() - 4.5, o.getY() + 1, o.getZ() + 0.5, 0, 0); s1712B.setPersistenceRequired(); nl.addFreshEntity(s1712B); s1712B.setTarget(c);
+            s1712W = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(nl); s1712W.moveTo(o.getX() + 7.5, o.getY(), o.getZ() + 4.5, 0, 0); s1712W.setNoAi(true); s1712W.setPersistenceRequired(); s1712W.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); nl.addFreshEntity(s1712W); s1712W.setTarget(c); com.claudemod.entity.life.Perception.noteSeenTest(c, s1712W); }
+        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(10); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1712B.getUUID(), 20 * 60)); }
+        if (t[0] == 36) c.setHealth(10);
+        if (t[0] > 30) { boolean on = c.currentTask instanceof Task.Attack ak && ak.target().equals(s1712W.getUUID()) || c.currentTask instanceof Task.Flee; /* (fought or run from, fight.flee's pick: never stood still for) */
+            if (t[0] % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1712 t {} doing {} queue {} skeleton {} off, health {}", t[0], c.currentTask, c.tasks, String.format("%.1f", c.distanceTo(s1712W)), c.getHealth());
+            if (on || t[0] - 30 >= 80) { String did = c.currentTask == null ? "-" : c.currentTask.getClass().getSimpleName(); cleanup1712(nl, o, c); check(on, "health 10 out of the blaze's sight, a wither skeleton 8 off on him: 4 s still healing where it walks up, neither fought nor run from (" + c.lastSkillLine + ")"); nsHome(c, h, level); pass(stage, t, "the skeleton dealt with first (" + did + "), " + (t[0] - 30) + " ticks in"); } }
+        return true;
+    }
+    private static void cleanup1712(ServerLevel nl, BlockPos o, ClaudeEntity c) {
+        if (s1712B != null) s1712B.discard(); if (s1712W != null) s1712W.discard(); c.removeAllEffects(); c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+        for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

@@ -11133,6 +11133,7 @@ public final class ClaudeBodyTest {
             case 1639: return st1639(stage, t, c, h, level, mock);
             case 1640: return st1640(stage, t, c, h, level, mock);
             case 1641: return st1641(stage, t, c, h, level, mock);
+            case 1642: return st1642(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25575,6 +25576,27 @@ public final class ClaudeBodyTest {
                 check(s1641Swim, "the salmon 11 cells out in the lake priced as a walk the length of the line: " + s1641W);
                 check(!on, "the salmon out in the lake, " + (walk < 0 ? "written off by collect (no short way on foot)" : walk + " walk") + ": he left the batch to chase it (" + (t[0] - s1641T) + " ticks in)");
                 pass(stage, t, "no chase off the batch after the salmon in the lake (collect's walk " + walk + ")"); }
+        }
+        return true;
+    }
+    /** Stage 1642 (D2D review 180655-204, live 18:04:55-18:05:19 11-12 at -17,67,-19: kit.food "19 food points short ... cook his raw -> 2 cooked_salmon" with 5 raw salmon on him and 3 empty furnaces by him: 2 cooked, 3 left raw, the same wait). 15 cooked and 5 raw salmon on him, 3 furnaces of his 2 off: the kit's ask cooks all 5. */
+    private static boolean st1642(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = c.blockPosition().immutable();
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.attempts.clear(); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int k = -1; k <= 1; k++) { BlockPos f = me.offset(k, 0, 2); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable()); }
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.items.set(1, new ItemStack(Items.COOKED_SALMON, 15)); inv.items.set(2, new ItemStack(Items.SALMON, 5)); inv.items.set(3, new ItemStack(Items.COAL, 8));
+            c.getFoodData().setFoodLevel(18); c.getFoodData().setSaturation(0);
+        }
+        if (t[0] == 60) { // (past the kit's 40-tick memo)
+            var fa = com.claudemod.director.Kit.foodAsk(c); String pick = com.claudemod.director.Kit.foodPick(c);
+            for (int k = -1; k <= 1; k++) { BlockPos f = me.offset(k, 0, 2); level.setBlock(f, Blocks.AIR.defaultBlockState(), 3); }
+            c.getInventory().clearContent(); c.myStations.clear(); c.getFoodData().setFoodLevel(20);
+            check(fa != null && "cook his raw".equals(pick), "15 cooked and 5 raw salmon on him, 3 furnaces 2 off: the kit's pick " + pick + " -> " + fa);
+            check(fa.item() == Items.COOKED_SALMON && fa.count() == 5, "the kit cooks his raw: asked " + fa.count() + " " + fa.item() + " with 5 raw on him and 3 furnaces free (the rest left raw, the same wait for them later)");
+            pass(stage, t, "all his raw in the one batch: " + fa);
         }
         return true;
     }

@@ -2574,7 +2574,22 @@ public class WorkGoal extends Goal {
             openUp &= wetBy; // (no water by it at all, a log under leaves: nothing to judge; that read every canopy log as "open water" and skipped it)
             for (BlockPos q = pos.above(); openUp && q.getY() < skyTop; q = q.above()) { BlockState st = level.getBlockState(q); if (!st.getCollisionShape(level, q).isEmpty() && !st.is(net.minecraft.tags.BlockTags.LEAVES)) openUp = false; }
             boolean surfaceWater = openUp && !com.claudemod.director.ClaudeLife.inHisMine(g, pos); // a pond or lake up top is not a flooded mine: nobody fills a lake with cobble to till its bank (that "plugged" 12 sources by a crafting table)
-            if (surfaceWater && n == 0) { failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "open water up top, not a flooded mine"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] water at {} is open water up top: leaving it, not that block", pos.toShortString()); return true; }
+            if (surfaceWater && n == 0) { /* the pond came in through his cut: he sees it (live 16:37 11-12, review 164147-15: the made way's rest stayed queued, Breaks beside the water and a GoTo into the flooded cut, every unstick planned back into it, ~30 min floating; stage 1680) */
+                { java.util.ArrayDeque<BlockPos> wq = new java.util.ArrayDeque<>(); java.util.Set<BlockPos> wseen = new java.util.HashSet<>(); wq.add(pos.immutable()); /* the water behind the breach, as he sees it pour in: the pond, bounded */
+                  while (!wq.isEmpty() && wseen.size() < 96) { BlockPos w = wq.poll(); if (!wseen.add(w)) continue; com.claudemod.entity.life.Perception.sawCell(g, level, w); for (Direction d0 : Direction.values()) { BlockPos w1 = w.relative(d0); if (!wseen.contains(w1) && level.getFluidState(w1).is(net.minecraft.tags.FluidTags.WATER)) wq.add(w1.immutable()); } } }
+                String by0 = com.claudemod.entity.ClaudeEntity.originOf(g.currentTask);
+                if (by0.startsWith("WorkGoal.walkTo") || by0.startsWith("WorkGoal.bendWay")) { /* a way planned without this water: its rest goes, the walk to its end planned again with the water known */
+                    java.util.List<Task> run = new java.util.ArrayList<>(); Task.GoTo end = null; int i0 = 0, last = -1; /* to its last step: a way nested in a way (a bend way's leg) and the puts queued between them go with it */
+                    for (Task q : g.tasks) { String o0 = com.claudemod.entity.ClaudeEntity.originOf(q); if (o0.startsWith("WorkGoal.walkTo") || o0.startsWith("WorkGoal.bendWay")) { last = i0; if (q instanceof Task.GoTo e0) end = e0; } i0++; }
+                    if (end != null) {
+                        for (int k = 0; k <= last; k++) run.add(g.tasks.pollFirst()); plannedAt().remove(end.pos());
+                        g.tasks.addFirst(new Task.GoTo(end.pos(), end.within()));
+                        ItemStack bank = solidScaffold(); if (!bank.isEmpty()) g.tasks.addFirst(new Task.Place(pos.immutable(), bank.getItem())); /* the bank block straight back: his breach plugged, as a player does (the water-in-mine rule: plug it and carry on) */
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude route] the water up top came into his cut at {}: the rest of the made way ({} steps, planned without that water) dropped, {}, the walk to {} planned again with it known (WorkGoal.doBreak)", pos.toShortString(), run.size(), solidScaffold().isEmpty() ? "nothing to plug the breach with" : "the breach plugged with " + solidScaffold().getItem(), end.pos().toShortString());
+                        return true;
+                    }
+                }
+                failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "open water up top, not a flooded mine"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] water at {} is open water up top: leaving it, not that block", pos.toShortString()); return true; }
             if (!plug.isEmpty() && !surfaceWater) for (BlockPos q0 : BlockPos.betweenClosed(pos.offset(-2, -1, -2), pos.offset(2, 2, 2))) {
                 BlockPos q = q0.immutable();
                 if (n >= 12 || !level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(q).isSource()) continue;

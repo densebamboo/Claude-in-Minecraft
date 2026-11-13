@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1680: return st1680(stage, t, c, h, level, mock);
             case 1679: return st1679(stage, t, c, h, level, mock);
             case 1678: return st1678(stage, t, c, h, level, mock);
             case 1677: return st1677(stage, t, c, h, level, mock);
@@ -22826,6 +22827,35 @@ public final class ClaudeBodyTest {
             check(p != null, "setup: no way at all down to the goal");
             check(bad.isEmpty(), "digs into the pond's bank (each one lets the pond in): " + bad + " | " + acts);
             pass(stage, t, acts);
+        }
+        return true;
+    }
+    /** Stage 1680 (D2D, the second link of 1679, live 16:37-17:09 11-12: the made way's staircase ran down a pond's bank he hadn't seen; its first break let the pond into his cut, "open water up top" logged after the break as a failed BREAK and put "back on", and the rest of the made way stayed queued: GoTo -41,59,-14 in the flooded cut, Breaks beside the water; every unstick planned back into the cut, ~30 min floating). A long pond under leaves, a dirt bank down its side, a spot at the far end under the bank: the cut floods, he drops the rest of that way and gets there another way, never back and forth in the water. */
+    private static BlockPos s1680G; private static int s1680Wet; private static boolean s1680Flood;
+    private static boolean st1680(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 14, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 4; x++) for (int z = -4; z <= 11; z++) { for (int y = -10; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 8; z++) for (int y = -3; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); /* the pond */
+            for (int z = -1; z <= 9; z++) for (int y = -7; y <= -1; y++) level.setBlock(o.offset(-2, y, z), Blocks.DIRT.defaultBlockState(), 2); /* its bank, dirt down its side */
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 8; z++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, z), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2); /* leaves over it: unseen till it comes into his cut, as live (he leapt onto its bank); open water up top all the same */
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SHOVEL)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.teleportTo(o.getX() - 3.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; s1680Wet = 0; s1680Flood = false;
+        }
+        if (t[0] >= 10 && !s1680Flood) for (int z = -1; z <= 9; z++) for (int y = -3; y <= -1; y++) if (level.getFluidState(o.offset(-2, y, z)).is(net.minecraft.tags.FluidTags.WATER)) s1680Flood = true;
+        if (t[0] == 14) { s1680G = o.offset(-2, -6, 9); c.tasks.add(new Task.GoTo(s1680G, 1.0));
+            try { var fd = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("forceDigAt"); fd.setAccessible(true); fd.set(c.work, s1680G); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } } /* a walk he may dig on (live: the chest in his mine) */
+        if (t[0] > 14 && c.isInWater()) s1680Wet++;
+        if (t[0] > 14 && (t[0] == 20 * 75 || t[0] > 40 && c.blockPosition().distManhattan(s1680G) <= 1 && !c.isInWater())) {
+            String at = c.blockPosition().subtract(o).toShortString(); int wet = s1680Wet; double off = Math.sqrt(c.blockPosition().distSqr(s1680G)); int secs = t[0] / 20; boolean flood = s1680Flood;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); try { var fd = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("forceDigAt"); fd.setAccessible(true); fd.set(c.work, null); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            for (int x = -8; x <= 4; x++) for (int z = -4; z <= 11; z++) for (int y = -10; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), o.getZ() + 0.5);
+            check(flood, "setup: the way never dug the pond's bank (" + secs + " s, at " + at + "): no flood to test");
+            check(off <= 1.5, "75 s on, a pond he hadn't seen in the way: " + String.format("%.1f", off) + " off the spot past it, at " + at + " (o-relative), " + wet / 20 + " s in water");
+            check(wet <= 20 * 15, "got there but " + wet / 20 + " s in the water");
+            pass(stage, t, "there in " + secs + " s, " + wet / 20 + " s in water");
         }
         return true;
     }

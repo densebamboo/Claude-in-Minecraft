@@ -11165,6 +11165,7 @@ public final class ClaudeBodyTest {
             case 1330: return st1330(stage, t, c, h, level, mock);
             case 1331: return st1331(stage, t, c, h, level, mock);
             case 1332: return st1332(stage, t, c, h, level, mock);
+            case 1333: return st1333(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26478,6 +26479,37 @@ public final class ClaudeBodyTest {
             for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2);
             check(out, "the control: by day the fish step didn't fish: \"" + r + "\"");
             pass(stage, t, "the fish waits on the night, fishes by day: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1333 (D2D 230922-52 / 231408-66, live 23:12:08-23:13:51 11-12 down his mine at first light: "out of food at hunger 10 ... going to get some", then strip_mine iron_ore x23 on, hunger 10 -> 8, 0 meals; the queue ended in "collect beef x14" behind six iron crafts, and tripFoodCheck read that as "the food's on its way already"). 0 meals, day, the dig on, the beef last behind the crafts the dig is for: the dig waits, the food first; with 8 meals on him the dig goes on. */
+    private static String s1333R = "";
+    private static boolean st1333(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; flatBox(h); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            level.setDayTime(500);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 40)); c.getInventory().add(new ItemStack(Items.COAL, 10)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(10);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        java.util.function.IntSupplier run = () -> { c.lastStep = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 23); c.tasks.clear(); for (int k = 0; k < 6; k++) c.tasks.add(new Task.Break(h.absolutePos(new BlockPos(8 + k, 2, 4))));
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("tripFoodCheck", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { s1333R = "no call: " + e; } return c.tasks.size(); };
+        if (t[0] == 20) {
+            for (String it : new String[] {"shield", "bucket", "iron_sword", "iron_chestplate"}) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", it, 1));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "beef", 14));
+            int after = run.getAsInt(); String q = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(s1333R.isEmpty(), s1333R);
+            check(after < 6, "0 meals at hunger 10, the beef last behind 4 crafts the dig is for: the dig kept (" + after + " tasks), no food first: " + (q.length() > 200 ? q.substring(0, 200) : q));
+        }
+        if (t[0] == 25) {
+            c.getFoodData().setFoodLevel(10); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "shield", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "beef", 14));
+            int after = run.getAsInt();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.getInventory().clearContent(); level.setDayTime(6000);
+            check(after == 6, "the control: 8 meals on him, the dig set aside anyway (" + after + " tasks)");
+            pass(stage, t, "food queued behind the dig isn't on its way: the food first; 8 meals on him, the dig goes on");
         }
         return true;
     }

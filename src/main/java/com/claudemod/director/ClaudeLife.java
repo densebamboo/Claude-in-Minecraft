@@ -2451,6 +2451,7 @@ public final class ClaudeLife {
                             g.tasks.add(new Task.GoTo(trees, 6));
                             g.skillQueue.addFirst(st); // and chop once he's there
                             Direction way = Direction.getNearest(trees.getX() - g.getX(), 0, trees.getZ() - g.getZ());
+                            treesWhy(g, level, player, target, trees);
                             return "no trees close by; nearest ones are ~" + (int) Math.sqrt(trees.distSqr(g.blockPosition())) + " blocks " + way.getName() + ", heading there";
                         }
                         String leg = runSkill(g, player, new Skills.Step("explore", "trees", 1));
@@ -10148,6 +10149,12 @@ public final class ClaudeLife {
         return false;
     }
     static boolean structureLog(ServerLevel level, BlockPos b) { return com.claudemod.entity.nav.ActionPath.structureBlock(level, b) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, b); }
+    /** Treetops the search near him threw out: which rule, said (live 22:50:36-44 11-12, D2D 2250death: "nearest ones are ~8 blocks west/north/south" every second, the search near him finding none). */
+    private static void treesWhy(ClaudeEntity g, ServerLevel level, ServerPlayer player, String target, BlockPos trees) {
+        if (trees.distSqr(g.blockPosition()) <= 24 * 24 && g.tickCount - g.attempts.counters.getOrDefault("treesWhySaid", -100000) > 20 * 10) { g.attempts.counters.put("treesWhySaid", g.tickCount); // treetops the search near him threw out: which rule, said (live 22:50:36-44 11-12, D2D 2250death: "nearest ones are ~8 blocks west/north/south" every second, the search near him finding none)
+            BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, trees).below(), log = null; for (int dy = 0; dy <= 8 && log == null; dy++) for (BlockPos q : BlockPos.betweenClosed(trees.offset(-2, dy, -2), trees.offset(2, dy, 2))) if (level.getBlockState(q).is(BlockTags.LOGS)) { log = q.immutable(); break; }
+            final BlockPos lg = log; ClaudeMod.LOGGER.info("[Claude skill] collect {}: the treetops at {} ({} on top) are no tree to the search near him: {} (ClaudeLife.runSkill)", target, trees.toShortString(), BuiltInRegistries.BLOCK.getKey(level.getBlockState(top).getBlock()).getPath(), lg == null ? "no log under them within 2 across and 8 up (leaves alone)" : "the log at " + lg.toShortString() + ": placed by them " + PlayerProfile.placedBy(player).contains(lg) + ", his temp block " + com.claudemod.entity.life.TempLedger.has(g, lg) + ", village " + villageBuilding(g, lg) + ", structure " + structureLog(level, lg) + ", his build " + hisBuildKeeps(g, level, lg) + ", storage " + isStorageSpot(g, lg) + ", crown " + hasCrown(level, lg) + ", open " + touchesOpen(level, lg) + ", house " + (g.house != null && g.house.roleAt(lg) != null) + ", farm " + (g.farm != null && g.farm.touches(lg)) + ", nook " + anyNookTouches(g, lg)); }
+    }
     private static BlockPos reachableTreetops(ClaudeEntity g, ServerLevel level, int range) {
         BlockPos from = g.blockPosition();
         List<BlockPos> tops = new ArrayList<>();

@@ -10568,6 +10568,7 @@ public final class ClaudeBodyTest {
             case 1750: return st1750(stage, t, c, h, level, mock);
             case 1751: return st1751(stage, t, c, h, level, mock);
             case 1752: return st1752(stage, t, c, h, level, mock);
+            case 1753: return st1753(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23477,6 +23478,20 @@ public final class ClaudeBodyTest {
             check(wood == 0, "made a wooden sword with an iron axe on him (" + wood + ", planks left " + planks + ")");
             check(iron == 1, "no iron sword from 2 ingots with only an iron axe (" + iron + ")");
             pass(stage, t, "the iron axe kept over a wooden sword, the iron sword still made");
+        }
+        return true;
+    }
+    /** Stage 1753 (D2D crash, live 15:32:11 11-13: StackOverflowError, the server down): a full pack in his mine, no chest and no table on him, only planks and logs for them. ensureCraftingTable found no room for the table and dumped junk; dumpJunk in his mine went to junkChestRound; with no junk chest it cut one and needed a chest, so ensureCraftingTable again, and round. The dump runs once and the server stays up. */
+    private static boolean st1753(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c); BlockPos d = lnRow(b, 5, 4).immutable();
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.prefs.remove("junk_chests");
+            var inv = c.getInventory(); inv.clearContent();
+            for (int i = 0; i < 34; i++) inv.items.set(i, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(34, new ItemStack(Items.OAK_PLANKS, 8)); inv.items.set(35, new ItemStack(Items.OAK_LOG, 4)); // (full: no room for a table's planks, wood for two chests)
+            String err = null; try { com.claudemod.director.ClaudeLife.dumpJunkTest(c); } catch (StackOverflowError e) { err = "StackOverflowError"; }
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
+            pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
         }
         return true;
     }

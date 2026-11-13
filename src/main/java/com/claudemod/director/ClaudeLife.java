@@ -5768,7 +5768,12 @@ public final class ClaudeLife {
             if (s.skill().equals("smelt") && g.level() instanceof ServerLevel sl && sl.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl).map(rh -> rh.value().getResultItem(sl.registryAccess()).is(t)).orElse(false)) return true; } // (what a queued smelt cooks: the store put his raw iron away and the smelt fetched it back, review 73)
         return false;
     }
+    private static boolean dumping; // (the dump's own table-and-chest making can call back into it: one dump at a time; live 15:32 11-13 StackOverflowError, stage 1753)
     private static void dumpJunk(ClaudeEntity g) {
+        if (dumping) return;
+        dumping = true; try { dumpJunk0(g); } finally { dumping = false; }
+    }
+    private static void dumpJunk0(ClaudeEntity g) {
         var inv = g.getInventory();
         if (g.level() instanceof ServerLevel slS && g.tickCount % 400 == 0 && spareStacks(g) >= 2 && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition()) && g.currentTask == null && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // stone well past his 2 stacks with room left still: to the junk chest on his way (World 15 14:48: 331-404 cobbled deepslate, 5 slots free, never put away)
             String r = junkChestRound(g, slS, com.claudemod.entity.life.Weights.w("junk.spare_round_max", 32), false); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] {} spare stacks of stone on him in his mine: {}", spareStacks(g), r); return; } // (room left: only a junk chest he's by; live 09:41 11-08, reviews 311/312: 120 along his tunnels for 2 stacks with 5 free slots, and the next step took him straight back)

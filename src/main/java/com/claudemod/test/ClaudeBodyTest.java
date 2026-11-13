@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1674: return st1674(stage, t, c, h, level, mock);
             case 1673: return st1673(stage, t, c, h, level, mock);
             case 1672: return st1672(stage, t, c, h, level, mock);
             case 1671: return st1671(stage, t, c, h, level, mock);
@@ -22660,6 +22661,40 @@ public final class ClaudeBodyTest {
             check(gone, "setup: the rods didn't despawn");
             check(inc.startsWith("JOB_ITEM_LOST") && inc.contains("blaze_rod"), "2 blaze rods off his pending pile despawned on the rods job: incident " + inc);
             pass(stage, t, inc);
+        }
+        return true;
+    }
+    /** Stage 1674 (D2D pass 163252, reviews 161636-65/67, live 16:10-16:15 11-12 on d1c9f9d3: 5 min at -143,57,151-154, 516 plans "into ground he hasn't seen at -143,48,155: as far as the edge at -143,58,155" from 151, and 506 "into ground he hasn't seen at -143,48,154: as far as -143,57,150" from 154; the unseen floor 9 under the ground he stood on, a pocket he'd seen into from below, no edge to look down from; each plan cut at a different side, the 2-min rule-out never reached). A roofed void under a thick slab, a pocket of it seen, its floor not: the plan from where its last leg took him never sends him back the way he came for the same unseen floor. */
+    private static String s1674W;
+    private static boolean st1674(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(20200, 80, 11400), dest = o.offset(0, -20, 44);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.FarSight.reset(c); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 48; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 30) {
+            for (int x = -9; x <= 9; x++) for (int z = -9; z <= 53; z++) for (int y = -44; y <= 22; y++) {
+                boolean wall = Math.abs(x) > 6 || z < -6 || z > 50 || y < -42 || y > 20 || z == 6 && y >= 0 /* the slab's top shut off: the way on is down through it */, slab = y <= -1 && y >= -8, ledge = z <= 1 && y <= -1 && y >= -40, floor = y == -41, far = z >= 40 && y <= -21;
+                nl.setBlock(o.offset(x, y, z), wall || slab || ledge || floor || far ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+        }
+        if (t[0] == 32) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); com.claudemod.entity.life.FarSight.reset(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 10f); c.setYHeadRot(0f); }
+        if (t[0] == 34) for (int x = -3; x <= 3; x++) for (int z = 2; z <= 12; z++) for (int y = -12; y <= -9; y++) com.claudemod.entity.life.FarSight.sawCell(c, o.getX() + x, o.getY() + y, o.getZ() + z); // the pocket he saw from below once: its air, not its floor
+        if (t[0] == 36) {
+            StringBuilder w = new StringBuilder(); BlockPos at = o; java.util.List<BlockPos> firsts = new java.util.ArrayList<>(); String bad = "";
+            for (int k = 0; k < 4; k++) {
+                c.teleportTo(nl, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0f, 10f);
+                var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, at, dest);
+                w.append(" | from ").append(at.toShortString()).append(": ").append(p == null ? "no plan" : p.legs());
+                if (p == null || p.legs().isEmpty()) break;
+                if (p.legs().get(0).closerThan(at, 1.6) && bad.isEmpty()) bad = "a leg of " + String.format("%.1f", Math.sqrt(p.legs().get(0).distSqr(at))) + " from " + at.toShortString() + ", the walk's own reach: it ends at once, the plan again from the same spot (plan " + (k + 1) + ")";
+                firsts.add(p.legs().get(0)); at = p.legs().get(0);
+            }
+            for (int k = 2; k < firsts.size(); k++) if (firsts.get(k).closerThan(firsts.get(k - 2), 2) && !firsts.get(k).closerThan(firsts.get(k - 1), 2)) bad = "back to " + firsts.get(k).toShortString() + " (plan " + (k + 1) + ")";
+            s1674W = w.toString();
+            for (int x = -9; x <= 9; x++) for (int z = -9; z <= 53; z++) for (int y = -44; y <= 22; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.FarSight.reset(c); c.getInventory().clearContent();
+            check(bad.isEmpty(), "his plans ping-pong between two looks at the same unseen floor: " + bad + s1674W);
+            nsHome(c, h, level); pass(stage, t, s1674W);
         }
         return true;
     }

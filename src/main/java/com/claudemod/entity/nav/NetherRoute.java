@@ -161,7 +161,10 @@ public final class NetherRoute {
     static BlockPos feet(com.claudemod.entity.life.PortalMap.Segment s, int al) { return s.axis == net.minecraft.core.Direction.Axis.X ? new BlockPos(al, s.y() + 1, s.line()) : new BlockPos(s.line(), s.y() + 1, al); }
 
     /** Floors he looked for from the edge and still couldn't see (cell key -> tick): no node there till he sees it (D2D review 150220-35, live 14:53-15:01 11-12; stage 1671). */
-    private static final java.util.WeakHashMap<ClaudeEntity, Map<Long, Integer>> UNSEEN_FLOORS = new java.util.WeakHashMap<>();
+    private static final java.util.WeakHashMap<ClaudeEntity, Map<BlockPos, Integer>> UNSEEN_FLOORS = new java.util.WeakHashMap<>();
+    /** The unseen floors he's gone to look at: {floor cell, tick, where he planned the look from} (a second look from somewhere else, still unseen, rules it out: live 16:10-16:15 11-12, stage 1674). */
+    private static final java.util.WeakHashMap<ClaudeEntity, List<long[]>> LOOKS = new java.util.WeakHashMap<>();
+    private static boolean unseenFloorOut(ClaudeEntity g, int x, int y, int z) { var m = UNSEEN_FLOORS.get(g); if (m == null) return false; for (var e : m.entrySet()) { BlockPos q = e.getKey(); if (g.tickCount - e.getValue() < 20 * 120 && g.tickCount >= e.getValue() && Math.abs(q.getX() - x) <= 1 && Math.abs(q.getY() - y) <= 1 && Math.abs(q.getZ() - z) <= 1) return true; } return false; }
     private static final Plan RETRY = new Plan(List.of(), true, 0, 0, 0, 0, 0, 0);
     private static Plan search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, boolean entering) {
         Plan p = RETRY; for (int i = 0; i < 4 && p == RETRY; i++) p = searchOnce(g, level, from, to, entering);
@@ -196,7 +199,7 @@ public final class NetherRoute {
                     if (n.puts + c[2] > r.blocks) continue; // (blocks he hasn't got: no bridge, no pillar)
                     double ng = n.g + c[0];
                     long k = key(cx, ny, cz); Double b0 = best.get(k);
-                    Integer uf = UNSEEN_FLOORS.getOrDefault(g, Map.of()).get(k); if (uf != null && g.tickCount - uf < 20 * 120 && g.tickCount >= uf && !r.known(cx, ny - 1, cz)) continue; // (its floor unseen from the edge he looked from)
+                    if (!r.known(cx, ny - 1, cz) && unseenFloorOut(g, cx, ny, cz)) continue; // (its floor unseen from the edge he looked from)
                     if (b0 != null && b0 <= ng) continue;
                     best.put(k, ng);
                     open.add(new Node(cx, ny, cz, ng, ng + 1.3 * h(cx, ny, cz, to) * hf, n, n.digs + (int) c[1], n.puts + (int) c[2]));
@@ -219,13 +222,25 @@ public final class NetherRoute {
         java.util.Collections.reverse(path);
         for (int i = 1; i < path.size(); i++) if (!r.known(path.get(i).x, path.get(i).y, path.get(i).z) || r.known(path.get(i).x, path.get(i).y, path.get(i).z) && !r.solid(path.get(i).x, path.get(i).y, path.get(i).z) && !r.known(path.get(i).x, path.get(i).y - 1, path.get(i).z)) { // into ground he hasn't seen: a leg into it, then a look and the plan again from there (what he sees there decides the rest)
             boolean noFloor = r.known(path.get(i).x, path.get(i).y, path.get(i).z); /* open air he sees, its floor unseen (a cell in rock he hasn't seen is a bore, the old rule: stage 910) */ // a floor he hasn't seen (the open air over it in view): no leg ends on it, the legs stop at the edge he looks down from (reviews 75, 138 11-10: legs on "Air (unseen, read as netherrack)" over 26-37 drops; stage 1472)
+            if (noFloor) { // a look already made at this floor, from somewhere else, and still unseen: ruled out, the search again (live 16:10-16:15 11-12: 516 plans to the edge from one side, 506 back from the other, the floor 9 under the ground he stood on; stage 1674)
+                Node b0 = path.get(i), s00 = path.get(0); BlockPos nb = new BlockPos(b0.x, b0.y, b0.z), st0 = new BlockPos(s00.x, s00.y, s00.z);
+                var looks = LOOKS.computeIfAbsent(r.g, q -> new ArrayList<>()); looks.removeIf(e -> r.g.tickCount - e[1] > 20 * 60 || r.g.tickCount < e[1]);
+                long[] was = looks.stream().filter(e -> BlockPos.of(e[0]).closerThan(nb, 2.5) && !BlockPos.of(e[2]).closerThan(st0, 1.5)).findFirst().orElse(null);
+                if (was != null) {
+                    UNSEEN_FLOORS.computeIfAbsent(r.g, q -> new HashMap<>()).put(nb, r.g.tickCount);
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: the floor under {},{},{} still unseen, looked for from {} {} s ago: no way over it till he sees it, the search again (NetherRoute.done)", from.toShortString(), to.toShortString(), b0.x, b0.y, b0.z, BlockPos.of(was[2]).toShortString(), (r.g.tickCount - was[1]) / 20);
+                    return RETRY;
+                }
+                looks.add(new long[] {nb.asLong(), r.g.tickCount, st0.asLong()});
+            }
             if (noFloor && i == 1) { // the first node's floor unseen from where he stands: the leg ends at the edge toward it, the last cell he sees a floor under (live 14:53 11-12: keep = max(2, i) put the leg on it, air over a lava sea 26 down; stage 1671)
                 Node s0 = path.get(0), b = path.get(1); int[] edge = null; int steps = Math.max(Math.abs(b.x - s0.x), Math.abs(b.z - s0.z));
                 for (int k = 1; k <= steps; k++) { int ex = s0.x + Math.round((b.x - s0.x) * k / (float) steps), ez = s0.z + Math.round((b.z - s0.z) * k / (float) steps), ey = Integer.MIN_VALUE;
                     for (int dy : new int[] {0, -1, 1}) if (r.known(ex, s0.y + dy - 1, ez) && r.known(ex, s0.y + dy, ez) && r.stand(ex, s0.y + dy, ez)) { ey = s0.y + dy; break; }
                     if (ey == Integer.MIN_VALUE) break; edge = new int[] {ex, ey, ez}; }
+                if (edge != null && Math.hypot(edge[0] - s0.x, edge[2] - s0.z) <= 1.5) edge = null; // (an edge in the walk's own reach: he's at it, the walk would end at once)
                 if (edge == null) { // he's at the edge and still can't see it: no node there, the search again
-                    UNSEEN_FLOORS.computeIfAbsent(r.g, q -> new HashMap<>()).put(key(b.x, b.y, b.z), r.g.tickCount);
+                    UNSEEN_FLOORS.computeIfAbsent(r.g, q -> new HashMap<>()).put(new BlockPos(b.x, b.y, b.z), r.g.tickCount);
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: the floor under {},{},{} unseen from the edge he's at: no way over it till he sees it, the search again (NetherRoute.done)", from.toShortString(), to.toShortString(), b.x, b.y, b.z);
                     return RETRY;
                 }

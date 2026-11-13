@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1709: return st1709(stage, t, c, h, level, mock);
             case 1708: return st1708(stage, t, c, h, level, mock);
             case 1707: return st1707(stage, t, c, h, level, mock);
             case 1706: return st1706(stage, t, c, h, level, mock);
@@ -23668,6 +23669,39 @@ public final class ClaudeBodyTest {
                 check(took <= 140, "along the row in " + took + " ticks (a dig and four steps: 7 s at most)");
                 pass(stage, t, "along the row past the fence in " + took + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1709 (D2D death 04:54:09 11-13 at the blaze spawner, incident 045409-death-251: half in a nether brick fence's cell at 317, 64, 491 ("in nether_brick_fence on nether_bricks" on every hurt line), "walled in where he stands" 320 times and "to the middle of his block: walling in at ..." every tick, the fence's rail in that middle: no wall put, 5 fireballs, 20 -> 0 in 15 s). Stage 1689's hall, a fence rail east-west through his cell, him at its north edge: he walls in all the same. */
+    private static int s1709T, s1709Boxed;
+    private static boolean st1709(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13420, 70, 8140);
+        if (t[0] == 1) { scenarioReset(c); s1709T = -1; s1709Boxed = -1; com.claudemod.entity.life.Gate.reset(c); }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 12 || Math.abs(x) == 14 || Math.abs(z) == 14 || x == 12 && Math.abs(z) <= 5 && y <= 5 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); /* a wall at x 12: the hide behind it, 13 steps */
+            for (int x = -3; x <= 3; x++) nl.setBlock(o.offset(x, 0, 0), Blocks.NETHER_BRICK_FENCE.defaultBlockState().setValue(net.minecraft.world.level.block.FenceBlock.EAST, x < 3).setValue(net.minecraft.world.level.block.FenceBlock.WEST, x > -3), 2); /* the rail through his cell */
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 46)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.05, 90f, 0f); /* at the rail's north edge, in its cell */ c.fallDistance = 0;
+        }
+        if (t[0] == 15) for (int k = -1; k <= 1; k++) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(o.getX() - 8.5, o.getY() + 4, o.getZ() + 0.5 + k * 3, 270, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nl.addFreshEntity(bz); }
+        if (t[0] == 20) { var b = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20)).get(0);
+            c.setHealth(16); c.setRemainingFireTicks(100); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.Attack(b.getUUID(), 20 * 30));
+            s1709T = t[0]; }
+        if (s1709T > 0 && s1709Boxed < 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            BlockPos f = c.blockPosition(); int walls = 0, roof = nl.getBlockState(f.above(2)).isAir() ? 0 : 1; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!nl.getBlockState(f.relative(d)).isAir() && !nl.getBlockState(f.relative(d).above()).isAir()) walls++;
+            if (walls == 4 && roof == 1) s1709Boxed = t[0]; }
+        if (s1709T > 0 && (s1709Boxed > 0 || c.getX() > o.getX() + 5 || t[0] >= s1709T + 20 * 10)) {
+            boolean boxed = s1709Boxed > 0; float hp = c.getHealth(); BlockPos at = c.blockPosition(); int secs = (s1709Boxed > 0 ? s1709Boxed - s1709T : t[0] - s1709T) / 20;
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); com.claudemod.entity.life.Gate.reset(c);
+            for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) b.discard();
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(boxed, "three blazes up, health 16 burning, 46 cobblestone, the hide 13 steps off: half in a fence rail's cell: not walled in where he stood (at " + at.subtract(o).toShortString() + " o-relative, health " + hp + ", " + secs + " s)");
+            pass(stage, t, "walled in in " + secs + " s");
         }
         return true;
     }

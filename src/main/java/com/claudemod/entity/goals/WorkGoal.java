@@ -7323,11 +7323,16 @@ public class WorkGoal extends Goal {
             cfMode = "out of their sight"; return true;
         }
         { // nowhere out of their sight: cover made where he stands, a block at feet and head on each side and one over him (a blaze only shoots what it sees; running in their sight is what killed him, World 15 12:06, six blazes, 20 -> 0)
+            BlockPos bx = feet; /* the cell the box goes round: his own, or, its middle taken by a fence or wall he stands at the edge of, the one beside it he can stand in the middle of (D2D death 04:54:09 11-13: half in a nether brick fence's cell, "to the middle of his block" 15 s against the fence, no wall put, 20 -> 0 in the blazes' fire; stage 1709) */
+            if (!level.noCollision(g, g.getBoundingBox().move(feet.getX() + 0.5 - g.getX(), 0, feet.getZ() + 0.5 - g.getZ()))) { bx = null; double bd = Double.MAX_VALUE;
+                for (Direction dir : Direction.Plane.HORIZONTAL) { BlockPos n0 = feet.relative(dir); if (!com.claudemod.entity.life.PlaceAim.standable(level, n0) || !level.noCollision(g, g.getBoundingBox().move(n0.getX() + 0.5 - g.getX(), 0, n0.getZ() + 0.5 - g.getZ()))) continue; double d0 = g.distanceToSqr(n0.getX() + 0.5, g.getY(), n0.getZ() + 0.5); if (d0 < bd) { bd = d0; bx = n0.immutable(); } }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] walling in: the middle of his block {} is a {}'s{} (WorkGoal.blazeRetreat)", feet.toShortString(), name(level.getBlockState(feet)), bx == null ? ", and no cell beside him to stand in the middle of: no box here" : ": the box round " + bx.toShortString() + " beside it instead"); }
+            if (bx != null) {
             java.util.List<BlockPos> box = new java.util.ArrayList<>();
-            int up = boxUp(feet); // (his head's own cell: feet + 1 on a full block, feet + 2 on a fence or wall top)
-            for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) box.add(feet.relative(dir).above(y));
+            int up = boxUp(bx); // (his head's own cell: feet + 1 on a full block, feet + 2 on a fence or wall top)
+            for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) box.add(bx.relative(dir).above(y));
             box.removeIf(c -> !level.getBlockState(c).canBeReplaced());
-            BlockPos roof = feet.above(up + 1); // (over his head: at feet + 2 on a fence top his head was in it, "to the middle of his block" every tick, never a wall; 19:11 11-11, dead; stage 1074)
+            BlockPos roof = bx.above(up + 1); // (over his head: at feet + 2 on a fence top his head was in it, "to the middle of his block" every tick, never a wall; 19:11 11-11, dead; stage 1074)
             if (level.getBlockState(roof).canBeReplaced()) { // the roof has no face of its own to go against (the wall tops are diagonal to it): a block up on one wall first, then the roof against its side, as a player does
                 boolean faced = false; for (Direction dir : Direction.Plane.HORIZONTAL) if (!level.getBlockState(roof.relative(dir)).canBeReplaced()) faced = true;
                 if (!faced) { Direction toward = Direction.getNearest(blazes.get(0).getX() - g.getX(), 0, blazes.get(0).getZ() - g.getZ()); box.add(roof.relative(toward)); }
@@ -7339,18 +7344,19 @@ public class WorkGoal extends Goal {
                 net.minecraft.world.phys.AABB body = g.getBoundingBox().deflate(0.01);
                 boolean inAWallCell = false; for (BlockPos c : box) if (body.intersects(new net.minecraft.world.phys.AABB(c))) inAWallCell = true;
                 if (inAWallCell) { // his body (0.6 wide) over a wall cell's edge: the middle of his own block first, then the walls round him (World 15 12:22: walls queued in the cells he stood across, "where he's standing" every time, dead in place)
-                    g.getNavigation().stop(); g.setSprinting(false); g.getMoveControl().setWantedPosition(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0.6);
-                    cfSay("to the middle of his block", "walling in at " + feet.toShortString() + ": his body's over a wall cell's edge (" + String.format("%.2f %.2f", g.getX(), g.getZ()) + ")");
+                    g.getNavigation().stop(); g.setSprinting(false); g.getMoveControl().setWantedPosition(bx.getX() + 0.5, bx.getY(), bx.getZ() + 0.5, 0.6);
+                    cfSay("to the middle of his block", "walling in at " + bx.toShortString() + ": his body's over a wall cell's edge (" + String.format("%.2f %.2f", g.getX(), g.getZ()) + ")");
                     return false;
                 }
                 java.util.List<BlockPos> walls = new java.util.ArrayList<>(box.subList(0, box.size() - (box.contains(roof) ? (box.size() >= 2 && box.get(box.size() - 2).getY() == roof.getY() ? 2 : 1) : 0))); java.util.List<BlockPos> top = new java.util.ArrayList<>(box.subList(walls.size(), box.size()));
                 walls.sort(java.util.Comparator.comparingDouble((BlockPos c) -> c.getY()).thenComparingDouble(c -> { double m = Double.MAX_VALUE; for (var b : blazes) m = Math.min(m, b.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(c))); return m; })); // (feet level first, each head block on the one under it; the side they're on first)
                 box.clear(); box.addAll(walls); box.addAll(top); // (the roof's support, then the roof, last)
-                { int out = 0; for (var it = g.tasks.iterator(); it.hasNext();) { Task q0 = it.next(); String o0 = com.claudemod.entity.ClaudeEntity.originOf(q0); if (q0 instanceof Task.GoTo gt && !gt.pos().equals(feet) || o0.startsWith("WorkGoal.walkTo") || o0.startsWith("WorkGoal.bendWay")) { it.remove(); out++; } } /* (a made way's digs and puts too: left queued, they dig his wall, stage 1681) */ if (out > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] walling in at {}: {} walk(s) queued for the fight in the open dropped (the fight re-plans once he's healed) (WorkGoal.blazeRetreat)", feet.toShortString(), out); } // (live 07:19 11-07, review 207: the chase walk to 213,53,516 queued before the box ran once it was up and dug it out 3 s later)
+                { int out = 0; for (var it = g.tasks.iterator(); it.hasNext();) { Task q0 = it.next(); String o0 = com.claudemod.entity.ClaudeEntity.originOf(q0); if (q0 instanceof Task.GoTo gt && !gt.pos().equals(bx) || o0.startsWith("WorkGoal.walkTo") || o0.startsWith("WorkGoal.bendWay")) { it.remove(); out++; } } /* (a made way's digs and puts too: left queued, they dig his wall, stage 1681) */ if (out > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] walling in at {}: {} walk(s) queued for the fight in the open dropped (the fight re-plans once he's healed) (WorkGoal.blazeRetreat)", bx.toShortString(), out); } // (live 07:19 11-07, review 207: the chase walk to 213,53,516 queued before the box ran once it was up and dug it out 3 s later)
                 for (int i = box.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(box.get(i).immutable(), blocks.getItem()));
                 g.getNavigation().stop(); shieldDown();
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, {} {} blaze(s)' sight: walled in where he stands ({} {} at feet, head and over him), then food, then the fight (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", boxFirst ? "the box sooner out of" : "no cell within 24 steps out of", blazes.size(), box.size(), com.claudemod.entity.life.Crafting.name(blocks.getItem()));
-                cfBoxAt = feet.immutable(); cfMode = "walling in"; return true;
+                cfBoxAt = bx.immutable(); cfMode = "walling in"; return true;
+            }
             }
         }
         g.tasks.addFirst(new Task.Flee(20 * 10));

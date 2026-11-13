@@ -283,7 +283,9 @@ public final class FortressFight {
         return new Pocket(cell.immutable(), sp.above().immutable(), walls);
     }
     /** The pocket's walls still open, each a block to put, bottom up (each against the one under or beside it). */
-    public static List<BlockPos> pocketOpen(ServerLevel level, Pocket p) { List<BlockPos> out = new ArrayList<>(); for (BlockPos q : p.walls()) if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) out.add(q); out.sort(java.util.Comparator.comparingInt(BlockPos::getY)); return out; }
+    public static List<BlockPos> pocketOpen(ServerLevel level, Pocket p) { List<BlockPos> out = new ArrayList<>(); BlockPos roof = p.cell().above(2); boolean roofIn = !level.getBlockState(roof).getCollisionShape(level, roof).isEmpty();
+        for (BlockPos q : p.walls()) if (level.getBlockState(q).getCollisionShape(level, q).isEmpty() && !(roofIn && q.getY() == roof.getY())) out.add(q); // (a prop is only the roof's footing: with the roof in, none is wanted; from inside it has no face, ~30 tries in a fight, stage 1714)
+        out.sort(java.util.Comparator.comparingInt(BlockPos::getY)); return out; }
     /** The pocket to make at this spawner: a cell beside the cage with room to stand, the cell over the cage open, every open wall cell one a block goes in; fewest blocks, then nearest him. Null: none. */
     public static Pocket pocketAt(ClaudeEntity g, ServerLevel level, BlockPos sp) {
         if (!level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty()) return null;

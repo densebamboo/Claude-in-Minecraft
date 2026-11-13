@@ -339,7 +339,7 @@ public final class TempLedger {
         if (cover > 0) ClaudeMod.LOGGER.info("[Claude temp] off to {}: {} block(s) of the cover he's in left standing, the cover's own steps take them down (TempLedger.stepStart)", skill, cover);
         if (near.isEmpty()) return 0;
         near.sort(Comparator.comparingInt((Entry e) -> -e.pos.getY()));
-        g.tasks.addFirst(new Task.Pickup(60));
+        { var pk = new Task.Pickup(60); g.tempPickup = pk; g.tempPickupY = g.getBlockY(); g.tasks.addFirst(pk); }
         for (int i = near.size() - 1; i >= 0; i--) { Entry e = near.get(i); g.tasks.addFirst(new Task.Break(e.pos)); e.triedAt = g.tickCount; e.awayAfterTry = false; e.now = line(g); }
         g.tablePlacedTick = -100000;
         ClaudeMod.LOGGER.info("[Claude temp] off to {}: {} of his temporary blocks round him back up first: {}", skill, near.size(), near);
@@ -444,7 +444,7 @@ public final class TempLedger {
           if (!refused.isEmpty()) { batch.removeAll(refused); ClaudeMod.LOGGER.info("[Claude temp] setting off for {}: {} of his temporary blocks left standing, their digs refused again by the gate (no way to them): {} (TempLedger.leaving)", to.toShortString(), refused.size(), refused); }
           if (batch.isEmpty()) return false; }
         if (walkingNow) { g.tasks.addFirst(go); ClaudeLife.dropCurrent(g); g.getNavigation().stop(); } // (turned back for them, then on; the walk's path stopped too: the dropped walk's path kept him running east 12 more blocks while the break was "on")
-        g.tasks.addFirst(new Task.Pickup(60));
+        { var pk = new Task.Pickup(60); g.tempPickup = pk; g.tempPickupY = g.getBlockY(); g.tasks.addFirst(pk); }
         for (int i = batch.size() - 1; i >= 0; i--) { Entry e = batch.get(i); g.tasks.addFirst(new Task.Break(e.pos)); e.triedAt = g.tickCount; e.awayAfterTry = false; e.now = line(g); }
         ClaudeMod.LOGGER.info("[Claude temp] setting off for {} ({} off) with {} of his temporary blocks standing here: back up first: {} (TempLedger.leaving)", to.toShortString(), (int) Math.sqrt(to.distSqr(me)), batch.size(), batch);
         return true;

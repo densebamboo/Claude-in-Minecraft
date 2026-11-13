@@ -188,6 +188,7 @@ public class ClaudeEntity extends ServerPlayer {
      * reused, never taken.
      */
     public final List<BlockPos> tempStations = new ArrayList<>();
+    public Task.Pickup tempPickup; public int tempPickupY; // the pickup after his temp blocks come back up, and the level he took them from (TempLedger.leaving/stepStart; WorkGoal.doPickup prices drops fallen below it)
     public int retoolTick = -100000; // last time he stopped to make a tool (not bare-handed)
     public int gatherForCraftTick = -100000; // went to gather what a craft was missing
     public java.util.Map<String, Integer> expandTicks = new java.util.HashMap<>(); // per thing made: when a craft or smelt last expanded into its chain

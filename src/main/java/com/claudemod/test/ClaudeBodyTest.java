@@ -11107,6 +11107,7 @@ public final class ClaudeBodyTest {
             case 1626: return st1626(stage, t, c, h, level, mock);
             case 1627: return st1627(stage, t, c, h, level, mock);
             case 1629: return st1629(stage, t, c, h, level, mock);
+            case 1630: return st1630(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24842,6 +24843,39 @@ public final class ClaudeBodyTest {
             check(mx < 50, "down into the pit after the drops of his bridge (at x " + String.format("%.1f", mx - 100) + ")");
             check(at < -30, "the walk west not done in 15 s: at " + String.format("%.1f", at));
             pass(stage, t, "his bridge left or taken from the edge, never down the pit after it, the walk on (" + String.format("%.1f", mx) + ", at " + String.format("%.1f", at) + ")");
+        }
+        return true;
+    }
+    /** Stage 1630 (D2D 144000-23 and -21, PLACE_BREAK 14:38:06, live 14:38:05-14:38:54 11-12 in the Nether): up his 3-block pillar onto a ledge, walking on 59 off: "setting off with temp blocks standing: back up first" took the pillar from the top, the block 2 under his feet too; its cobble fell down the pillar, his pickup went down after it, and the walk pillared up again (59, then 71 off), then hopped a gap there and back for a bridge block. A player leaves what's 2+ under his feet: its drop lands where the way back is a climb. */
+    private static double s1630MinY; private static BlockPos s1630O = new BlockPos(23400, 90, 23400);
+    private static boolean st1630(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = s1630O;
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -64; k <= 16; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -56; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), y == -2 || y == -1 && x >= -1 || y == 2 && x <= -1 && Math.abs(z) <= 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (the ground at y -1 east; a 3-wide ledge at y 2 west of x -1, open under it)
+            c.teleportTo(level, o.getX() + 0.5, o.getY() + 3, o.getZ() + 0.5, 90f, 0f);
+            for (int y = 0; y <= 2; y++) { BlockPos his = o.offset(0, y, 0); level.setBlock(his, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, his, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); } // (his pillar up to the ledge's level)
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.COBBLESTONE, 6)); inv.add(new ItemStack(Items.COOKED_BEEF, 16)); inv.selected = 0;
+            c.teleportTo(level, o.getX() - 0.5, o.getY() + 3, o.getZ() + 0.5, 90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000); // (stepped off it onto the ledge)
+            c.tasks.clear(); c.currentTask = null; c.nextPlanTick = c.tickCount + 20 * 600; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f);
+            s1630MinY = 100;
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 14) {
+            check(com.claudemod.entity.life.TempLedger.has(c, o.offset(0, 1, 0)), "setup: his pillar not booked as temporary: " + com.claudemod.entity.life.TempLedger.book(c).values());
+            c.tasks.add(new Task.GoTo(o.offset(-48, 3, 0), 1.5));
+        }
+        if (t[0] > 14) s1630MinY = Math.min(s1630MinY, c.getY() - o.getY());
+        if (t[0] == 14 + 300) {
+            double my = s1630MinY, at = c.getX() - o.getX();
+            for (int x = -56; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard();
+            com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.currentTask = null; c.getInventory().clearContent(); c.prefs.remove("stay_close");
+            check(my > 1.5, "down off his ledge after the pillar's drops (feet down to " + String.format("%.1f", my) + ", the ledge at 3)");
+            check(at < -30, "the walk west not done in 15 s: at " + String.format("%.1f", at));
+            pass(stage, t, "his pillar's low blocks left, never down after them, the walk on (lowest " + String.format("%.1f", my) + ", at " + String.format("%.1f", at) + ")");
         }
         return true;
     }

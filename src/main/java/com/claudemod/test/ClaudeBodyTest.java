@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1697: return st1697(stage, t, c, h, level, mock);
             case 1696: return st1696(stage, t, c, h, level, mock);
             case 1695: return st1695(stage, t, c, h, level, mock);
             case 1694: return st1694(stage, t, c, h, level, mock);
@@ -23317,6 +23318,30 @@ public final class ClaudeBodyTest {
                 pass(stage, t, "the torch in from the row's floor in " + (t[0] - 14) + " ticks, him at " + at.toShortString() + ", no roof cell dug");
             }
         }
+        return true;
+    }
+    /** Stage 1697 (D2D pass 223508: "GEAR GONE: 1 iron_sword" 22:04:58 and "GEAR GONE: 1 shield" 22:15:39 with no line where they went; the sword was in his pack before and after and wore out (logged) at 22:13:06, the shield blocked six hits after it; Watchdog.important dropped any gear under a tenth of its wear from the count, so wearing down past that line read as a loss). His sword worn down past a tenth, then gone at the end of its wear, then his whole shield gone: no GEAR GONE for the sword, one for the shield. */
+    private static boolean st1697(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); flatBox(h); }
+        try {
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            ItemStack sw = new ItemStack(Items.IRON_SWORD); sw.setDamageValue(sw.getMaxDamage() - 30); c.getInventory().add(sw); c.getInventory().add(new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(7, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+        }
+        if (t[0] == 50) for (int i = 0; i < c.getInventory().getContainerSize(); i++) { ItemStack s = c.getInventory().getItem(i); if (s.is(Items.IRON_SWORD)) s.setDamageValue(s.getMaxDamage() - 5); } /* worn past a tenth */
+        if (t[0] == 90) for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.IRON_SWORD)) c.getInventory().setItem(i, ItemStack.EMPTY); /* gone at the end of its wear */
+        if (t[0] == 130) { c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.SHIELD)) c.getInventory().setItem(i, ItemStack.EMPTY); } /* his whole shield gone */
+        if (t[0] == 170) {
+            String w = W.toString(); com.claudemod.entity.life.Watchdog.linesInTests = false; c.getInventory().clearContent();
+            int n = 0; for (String k : W) if (k.equals("GEAR GONE")) n++; String last = com.claudemod.entity.life.Watchdog.lastIncident;
+            check(n == 1, n + " GEAR GONE for a sword worn down past a tenth and out, and a whole shield gone (one, the shield's, is right): " + w + ", last " + last);
+            check(last.contains("shield"), "the one GEAR GONE isn't the shield's: " + last);
+            pass(stage, t, w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

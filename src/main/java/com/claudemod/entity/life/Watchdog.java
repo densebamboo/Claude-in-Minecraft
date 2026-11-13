@@ -79,6 +79,7 @@ public final class Watchdog {
         float plannedHp; int plannedAt = -100000; // a planned drop's damage as Leaps planned it (HEALTH FALLING leaves it out)
         int lastFall = -100000, lastNoEffect = -100000, lastMove = -100000; // (each detector says so at most every 30 s)
         java.util.Map<String, Integer> gear;                 // his important gear by item, a second ago
+        java.util.Set<String> worn;                          // the kinds of it with a stack under a tenth of its wear, a second ago
         String quickLine; int quickTick, quickN;             // a skill line coming straight back
         String lastTold = ""; int lastTellTick = -1;                                // (stages read it)
         int trips;
@@ -373,7 +374,6 @@ public final class Watchdog {
     static boolean important(net.minecraft.world.item.ItemStack st) {
         if (st.isEmpty()) return false;
         String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath();
-        if (st.isDamageableItem() && st.getMaxDamage() - st.getDamageValue() < st.getMaxDamage() / 10) return false;
         if (st.isDamageableItem()) return id.startsWith("iron_") || id.startsWith("diamond_") || id.startsWith("netherite_") || id.equals("shield") || id.equals("bow") || id.equals("crossbow") || id.equals("flint_and_steel");
         return false; // (diamonds, rods, pearls, eyes and buckets get used up in crafts and throws: no telling a loss from a use)
     }
@@ -797,8 +797,17 @@ public final class Watchdog {
         } else s.atkTarget = null;
         // 4. important gear gone with no death (smelted, dropped, broken)
         var now = gearOf(g);
-        if (s.gear != null && now(g) - s.handOff > 40) { java.util.List<String> lost = new java.util.ArrayList<>(); for (var e : s.gear.entrySet()) { int left = now.getOrDefault(e.getKey(), 0); if (left < e.getValue()) lost.add((e.getValue() - left) + " " + e.getKey()); } if (!lost.isEmpty()) incident(g, "GEAR GONE", String.join(", ", lost) + " (doing " + (g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName()) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")"); }
-        s.gear = now;
+        if (s.gear != null && now(g) - s.handOff > 40) { java.util.List<String> lost = new java.util.ArrayList<>(); for (var e : s.gear.entrySet()) { int left = now.getOrDefault(e.getKey(), 0); if (left >= e.getValue()) continue;
+                if (s.worn != null && s.worn.contains(e.getKey())) { String lb = OwnEvents.lastBroke; int at = lb.indexOf('@'); boolean said = at > 0 && lb.substring(0, at).equals(e.getKey()) && g.tickCount - Integer.parseInt(lb.substring(at + 1)) <= 40;
+                    if (!said) com.claudemod.ClaudeMod.LOGGER.info("[Claude gear] his {} gone at the end of its wear (under a tenth left a second before): worn out, read by his gear count, doing {} (Watchdog)", e.getKey(), g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName());
+                    continue; } /* (worn out, not lost: important() once left worn gear out of the count instead, so wearing past a tenth read as GEAR GONE: D2D 22:04:58 sword, 22:15:39 shield; stage 1697) */
+                lost.add((e.getValue() - left) + " " + e.getKey()); } if (!lost.isEmpty()) incident(g, "GEAR GONE", String.join(", ", lost) + " (doing " + (g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName()) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")"); }
+        s.gear = now; s.worn = wornOf(g);
+    }
+    private static java.util.Set<String> wornOf(ClaudeEntity g) {
+        java.util.Set<String> m = new java.util.HashSet<>(); java.util.List<net.minecraft.world.item.ItemStack> all = new java.util.ArrayList<>(); for (int i = 0; i < g.inventory.items.getContainerSize(); i++) all.add(g.inventory.items.getItem(i)); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) all.add(g.getItemBySlot(sl));
+        for (var st : all) if (important(st) && st.getMaxDamage() - st.getDamageValue() < st.getMaxDamage() / 10) m.add(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath());
+        return m;
     }
 
     /**

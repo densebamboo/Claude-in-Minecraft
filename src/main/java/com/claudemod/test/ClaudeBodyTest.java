@@ -26719,7 +26719,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.CRIMSON_NYLIUM : y == 6 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
             for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
-            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 1)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 1)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); /* (a furnace's stone: with none to cook on, the hunt is out, stage 1635) */ c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
         }
         if (t[0] == 15) for (int i = 0; i < 2; i++) { var hg = net.minecraft.world.entity.EntityType.HOGLIN.create(nl); hg.moveTo(o.getX() + 14.5, o.getY(), o.getZ() + 0.5 + i * 2); hg.setNoAi(true); hg.setPersistenceRequired(); nl.addFreshEntity(hg); s841Mobs.add(hg); }

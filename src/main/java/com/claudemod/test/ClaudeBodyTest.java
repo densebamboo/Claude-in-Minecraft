@@ -10564,6 +10564,7 @@ public final class ClaudeBodyTest {
             case 1703: return st1703(stage, t, c, h, level, mock);
             case 1702: return st1702(stage, t, c, h, level, mock);
             case 1750: return st1750(stage, t, c, h, level, mock);
+            case 1751: return st1751(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23472,6 +23473,32 @@ public final class ClaudeBodyTest {
             check(wood == 0, "made a wooden sword with an iron axe on him (" + wood + ", planks left " + planks + ")");
             check(iron == 1, "no iron sword from 2 ingots with only an iron axe (" + iron + ")");
             pass(stage, t, "the iron axe kept over a wooden sword, the iron sword still made");
+        }
+        return true;
+    }
+    /** Stage 1751 (D2D death-117, live 11:47:40-11:47:49 11-13 at -134,14,-626: digging the stone 2 over his head, a gravel column on it with lava he'd noted beside the gravel; the stone out, the gravel came down on him and the lava after it, 20 -> 0): the stone over his head holds up gravel 2 high, lava he knows of beside the top gravel. The stone stays: the column holds the lava back. */
+    private static BlockPos s1751B;
+    private static boolean st1751(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-2, 0, -2), me.offset(2, 6, 2))) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); // (rock all round, as down his mine)
+            level.setBlock(me, Blocks.AIR.defaultBlockState(), 2); level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2);
+            s1751B = me.above(2).immutable(); level.setBlock(me.above(3), Blocks.GRAVEL.defaultBlockState(), 2); level.setBlock(me.above(4), Blocks.GRAVEL.defaultBlockState(), 2);
+            BlockPos lava = me.above(4).north(); level.setBlock(lava, Blocks.LAVA.defaultBlockState(), 2);
+            com.claudemod.director.ClaudeLife.lavaSeen(c).add(lava.immutable()); // (he noted it, as live: "lava list ... on it")
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Break(s1751B));
+        }
+        if (t[0] > 10 && s1751B != null && t[0] - 10 >= 200) {
+            boolean dug = !level.getBlockState(s1751B).is(Blocks.STONE); boolean lavaOnHim = !level.getFluidState(c.blockPosition()).isEmpty() || !level.getFluidState(c.blockPosition().above()).isEmpty() || c.isInLava();
+            String q = level.getBlockState(s1751B).getBlock() + ", health " + (int) c.getHealth() + ", now=" + c.currentTask + " tasks=" + c.tasks.stream().limit(4).toList();
+            c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20); com.claudemod.director.ClaudeLife.lavaSeen(c).removeIf(p -> p.distManhattan(s1751B) <= 4); flatBox(h);
+            check(!dug, "the stone under the gravel column dug out with lava he knows of beside the gravel: " + q);
+            check(!lavaOnHim, "lava down the column onto him: " + q);
+            pass(stage, t, "the stone holding up the gravel under the lava left standing");
         }
         return true;
     }

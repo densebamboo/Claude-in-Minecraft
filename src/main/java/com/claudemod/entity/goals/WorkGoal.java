@@ -1916,6 +1916,13 @@ public class WorkGoal extends Goal {
     }
     public boolean inReachOf(BlockPos pos) { return inReach(pos); }
     /** doBreak's lava guard on a block: lava he knows of beside it (not under it) that no block of his plugs from this side. */
+    /** Lava he knows of at a falling column over that block (gravel, sand): the block out, the column comes down and the lava runs in after it (D2D death-117, live 11:47 11-13; stage 1751). Null: none. */
+    private BlockPos lavaOverColumn(ServerLevel level, BlockPos pos) {
+        BlockPos c = pos.above();
+        for (int i = 0; i < 16 && level.getBlockState(c).getBlock() instanceof net.minecraft.world.level.block.FallingBlock; i++, c = c.above())
+            for (Direction d : Direction.values()) { if (d == Direction.DOWN) continue; BlockPos a = c.relative(d); if (level.getFluidState(a).is(net.minecraft.tags.FluidTags.LAVA) && com.claudemod.entity.life.Perception.knowsLavaBody(g, level, a)) return a.immutable(); }
+        return null;
+    }
     public boolean lavaHolds(ServerLevel level, BlockPos pos) { for (Direction d : Direction.values()) { if (d == Direction.DOWN) continue; BlockPos a = pos.relative(d); if (level.getFluidState(a).is(net.minecraft.tags.FluidTags.LAVA) && com.claudemod.entity.life.Perception.knowsLavaBody(g, level, a) && plugFace(level, pos, a) == null) return true; } return false; }
     private boolean inReach(BlockPos pos) {
         Vec3 eye = g.getEyePosition(); // a player's reach: a face of it he sees, its point inside 4.5 (block_interaction_range), aimed at as blockInTheWay aims; 4.25 to the middle left a floating log 4.37 off, a face 3.8 off, "can't get at it" (reviews 199/200, stage 988)
@@ -2319,6 +2326,10 @@ public class WorkGoal extends Goal {
             if (ticks == 1) com.claudemod.director.ClaudeLife.lavaBehind(g, pos, pos.relative(d)); // (the goal wants lava: this face is where it is)
             return exit("doBreak line 1455");
         }
+        { BlockPos lc = com.claudemod.director.ClaudeLife.isCastBlock(pos) ? null : lavaOverColumn(level, pos); if (lc != null) { // the gravel over it holds the lava back: a player leaves that block in
+            failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "lava he knows of beside it, over the gravel on it"); // ("lava he knows of beside it": Attempts reopens it when the blocks round it change)
+            if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking {}: the {} over it holds back lava at {} (WorkGoal.doBreak)", pos.toShortString(), name(level.getBlockState(pos.above())), lc.toShortString());
+            return exit("lava over the gravel on it (doBreak)"); } }
         if (liftedLava != null) { BlockPos stand0 = com.claudemod.entity.life.Consent.safeStand(g, level, pos, liftedLava); if (stand0 == com.claudemod.entity.life.Consent.REFUSE) { failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "the block under his feet by lava"); return exit("the block under his feet by lava: never dug from on top (Consent.safeStand)"); } if (stand0 != null) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(stand0, 0.3)); return exit("their word over the lava hold: to the safe stand first (Consent.safeStand)"); } } // (the same step the safe way: beside or above, never under it)
         if (pos.equals(g.blockPosition().below()) && g.onGround() && !g.isInWater() && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !(digInTasks != null && digInTasks.stream().anyMatch(t -> t.equals(current)))) { // (by value: grass on the cell came off first and the hole's dig came back as a new Break, the exemption missed it and the hole was dug from beside, the lid put on with him outside: live 10:29 11-11, D2D reviews 285/72, stage 1512) (his cast's pillar comes down under his feet by design) // the block under his own feet, with a drop beneath it (the dig-in hole is three down on purpose and knows the ground: exempt): not from up here (the last floating log of a tree, dug out from under him: a 5-block fall, every tree test since falls started to hurt)
             if (!com.claudemod.entity.life.TempLedger.built(g, pos) && !state.is(net.minecraft.tags.BlockTags.LOGS) && !state.is(net.minecraft.tags.BlockTags.LEAVES)) { BlockPos side = sideStand(level, pos); // the ground he stands on, natural: what's under it he hasn't seen (a cave, lava), so from a side cell like a player, not from on top (live 06:40 11-09, review 358: iron under his feet, 4 down into a cave, an 8-block shaft back up; stage 1301, lava 1302)

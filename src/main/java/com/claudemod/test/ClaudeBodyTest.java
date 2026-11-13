@@ -11120,6 +11120,7 @@ public final class ClaudeBodyTest {
             case 1633: return st1633(stage, t, c, h, level, mock);
             case 1634: return st1634(stage, t, c, h, level, mock);
             case 1635: return st1635(stage, t, c, h, level, mock);
+            case 1636: return st1636(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25204,6 +25205,30 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check("hunt hoglins".equals(pick), "8 cobblestone on him (a furnace made here): the hoglin hunt should be back (" + pick + ")");
             pass(stage, t, "the hoglin hunt out with no furnace to be had, back with 8 cobblestone");
+        }
+        return true;
+    }
+    /** Stage 1636 (D2D review 173153-102, live 17:29:35-17:29:46 11-12: the trip stash sent him to his junk chest for a spare pick; the junk chest takes no gear or ore with room in his pack, "stored 0", and the stash queued the store again 3 times in 11 s: the "store just ran" check read lastStep, already enter_portal). His junk chest 2 off and a third stone pick, 6+ free slots: no stash there; with his storage chest 5 off it goes there, once. */
+    private static boolean st1636(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = c.blockPosition().immutable();
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.prefs.put("stay_close", "no"); c.attempts.clear(); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos junk = me.offset(2, 0, 0); level.setBlock(junk, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(junk); c.myStations.add(junk); c.prefs.put("junk_chests", junk.getX() + " " + junk.getY() + " " + junk.getZ());
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0;
+            inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.items.set(1, new ItemStack(Items.STONE_PICKAXE)); inv.items.set(2, new ItemStack(Items.STONE_PICKAXE)); inv.items.set(3, new ItemStack(Items.STONE_PICKAXE)); inv.items.set(4, new ItemStack(Items.COOKED_SALMON, 20)); inv.items.set(5, new ItemStack(Items.TORCH, 64));
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("enter_portal", "nether", 1); level.setDayTime(6000);
+            String r = com.claudemod.director.ClaudeLife.stashForTripTest(c, level); boolean queued = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("store")); c.skillQueue.clear();
+            check(r == null && !queued, "his junk chest the only storage, 6+ free slots: the stash sent him there for a spare pick it won't take (" + r + ")");
+            BlockPos store = me.offset(-5, 0, 0); level.setBlock(store, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(store); c.myStations.add(store);
+            String r2 = com.claudemod.director.ClaudeLife.stashForTripTest(c, level); c.skillQueue.removeIf(s0 -> s0.skill().equals("store"));
+            String r3 = com.claudemod.director.ClaudeLife.stashForTripTest(c, level); c.skillQueue.clear(); // (the store ran and he's back at enter_portal: lastStep is enter_portal, not store)
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            inv.clearContent(); c.storageChests.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.prefs.remove("junk_chests"); c.prefs.remove("stay_close"); c.lastStep = null; c.attempts.clear();
+            check(r2 != null && r2.contains(store.toShortString()), "his storage chest 5 off: the spare pick not sent there (" + r2 + ")");
+            check(r3 == null, "the store just ran for this trip: queued again (" + r3 + ")");
+            pass(stage, t, "no stash at his junk chest; his storage chest once: " + r2);
         }
         return true;
     }

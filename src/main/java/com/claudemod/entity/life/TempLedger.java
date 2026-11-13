@@ -483,7 +483,15 @@ public final class TempLedger {
           if (light < 8) { double cave = Decide.caveS(g, at, walk, walk / 2); take += cave; risk += ", dark there (light " + light + ") " + Decide.caveSaid(g, cave); }
           double pts = 0; for (Entry e : batch) pts += com.claudemod.director.ClaudeLife.worthEach(new net.minecraft.world.item.ItemStack(level.getBlockState(e.pos).getBlock().asItem()));
           double leave = pts * Weights.w("recovery.trip_s_per_point", 3) + Weights.w("tidy.litter_s", 15) * batch.size();
-          var fetch = Decide.Option.of("take them up now", take, "~" + Math.round(walk) + " s there and back, " + Math.round(way) + " blocks" + risk);
+          String dug = "";
+          { var nav0 = g.getNavigation().createPath(at, 1); // no plain walk to them: the way he would make, priced as made, its new holes litter of their own (live 13:40:30 11-13 at -147,16,-629: "~5 s, 14 blocks" for 2 cobbles, the way made 18 digs through rock and his mine's wall, and its cuts looped ~40 min; stage 1339)
+            if (nav0 == null || !nav0.canReach()) {
+              var pl = com.claudemod.entity.nav.ActionPath.plan(g, level, me, at, 4.0, true, 3000); // (none in this short search: the walker plans with more room, the straight price stands; stage 1605)
+              if (pl != null && pl.digs() > 0) { int holes = 0; for (var a0 : pl.acts()) if (a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d0 && !has(g, d0.pos()) && (g.blueprint == null || g.blueprint.roleAt(d0.pos()) == null)) holes++;
+                double digS = pl.digs() * Weights.w("tidy.way_dig_s", 0.75); walk = 2 * pl.walks() / Decide.sprint() + digS; way = pl.walks();
+                take += digS + holes * Weights.w("tidy.litter_s", 15);
+                dug = ", " + pl.digs() + " dig(s) on the way, " + holes + " of them new holes in the rock (litter of their own)"; } } }
+          var fetch = Decide.Option.of("take them up now", take, "~" + Math.round(walk) + " s there and back, " + Math.round(way) + " blocks" + dug + risk);
           var later = Decide.Option.of("leave them for now", leave, "their worth and the litter; weighed again in a minute");
           if (Decide.choose(g, "tidy.fetch", batch.size() + " of his temporary blocks at " + at.toShortString() + ": " + batch, true, List.of(fetch, later)) != fetch) { for (Entry e : batch) e.triedAt = g.tickCount + 20 * 60; return; } }
         for (Entry e : batch) { g.tasks.add(new Task.Break(e.pos)); e.triedAt = g.tickCount; e.awayAfterTry = false; e.now = line(g); }

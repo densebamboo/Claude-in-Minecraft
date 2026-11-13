@@ -11185,6 +11185,7 @@ public final class ClaudeBodyTest {
             case 1335: return st1335(stage, t, c, h, level, mock);
             case 1336: return st1336(stage, t, c, h, level, mock);
             case 1338: return st1338(stage, t, c, h, level, mock);
+            case 1339: return st1339(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -27066,6 +27067,40 @@ public final class ClaudeBodyTest {
             if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.clearContent(); level.setBlock(fp, Blocks.AIR.defaultBlockState(), 2);
             check(n <= 1, "16 s at the furnace, nothing changed: the same side job tried and dropped " + n + " times");
             pass(stage, t, "one try, " + n + " \"queued nothing\", the plan as it was: " + q);
+        }
+        return true;
+    }
+    /** Stage 1339 (D2D, live 13:40:30 11-13 at -147,16,-629 down his mine: tidy.fetch priced "~5 s there and back, 14 blocks" for 2 temporary cobbles at -149,14,-617, and the way made for them was 18 digs through rock and his mine's wall; that way's cuts and put-backs looped ~40 min, PLACE_BREAK 134033-1). Him shut in a room, his 2 temporary cobbles 10 off by a shaft to the sky, rock between: left (the trip digs more new holes than it takes up). The control: a corridor to them, taken up. */
+    private static boolean st1339(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(3, 2, 3)), a = h.absolutePos(new BlockPos(3, 2, 13)), b = a.above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; c.staying = false; com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 5) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            level.setDayTime(6000);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-1, 0, -1), me.offset(1, 1, 1))) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            for (int y = 2; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(3, y, 14)), Blocks.AIR.defaultBlockState(), 2); // a shaft to the sky beside them: they face the open, not a shut-off pocket
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); for (int k = 0; k < 3; k++) c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+        }
+        Runnable put = () -> { com.claudemod.entity.life.TempLedger.reset(c); for (BlockPos q : new BlockPos[] {a, b}) { level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2); try { var k = com.claudemod.entity.life.TempLedger.Entry.class.getDeclaredConstructor(BlockPos.class, String.class, String.class, long.class, String.class, String.class); k.setAccessible(true); com.claudemod.entity.life.TempLedger.book(c).put(q.immutable(), k.newInstance(q.immutable(), "cobblestone", q.equals(a) ? "nerd-pole" : "cover", level.getGameTime() - 20 * 600, "", "")); } catch (Exception e) { check(false, "no booking: " + e); } } }; // (booked as live: placed() reads a cell walled round as a hole filled)
+        java.util.function.BooleanSupplier tidied = () -> { try { var m = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("tidy", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { check(false, "no call: " + e); }
+            boolean went = c.tasks.stream().anyMatch(x -> x instanceof Task.Break k && (k.pos().equals(a) || k.pos().equals(b))); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; return went; };
+        if (t[0] == 12) put.run();
+        if (t[0] == 30) {
+            check(com.claudemod.entity.life.TempLedger.entry(c, a) != null && com.claudemod.entity.life.TempLedger.entry(c, b) != null, "setup: the two cobbles not on his book");
+            boolean went = tidied.getAsBoolean();
+            check(!went, "his 2 temporary cobbles 10 off through rock (no walk there, ~16 digs): the tidy sent him to dig his way to them");
+            for (int z = 5; z <= 12; z++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(3, y, z)), Blocks.AIR.defaultBlockState(), 2); // the control: a corridor to them
+            put.run();
+        }
+        if (t[0] == 35) {
+            boolean went = tidied.getAsBoolean();
+            com.claudemod.entity.life.TempLedger.reset(c); c.getInventory().clearContent();
+            check(went, "the control: a corridor to the same 2 cobbles, not taken up");
+            pass(stage, t, "through rock they stay (the trip's digs priced), down a corridor they are taken up");
         }
         return true;
     }

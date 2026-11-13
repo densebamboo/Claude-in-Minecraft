@@ -270,7 +270,8 @@ public final class Watchdog {
             ClaudeMod.LOGGER.info("[Claude watchdog] {}: rung 2, written off ({} queued copies dropped): the way round, another spot for the job (Watchdog.climb)", k, n);
             return;
         }
-        tell(g, k, "stuck: " + s.what.getOrDefault(k, what) + "; tried " + s.tried.getOrDefault(k, tried) + ". moving on to something else, a hand there would help");
+        String tr = s.tried.getOrDefault(k, tried); boolean ownWay = (tr.contains("my own way:") || tr.contains("a walk round (")) && !tr.contains("no way to dig, bridge or pillar"); /* (his own way was made and didn't hold: a hand there changes nothing; live 20:29:13 11-12, his walk's put held back by his own ore-hole rule, "a hand there would help" read as asking for help, review 203000-43) */
+        tell(g, k, "stuck: " + s.what.getOrDefault(k, what) + "; tried " + tr + ". moving on to something else" + (ownWay ? "" : ", a hand there would help"));
         for (var it = g.tasks.iterator(); it.hasNext(); ) if (k.equals(key(it.next()))) it.remove();
     }
 

@@ -7161,6 +7161,14 @@ public class WorkGoal extends Goal {
     private int blazeHeldSaid = -1;
     /** How many cells over his feet cell the wall-in's walls go: to his head's own cell (1 standing on a full block, 2 on a fence or wall top, his head then a cell higher). */
     private int boxUp(BlockPos feet) { return Math.max(1, net.minecraft.util.Mth.floor(g.getBoundingBox().maxY - 0.01) - feet.getY()); }
+    /** Blocks to wall him in where he stands (walls to his head, a roof), or -1: no blocks enough, or a mob fills a cell (logged). */
+    private int boxCount(ServerLevel lv, BlockPos feet, boolean say) {
+        int up = boxUp(feet), boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(up + 1)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
+        net.minecraft.world.entity.Entity boxIn = null; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up + 1; y++) { BlockPos q = y > up ? feet.above(up + 1) : feet.relative(dir).above(y); for (var e : lv.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(q), e0 -> e0 != g && e0.isAlive())) boxIn = e; } // (a box cell a mob fills takes no block: live 01:34:09 11-12, review 013454-48, "boxed in where he stands, 10 blocks", the first wall "didn't take (in the way: Blaze)", the fight in the open; stage 1587)
+        final int boxN0 = boxN; var boxIt = com.claudemod.entity.life.FortressFight.wallItem(g, boxN); boolean box = boxN > 0 && boxIt != null && g.inventory.count(x -> x.is(boxIt)) >= boxN0 && boxIn == null;
+        if (say && boxIn != null && g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] no box-in where he stands: a {} at {} fills one of its cells (WorkGoal.blazeRetreatPays)", boxIn.getType().getDescription().getString(), boxIn.blockPosition().toShortString()); // (all his stacks of one kind: one stack of 2 cobblestone read as no blocks with 112 netherrack on him, death 57)
+        return box ? boxN : -1;
+    }
     private boolean blazeRetreatPays() {
         ServerLevel lv = (ServerLevel) g.level();
         var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
@@ -7174,10 +7182,9 @@ public class WorkGoal extends Goal {
         java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : all) if (com.claudemod.entity.life.FortressFight.sees(lv, b, c)) return false; return true; };
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
         BlockPos hide = hidden.test(feet) ? feet : blazeHideCell(lv, feet, hidden, steps);
-        int up = boxUp(feet), boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(up + 1)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
-        net.minecraft.world.entity.Entity boxIn = null; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up + 1; y++) { BlockPos q = y > up ? feet.above(up + 1) : feet.relative(dir).above(y); for (var e : lv.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(q), e0 -> e0 != g && e0.isAlive())) boxIn = e; } // (a box cell a mob fills takes no block: live 01:34:09 11-12, review 013454-48, "boxed in where he stands, 10 blocks", the first wall "didn't take (in the way: Blaze)", the fight in the open; stage 1587)
-        final int boxN0 = boxN; var boxIt = com.claudemod.entity.life.FortressFight.wallItem(g, boxN); boolean box = hide == null && boxN > 0 && boxIt != null && g.inventory.count(x -> x.is(boxIt)) >= boxN0 && boxIn == null;
-        if (hide == null && boxIn != null && g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] no box-in where he stands: a {} at {} fills one of its cells (WorkGoal.blazeRetreatPays)", boxIn.getType().getDescription().getString(), boxIn.blockPosition().toShortString()); // (all his stacks of one kind: one stack of 2 cobblestone read as no blocks with 112 netherrack on him, death 57)
+        int boxN = boxCount(lv, feet, hide == null);
+        boolean box = boxN > 0 && (hide == null || boxN * w("cover.place_s", 0.35) / 2 < steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint()); // the box against the run to the hide, by their time in sight (death 19:38:42 11-12: a hide 17 steps off, ~18 HP of fireballs at 16 HP, the box with 46 cobblestone never priced; stage 1689)
+        if (box) hide = null;
         double walk = hide != null ? steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint() : box ? boxN * w("cover.place_s", 0.35) / 2 : w("blaze.open_run_s", 15); // (a box: the build is the time in their sight, counted twice below as there-and-back)
         double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
         double leaveHp = n * walk * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
@@ -7267,6 +7274,8 @@ public class WorkGoal extends Goal {
             return false;
         }
         java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); BlockPos hide = blazeHideCell(level, feet, hidden, dist);
+        boolean boxFirst = false;
+        { int bn = hide == null ? -1 : boxCount(level, feet, false); if (bn > 0 && bn * w("cover.place_s", 0.35) / 2 < dist.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}: walled in where he stands ({} blocks) before the hide at {}, {} steps through their sight (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", bn, hide.toShortString(), dist.getOrDefault(hide, 0)); hide = null; boxFirst = true; } } // (stage 1689)
         g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
         if (hide != null && cv != null && com.claudemod.entity.life.FortressFight.wallItem(g) != null) { // a cover a few blocks from done beside him against the run to the hide: the shorter time in their sight (D2D review 150321-12, live 14:59:10 11-11: "built: 1 cobblestone" counted as no cover, 16 steps through 5 blazes' sight, 13 -> 10; stage 1561)
             int k = com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv).size(); double buildS = k * w("cover.place_s", 0.35) + Math.sqrt(cv.cover().distSqr(feet)) / com.claudemod.entity.life.Decide.sprint(), runS = dist.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint();
@@ -7304,7 +7313,7 @@ public class WorkGoal extends Goal {
                 { int out = 0; for (var it = g.tasks.iterator(); it.hasNext();) { Task q0 = it.next(); String o0 = com.claudemod.entity.ClaudeEntity.originOf(q0); if (q0 instanceof Task.GoTo gt && !gt.pos().equals(feet) || o0.startsWith("WorkGoal.walkTo") || o0.startsWith("WorkGoal.bendWay")) { it.remove(); out++; } } /* (a made way's digs and puts too: left queued, they dig his wall, stage 1681) */ if (out > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] walling in at {}: {} walk(s) queued for the fight in the open dropped (the fight re-plans once he's healed) (WorkGoal.blazeRetreat)", feet.toShortString(), out); } // (live 07:19 11-07, review 207: the chase walk to 213,53,516 queued before the box ran once it was up and dug it out 3 s later)
                 for (int i = box.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(box.get(i).immutable(), blocks.getItem()));
                 g.getNavigation().stop(); shieldDown();
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cell out of {} blaze(s)' sight within 24 steps: walled in where he stands ({} {} at feet, head and over him), then food, then the fight (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size(), box.size(), com.claudemod.entity.life.Crafting.name(blocks.getItem()));
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, {} {} blaze(s)' sight: walled in where he stands ({} {} at feet, head and over him), then food, then the fight (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", boxFirst ? "the box sooner out of" : "no cell within 24 steps out of", blazes.size(), box.size(), com.claudemod.entity.life.Crafting.name(blocks.getItem()));
                 cfBoxAt = feet.immutable(); cfMode = "walling in"; return true;
             }
         }

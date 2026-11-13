@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1689: return st1689(stage, t, c, h, level, mock);
             case 1688: return st1688(stage, t, c, h, level, mock);
             case 1687: return st1687(stage, t, c, h, level, mock);
             case 1686: return st1686(stage, t, c, h, level, mock);
@@ -23094,6 +23095,38 @@ public final class ClaudeBodyTest {
             check(p != null, "setup: no way at all past the wall (" + why + ")");
             check(dug.isEmpty(), "a blaze 10 off, the way dug his cover at " + dug + "(o-relative): " + why);
             pass(stage, t, why);
+        }
+        return true;
+    }
+    /** Stage 1689 (D2D death 19:38:42 11-12 at the fortress, its link 3: health 16 burning, 8-11 blazes, 46 cobblestone on him: "blaze.retreat ... out of their sight ~21466 s (to 314, 63, 487, ~18 HP of fireballs ...)", 17 steps through their fire, dead 11 s on; blazeRetreatPays priced the wall-in where he stands only with no hide at all, so a hide 17 steps off hid the box from the choice). A hall, three blazes up, health 16 burning, blocks for a box, a hide 13 steps off behind a wall: he walls in where he stands, not the run through their sight. */
+    private static int s1689T, s1689Boxed;
+    private static boolean st1689(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13320, 70, 7940);
+        if (t[0] == 1) { scenarioReset(c); s1689T = -1; s1689Boxed = -1; com.claudemod.entity.life.Gate.reset(c); }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 12 || Math.abs(x) == 14 || Math.abs(z) == 14 || x == 12 && Math.abs(z) <= 5 && y <= 5 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); /* a wall at x 12: the hide behind it, 13 steps */
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 46)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) for (int k = -1; k <= 1; k++) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(o.getX() - 8.5, o.getY() + 4, o.getZ() + 0.5 + k * 3, 270, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nl.addFreshEntity(bz); }
+        if (t[0] == 20) { var b = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20)).get(0);
+            c.setHealth(16); c.setRemainingFireTicks(100); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.Attack(b.getUUID(), 20 * 30));
+            s1689T = t[0]; }
+        if (s1689T > 0 && s1689Boxed < 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            BlockPos f = c.blockPosition(); int walls = 0, roof = nl.getBlockState(f.above(2)).isAir() ? 0 : 1; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!nl.getBlockState(f.relative(d)).isAir() && !nl.getBlockState(f.relative(d).above()).isAir()) walls++;
+            if (walls == 4 && roof == 1) s1689Boxed = t[0]; }
+        if (s1689T > 0 && (s1689Boxed > 0 || c.getX() > o.getX() + 5 || t[0] >= s1689T + 20 * 10)) {
+            boolean boxed = s1689Boxed > 0; float hp = c.getHealth(); BlockPos at = c.blockPosition(); int secs = (s1689Boxed > 0 ? s1689Boxed - s1689T : t[0] - s1689T) / 20;
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); com.claudemod.entity.life.Gate.reset(c);
+            for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) b.discard();
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(boxed, "three blazes up, health 16 burning, 46 cobblestone, the hide 13 steps off: not walled in where he stood (at " + at.subtract(o).toShortString() + " o-relative, health " + hp + ", " + secs + " s)");
+            pass(stage, t, "walled in in " + secs + " s");
         }
         return true;
     }

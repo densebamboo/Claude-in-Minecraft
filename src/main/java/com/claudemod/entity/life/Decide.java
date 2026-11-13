@@ -118,6 +118,21 @@ public final class Decide {
         return blastS(g, hp / per * w("night.creeper_share", 0.07));
     }
     /** lamC creeper blasts expected (creeper.blast_hp through his armor), as his time: the chance of one, times death or a fall under his floor. */
+    /**
+     * A dark cave's price for walkS seconds in it, wayOutS of them the way back out: the chance something finds him there (danger.hits_per_s_dark_cave
+     * a second) times what that meeting costs him. Armed (fight.armed_hit) or with blocks to wall himself in (cover.wall_blocks): a fight he can end,
+     * danger.cave_fight_hits hits. Neither: it stays on him the whole way out, danger.hits_per_s_on_him a second, nothing he can do to end it; priced by
+     * hpS (the death odds at his health). Live 22:48-22:50 11-12 (D2D 2250death): unarmed, armor 0, 0 blocks, a skeleton in the cave, 20 HP to dead in 100 s.
+     */
+    public static double caveS(ClaudeEntity g, double walkS, double wayOutS) {
+        double meet = 1 - Math.exp(-w("danger.hits_per_s_dark_cave", 0.05) * Math.max(0, walkS)), perHit = throughArmor(g, hitHp());
+        double hits = canEndFight(g) ? w("danger.cave_fight_hits", 2) : Math.max(1, wayOutS * w("danger.hits_per_s_on_him", 0.5));
+        return meet * hpS(g, 0, hits * perHit, perHit);
+    }
+    /** A fight he can end: a weapon that hits like a wooden sword or better, or blocks enough to wall himself in. */
+    public static boolean canEndFight(ClaudeEntity g) { return com.claudemod.entity.goals.WorkGoal.weaponDamage(com.claudemod.entity.goals.WorkGoal.bestWeapon(g)) >= w("fight.armed_hit", 4) || com.claudemod.director.Kit.buildingBlocks(g) >= w("cover.wall_blocks", 6); }
+    /** caveS said: "~N s" and what decided it. */
+    public static String caveSaid(ClaudeEntity g, double s) { return "~" + Math.round(s) + " s (armor " + g.getArmorValue() + (canEndFight(g) ? ", a fight he can end" : ", unarmed and no blocks: nothing ends a fight there") + ")"; }
     public static double blastS(ClaudeEntity g, double lamC) {
         double blast = throughArmor(g, w("creeper.blast_hp", 22)), h = g.getHealth();
         double cost = blast >= h ? deathS(g) : h - blast < w("danger.min_hp_left", 4) ? w("danger.under_floor_s", 300) : 0;

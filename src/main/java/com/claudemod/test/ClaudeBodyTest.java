@@ -11157,6 +11157,7 @@ public final class ClaudeBodyTest {
             case 1609: return st1609(stage, t, c, h, level, mock);
             case 1628: return st1628(stage, t, c, h, level, mock);
             case 1603: return st1603(stage, t, c, h, level, mock);
+            case 1605: return st1605(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26257,6 +26258,40 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setBlock(up, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); c.getInventory().clearContent();
             check(went, "the control: the same table 6 off in daylight not taken up: " + q);
             pass(stage, t, "the dark-cave table left for now (priced), the daylight one taken up");
+        }
+        return true;
+    }
+    /** Stage 1605 (D2D 2250death, the dark-cave outcome: live 22:48-22:50 11-12, unarmed, armor 0, 0 blocks, a skeleton in the cave, 20 HP to dead in 100 s with no fight he could end and no way out; the cave priced ~1 s of hits). A crafting table 20 below in a dark cave, the walk short enough to be worth it: unarmed with nothing to wall in, it stays; an iron sword and 32 cobblestone on him, it is taken up. */
+    private static boolean st1605(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos lo = h.absolutePos(new BlockPos(5, 1, 5)), hi = h.absolutePos(new BlockPos(12, 6, 12)), deep = h.absolutePos(new BlockPos(10, 2, 10)), perch = h.absolutePos(new BlockPos(4, 21, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; c.staying = false; flatBox(h); com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 5) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            level.setDayTime(6000);
+            for (BlockPos q : BlockPos.betweenClosed(lo, hi)) { boolean wall = q.getX() == lo.getX() || q.getX() == hi.getX() || q.getY() == lo.getY() || q.getY() == hi.getY() || q.getZ() == lo.getZ() || q.getZ() == hi.getZ(); level.setBlock(q, wall ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(perch, Blocks.STONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(9, new ItemStack(Items.COOKED_SALMON, 2)); c.getInventory().selected = 0;
+            BlockPos me = perch.above(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+        }
+        Runnable put = () -> { com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); level.setBlock(deep, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, deep, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.tempStations.add(deep); };
+        java.util.function.BooleanSupplier tidied = () -> { try { var m = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("tidy", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { check(false, "no call: " + e); }
+            boolean went = c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && b.pos().equals(deep)); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; return went; };
+        if (t[0] == 12) put.run();
+        if (t[0] == 30) {
+            int light = level.getMaxLocalRawBrightness(deep.above()); var e = com.claudemod.entity.life.TempLedger.entry(c, deep);
+            check(e != null && light < 8, "setup: the table on his book in the dark: " + e + ", light " + light);
+            boolean went = tidied.getAsBoolean();
+            check(!went, "unarmed, armor 0, no blocks, a table 20 below in a dark cave: the tidy sent him down for it");
+            c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COBBLESTONE, 32)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); put.run();
+        }
+        if (t[0] == 35) {
+            boolean went = tidied.getAsBoolean();
+            level.setBlock(deep, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); c.getInventory().clearContent();
+            for (BlockPos q : BlockPos.betweenClosed(lo, hi)) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); level.setBlock(perch, Blocks.AIR.defaultBlockState(), 2);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, ItemStack.EMPTY); check(went, "the control: an iron sword, iron chestplate and leggings, 32 cobblestone on him, the same table not taken up");
+            pass(stage, t, "the dark-cave table left while nothing ends a fight there; taken up armed with blocks");
         }
         return true;
     }

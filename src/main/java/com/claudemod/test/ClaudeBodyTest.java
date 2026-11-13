@@ -11121,6 +11121,7 @@ public final class ClaudeBodyTest {
             case 1634: return st1634(stage, t, c, h, level, mock);
             case 1635: return st1635(stage, t, c, h, level, mock);
             case 1636: return st1636(stage, t, c, h, level, mock);
+            case 1637: return st1637(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25229,6 +25230,36 @@ public final class ClaudeBodyTest {
             check(r2 != null && r2.contains(store.toShortString()), "his storage chest 5 off: the spare pick not sent there (" + r2 + ")");
             check(r3 == null, "the store just ran for this trip: queued again (" + r3 + ")");
             pass(stage, t, "no stash at his junk chest; his storage chest once: " + r2);
+        }
+        return true;
+    }
+    /** Stage 1637 (the trip stash and job outputs, agreed with BP after 5531b144: the blaze job counts rods in his chests now, so rods on him go in his storage before a trip like any valuable; a queued craft of them keeps them on him). His storage chest 2 off, 6 blaze rods on him, blaze_rods queued: stashed and stored. With a blaze_powder craft queued: kept. */
+    private static int s1637At; private static BlockPos s1637C; private static String s1637R;
+    private static boolean st1637(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = c.blockPosition().immutable();
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.prefs.put("stay_close", "no"); c.attempts.clear(); s1637At = 0; s1637R = null; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            s1637C = me.offset(2, 0, 0).immutable(); level.setBlock(s1637C, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(s1637C); c.myStations.add(s1637C); com.claudemod.entity.life.ChestLedger.look(c, level, s1637C);
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.items.set(1, new ItemStack(Items.BLAZE_ROD, 6)); inv.items.set(2, new ItemStack(Items.COOKED_SALMON, 20));
+            c.lastStep = null; level.setDayTime(6000);
+            c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "blaze_powder", 2));
+            String kept = com.claudemod.director.ClaudeLife.stashForTripTest(c, level); c.skillQueue.clear(); c.attempts.clear();
+            check(kept == null, "a blaze_powder craft queued: the rods it's made of sent to his storage (" + kept + ")");
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod", 7));
+            s1637R = com.claudemod.director.ClaudeLife.stashForTripTest(c, level);
+            c.skillQueue.clear(); c.tasks.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod", 7)); c.tasks.add(new Task.Deposit(s1637C)); s1637At = t[0];
+        }
+        if (s1637At > 0 && (t[0] - s1637At > 40 && c.currentTask == null && c.tasks.isEmpty() || t[0] - s1637At > 20 * 10)) {
+            int on = c.getInventory().countItem(Items.BLAZE_ROD); int in = 0;
+            if (level.getBlockEntity(s1637C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) for (int i = 0; i < cb.getContainerSize(); i++) if (cb.getItem(i).is(Items.BLAZE_ROD)) in += cb.getItem(i).getCount();
+            String r = s1637R; s1637At = 0;
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.prefs.remove("stay_close"); c.attempts.clear(); c.lastStep = null;
+            check(r != null, "6 blaze rods on him, the blaze job counting his chests, his storage 2 off: no stash before the trip");
+            check(in == 6 && on == 0, "at his storage: the rods not banked (" + on + " on him, " + in + " in the chest)");
+            pass(stage, t, "the rods banked before the trip, kept with a powder craft queued: " + in + " in the chest");
         }
         return true;
     }

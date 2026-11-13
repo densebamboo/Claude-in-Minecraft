@@ -5024,7 +5024,7 @@ public class WorkGoal extends Goal {
             if (junkBox) { if (cob ? kept.merge(net.minecraft.world.item.Items.COBBLESTONE, 1, Integer::sum) > 2 : com.claudemod.director.ClaudeLife.junkItem(s) && !(s.is(net.minecraft.world.item.Items.ROTTEN_FLESH) && com.claudemod.director.Kit.foodAsk(g) != null)) slots.add(i); continue; } // his junk chest: the junk and the stone past two stacks all told, as his toss keeps (kept for patching; 2 a kind left 2 stacks for the toss to throw on his floor, 05:17 11-05, stage 713)
             if (cob) continue; // for patching, and spare cobble never goes on the shelves: his junk chest takes what he can't carry (his chests filled up with it and "store" walked him 240 blocks to your chest)
             if (com.claudemod.director.ClaudeLife.junkItem(s)) continue; // (andesite and dirt on his loot shelves filled his stash)
-            if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem())) continue; // (a queued step needs it: it stays on him, never stored and fetched back; review 73, stage 1213)
+            if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem()) && !com.claudemod.director.ClaudeLife.bankedOutput(g, s.getItem())) continue; // (a queued step needs it: it stays on him, never stored and fetched back; review 73, stage 1213)
             slots.add(i);
         }
         if (junkBox) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] junk chest at {}: {} stacks in, cobble stacks kept {}", t.pos().toShortString(), slots.size(), kept);
@@ -5046,7 +5046,7 @@ public class WorkGoal extends Goal {
                 ItemStack s = g.inventory.items.getItem(i);
                 if (s.isEmpty() || keeps(s)) continue;
                 if (s.is(net.minecraft.world.item.Items.COBBLESTONE) || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) continue; /* (cobble is never for his other chests, only the junk chest: a third stack of it sent him chest to chest, open-close, at 01:58) */ if (s.is(net.minecraft.tags.ItemTags.LOGS) || com.claudemod.director.ClaudeLife.junkItem(s)) continue; /* (left over means what his other chests take: never cobble, logs or junk; each one sent him chest to chest) */
-                if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem())) continue; // (kept for a queued step, as the store above keeps it: counted here it sent him chest to chest with 10 iron, 63 trips in 18 min, reviews 35/38, stage 1227)
+                if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem()) && !com.claudemod.director.ClaudeLife.bankedOutput(g, s.getItem())) continue; // (kept for a queued step, as the store above keeps it: counted here it sent him chest to chest with 10 iron, 63 trips in 18 min, reviews 35/38, stage 1227)
                 left = true; leftSlots++; leftWorth += com.claudemod.director.ClaudeLife.lootValue(s); if (leftWhat.isEmpty()) leftWhat = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath() + " x" + s.getCount();
             }
             if (left) com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] {} stack(s) still on him after {} ({}{}, worth {}): his next chest with room?", leftSlots, t.pos().toShortString(), leftWhat, leftSlots > 1 ? " and more" : "", leftWorth);

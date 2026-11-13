@@ -1634,7 +1634,7 @@ public final class ClaudeLife {
         BlockPos best = null; double bd = 48 * 48;
         for (BlockPos q : g.pillarBlocks) {
             if (!level.isLoaded(q) || pillarTries().getOrDefault(q, 0) > 3) continue;
-            int r = (int) com.claudemod.entity.life.Weights.w("tidy.hostile_r", 12); var near = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(q).inflate(r), x -> x.isAlive());
+            int r = (int) com.claudemod.entity.life.Weights.w("tidy.hostile_r", 12); var near = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(q).inflate(r), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy); // (every hostile: a hoglin is no Monster, 14 off his way, live 16:21 11-12, D2D 162249-77)
             if (!near.isEmpty()) { if (Math.abs(g.tickCount - tidyWaitLog) >= 200) { tidyWaitLog = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] the cover block at {} waits: {} hostile(s) he knows of within {} of it (first {}): a block's tidying isn't worth their hits (ClaudeLife.tidyLitter)", q.toShortString(), near.size(), r, near.get(0).getType().getDescription().getString()); } continue; } // (death 01:57 11-12: the planner thinking, he walked 22 into 4 blazes for one cover block, stage 1079)
             double dd = q.distSqr(g.blockPosition());
             if (dd < bd) { bd = dd; best = q; }
@@ -1740,13 +1740,29 @@ public final class ClaudeLife {
     }
 
     /** The planner still thinking: the short chores the rules already know, done meanwhile (his own things lying near, the cover blocks he left), so he never stands there waiting on a plan. */
+    public static void whileThinkingTest(ClaudeEntity g, ServerPlayer player) { whileThinking(g, player); }
+    /** While the planner thinks between steps of a job: his cover blocks only when the walk there and back fits the thinking time (priced against the job) and nothing hostile is along the way; else they wait for between jobs (the placed-blocks rule: they still come back up). D2D 162249-77: mid-hunt, 30 back through hoglin ground for 2 blocks; stage 1633. */
+    static boolean litterNow(ClaudeEntity g, ServerLevel level) {
+        if (g.lastStep == null) return true; // (no job in hand: between jobs, the litter's time)
+        BlockPos near = null; double bd = 48 * 48; for (BlockPos q : g.pillarBlocks) { if (!level.isLoaded(q)) continue; double d = q.distSqr(g.blockPosition()); if (d < bd) { bd = d; near = q; } }
+        if (near == null) return true;
+        Vec3 a = g.position(), b = Vec3.atCenterOf(near); int r = (int) com.claudemod.entity.life.Weights.w("tidy.hostile_r", 12);
+        var foes = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(a, b).inflate(r), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy && x.position().distanceTo(nearestOn(a, b, x.position())) <= r);
+        double walkS = Math.sqrt(bd) / com.claudemod.entity.life.Decide.sprint();
+        var now = foes.isEmpty() ? com.claudemod.entity.life.Decide.Option.of("take them up now", Math.max(0, 2 * walkS - com.claudemod.entity.life.Weights.w("plan.think_s", 4)), "~" + Math.round(2 * walkS) + " s there and back, the plan thinking meanwhile")
+                : com.claudemod.entity.life.Decide.Option.out("take them up now", "a " + foes.get(0).getType().getDescription().getString() + " " + Math.round(foes.get(0).distanceTo(g)) + " off along the way");
+        var later = com.claudemod.entity.life.Decide.Option.of("between jobs", com.claudemod.entity.life.Weights.w("tidy.later_s", 6), "back up after " + g.lastStep.skill() + " " + g.lastStep.target());
+        var pick = com.claudemod.entity.life.Decide.choose(g, "tidy.while_thinking", g.pillarBlocks.size() + " cover block(s) of his " + Math.round(Math.sqrt(bd)) + " off, mid " + g.lastStep.skill() + " " + g.lastStep.target(), true, java.util.List.of(now, later));
+        return pick == now;
+    }
+    private static Vec3 nearestOn(Vec3 a, Vec3 b, Vec3 p) { Vec3 ab = b.subtract(a); double l = ab.lengthSqr(); if (l < 1e-6) return a; double k = Math.max(0, Math.min(1, p.subtract(a).dot(ab) / l)); return a.add(ab.scale(k)); }
     private static void whileThinking(ClaudeEntity g, ServerPlayer player) {
         if (!g.tasks.isEmpty() || g.currentTask != null || !g.skillQueue.isEmpty()) return;
         if (com.claudemod.entity.life.ExactSpot.lesson(g, player)) { if (g.tickCount % 200 < 5) ClaudeMod.LOGGER.info("[Claude plan] meanwhile: in their lesson, no chores of his own (ClaudeLife.whileThinking)"); return; }
         if (g.commandActive && g.getTarget() instanceof ServerPlayer o && o.distanceTo(g) <= 16) return; // (on their order with them right there: he waits on the plan in place; "meanwhile strip_mine" walked him off the lesson spot, 14:38)
         ServerLevel level = (ServerLevel) g.level();
         if (fetchOwnDrops(g, level)) return;
-        if (!g.pillarBlocks.isEmpty()) { tidyLitter(g, level); if (!g.tasks.isEmpty()) return; }
+        if (!g.pillarBlocks.isEmpty() && litterNow(g, level)) { tidyLitter(g, level); if (!g.tasks.isEmpty()) return; }
         Skills.Step f = fillerStep(g, player);
         if (f == null) return;
         String r = runSkill(g, player, f);

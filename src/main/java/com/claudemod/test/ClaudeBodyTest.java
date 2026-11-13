@@ -11114,6 +11114,7 @@ public final class ClaudeBodyTest {
             case 1630: return st1630(stage, t, c, h, level, mock);
             case 1631: return st1631(stage, t, c, h, level, mock);
             case 1632: return st1632(stage, t, c, h, level, mock);
+            case 1633: return st1633(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25039,6 +25040,29 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.prefs.remove("stay_close");
             check(mx == 0, "the andesite taken into a full pack, the junk its toss throws: had " + mx);
             pass(stage, t, "the andesite left: junk with his pack full");
+        }
+        return true;
+    }
+    /** Stage 1633 (D2D review 162249-77, live 16:21:19-16:21:37 11-12 in the Nether): mid-hunt for porkchop, the plan thinking, "tidying up: taking down 2 cover block(s)" 30 back through hoglin ground (a hoglin 14 off his way: no Monster, unseen by the tidy's check), back to the hunt 16 s later. With a job in hand the litter walk is priced against it and the way checked for every hostile; close by and clear, it's still taken up. */
+    private static BlockPos s1633Me; private static net.minecraft.world.entity.Mob s1633H;
+    private static boolean st1633(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.pillarBlocks.clear(); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(50))) m.discard(); }
+        if (t[0] == 10) {
+            s1633Me = c.blockPosition().immutable(); BlockPos me = s1633Me;
+            for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int y = 0; y <= 1; y++) { level.setBlock(me.offset(30, y, 0), Blocks.NETHERRACK.defaultBlockState(), 2); c.pillarBlocks.add(me.offset(30, y, 0)); } // (his 2 cover blocks 30 off)
+            var hg = EntityType.HOGLIN.create(level); hg.moveTo(me.getX() + 14.5, me.getY(), me.getZ() + 2.5, 0, 0); hg.setNoAi(true); hg.setPersistenceRequired(); level.addFreshEntity(hg); s1633H = hg; // (a hoglin by his way there)
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "porkchop", 4); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+            com.claudemod.director.ClaudeLife.whileThinkingTest(c, mock[0]);
+            boolean farGone = c.tasks.stream().anyMatch(q -> q instanceof Task.Break); c.tasks.clear(); c.currentTask = null;
+            s1633H.discard(); for (int y = 0; y <= 1; y++) level.setBlock(me.offset(30, y, 0), Blocks.AIR.defaultBlockState(), 2); c.pillarBlocks.clear();
+            for (int y = 0; y <= 1; y++) { level.setBlock(me.offset(3, y, 0), Blocks.NETHERRACK.defaultBlockState(), 2); c.pillarBlocks.add(me.offset(3, y, 0)); } // (2 cover blocks 3 off, nothing about)
+            com.claudemod.director.ClaudeLife.whileThinkingTest(c, mock[0]);
+            boolean nearTaken = c.tasks.stream().anyMatch(q -> q instanceof Task.Break);
+            c.tasks.clear(); c.currentTask = null; c.lastStep = null; for (int y = 0; y <= 1; y++) level.setBlock(me.offset(3, y, 0), Blocks.AIR.defaultBlockState(), 2); c.pillarBlocks.clear(); c.prefs.remove("stay_close");
+            check(!farGone, "mid-hunt, the plan thinking: off 30 for 2 cover blocks past a hoglin by his way");
+            check(nearTaken, "2 cover blocks 3 off with nothing about: left (they come up when it's this cheap)");
+            pass(stage, t, "the far blocks by the hoglin wait for between jobs; the near ones taken up meanwhile");
         }
         return true;
     }

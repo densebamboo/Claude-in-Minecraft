@@ -204,7 +204,7 @@ public final class DeathLog {
         ServerLevel level = (ServerLevel) g.level();
         double s = 2 * Math.sqrt(g.blockPosition().distSqr(at)) / Decide.sprint(); // shortcut: straight there and back, not the walker's route
         long tod = runTod(level, at); int n = Decide.hostilesAlong(g, g.blockPosition(), at); double pass = Math.min(s, Weights.w("recovery.hostile_pass_s", 10)); // (a mob he knows of is passed or shaken off, not at his heels the whole 300 blocks: one zombie by him priced a run for his iron at certain death)
-        double cave = 0; if (level.isLoaded(at) && !level.canSeeSky(at)) { int light = 0; for (var d : net.minecraft.core.Direction.values()) { var q = at.relative(d); if (level.getBlockState(q).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(q)); } if (light < 8) cave = Decide.caveS(g, s, s / 2); } // a pile in a dark cave: Decide.caveS (D2D 2250death)
+        double cave = 0; if (level.isLoaded(at) && !level.canSeeSky(at)) { int light = 0; for (var d : net.minecraft.core.Direction.values()) { var q = at.relative(d); if (level.getBlockState(q).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(q)); } if (light < 8) cave = Decide.caveS(g, at, s, s / 2); } // a pile in a dark cave: Decide.caveS (D2D 2250death)
         return s + Decide.hpS(g, Decide.danger(g, level, tod, s, 0) + Decide.danger(g, level, tod, pass, n) - Decide.danger(g, level, tod, pass, 0)) + pileS(g, dim, at) + cave;
     }
 

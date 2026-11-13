@@ -124,8 +124,8 @@ public final class Decide {
      * danger.cave_fight_hits hits. Neither: it stays on him the whole way out, danger.hits_per_s_on_him a second, nothing he can do to end it; priced by
      * hpS (the death odds at his health). Live 22:48-22:50 11-12 (D2D 2250death): unarmed, armor 0, 0 blocks, a skeleton in the cave, 20 HP to dead in 100 s.
      */
-    public static double caveS(ClaudeEntity g, double walkS, double wayOutS) {
-        double meet = 1 - Math.exp(-w("danger.hits_per_s_dark_cave", 0.05) * Math.max(0, walkS)), perHit = throughArmor(g, hitHp());
+    public static double caveS(ClaudeEntity g, net.minecraft.core.BlockPos at, double walkS, double wayOutS) {
+        double meet = 1 - Math.exp(-w("danger.hits_per_s_dark_cave", 0.05) * Math.max(0, walkS)), raw = DeathLog.hitAt(g, at, false), perHit = throughArmor(g, raw > 0 ? raw : hitHp()); // (the mobs he knows round the spot, their own hit: a skeleton's arrow, a zombie's swing; none known, a zombie's)
         double hits = canEndFight(g) ? w("danger.cave_fight_hits", 2) : Math.max(1, wayOutS * w("danger.hits_per_s_on_him", 0.5));
         return meet * hpS(g, 0, hits * perHit, perHit);
     }

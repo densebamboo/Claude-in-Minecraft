@@ -480,7 +480,7 @@ public final class TempLedger {
           int foes = Math.max(Decide.hostilesAlong(g, me, at), Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(at).inflate(16), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy).size());
           double take = Decide.walkS(g, level, level.getDayTime() % 24000, walk, foes); String risk = foes > 0 ? ", " + foes + " hostile(s) he knows on the way or by them" : "";
           int light = 0; for (Direction d : Direction.values()) { BlockPos n = at.relative(d); if (level.getBlockState(n).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(n)); }
-          if (light < 8) { double cave = Decide.caveS(g, walk, walk / 2); take += cave; risk += ", dark there (light " + light + ") " + Decide.caveSaid(g, cave); }
+          if (light < 8) { double cave = Decide.caveS(g, at, walk, walk / 2); take += cave; risk += ", dark there (light " + light + ") " + Decide.caveSaid(g, cave); }
           double pts = 0; for (Entry e : batch) pts += com.claudemod.director.ClaudeLife.worthEach(new net.minecraft.world.item.ItemStack(level.getBlockState(e.pos).getBlock().asItem()));
           double leave = pts * Weights.w("recovery.trip_s_per_point", 3) + Weights.w("tidy.litter_s", 15) * batch.size();
           var fetch = Decide.Option.of("take them up now", take, "~" + Math.round(walk) + " s there and back, " + Math.round(way) + " blocks" + risk);

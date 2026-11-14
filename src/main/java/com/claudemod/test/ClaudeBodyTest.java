@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1733: return st1733(stage, t, c, h, level, mock);
+            case 1732: return st1732(stage, t, c, h, level, mock);
             case 1731: return st1731(stage, t, c, h, level, mock);
             case 1730: return st1730(stage, t, c, h, level, mock);
             case 1729: return st1729(stage, t, c, h, level, mock);
@@ -15683,7 +15685,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 15) { c.tasks.add(leap); }
         if (t[0] == 40) {
             String why = com.claudemod.entity.nav.Leaps.lastRefusal(c, 40); BlockPos at = c.blockPosition();
-            check(why != null && why.contains("spider") && why.contains("on me"), "a spider 1.5 off after him: the jump went anyway (refusal " + why + ", at " + at.toShortString() + ")");
+            check(why != null && why.contains("spider") && why.contains("on me") || at.getX() < land.getX() && at.getY() >= lip.getY(), "a spider 1.5 off after him: the jump went anyway (refusal " + why + ", at " + at.toShortString() + ")"); // (the leap refused, or the spider weighed first, fought or stepped back from (WorkGoal: one coming for him gets fight.flee before it is on him, stage 1733): not over the gap, not down it)
             s978M.discard(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.nav.Leaps.reset(c); c.attempts.clear();
             c.teleportTo(lip.getX() + 0.5, lip.getY(), lip.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
         }
@@ -24464,6 +24466,75 @@ public final class ClaudeBodyTest {
             check(bad == null, bad);
             check(alive, "died by the gap");
             pass(stage, t, plugged ? "plugged with both of them on the far side" : "no plug with one through: held or ran on");
+        }
+        return true;
+    }
+    /** Stage 1732 (D2D death-284, live 12:31:34-36 11-14 at the fortress 241,60,509: two wither skeletons on him, iron + shield, "sword and shield where he stands"; 9 -> 4 [shield down] 0.2 s after his kill swing, the next hit blocked, then 4 -> 0 [shield down] 20 ticks after the blocked one: each swing of his lowered the shield, and it blocks only 5 ticks after it's raised again, so a swing within 6 ticks of theirs gave it to them). Here: a closed brick room 9 x 9 (a corridor's end: no run to price), two wither skeletons in it to the east, him at 20 in iron with sword and shield: three pairs one after another, for enough of their swings: all killed, at most a third of their swings in reach landed. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1732W, s1732V; private static int s1732T, s1732Hits, s1732Swings, s1732Wave; private static float s1732Hp;
+    private static boolean st1732(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1732W = null; s1732V = null; s1732Hits = 0; s1732Swings = 0; s1732Wave = 0; s1732Hp = 20; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1732W && e != s1732V) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+            for (int x = -5; x <= 5; x++) for (int z = -5; z <= 5; z++) for (int y = 0; y <= 4; y++) if (Math.abs(x) == 5 || Math.abs(z) == 5 || y == 4) level.setBlock(o.offset(x, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(18000);
+        }
+        if (t[0] == 20 || t[0] > 20 && s1732W != null && !s1732W.isAlive() && !s1732V.isAlive() && s1732Wave < 3 && c.getHealth() > 2) { s1732Wave++; c.teleportTo(o.getX() - 2.5, o.getY(), o.getZ() + 0.5); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1732W = EntityType.WITHER_SKELETON.create(level); s1732W.moveTo(o.getX() + 3.5, o.getY(), o.getZ() + 0.5, 90, 0); s1732W.setPersistenceRequired(); s1732W.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(s1732W); s1732W.setTarget(c);
+            s1732V = EntityType.WITHER_SKELETON.create(level); s1732V.moveTo(o.getX() + 4.5, o.getY(), o.getZ() + 2.5, 90, 0); s1732V.setPersistenceRequired(); s1732V.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(s1732V); s1732V.setTarget(c);
+            c.tasks.add(new Task.Attack(s1732W.getUUID(), 20 * 60)); if (s1732Wave == 1) s1732T = t[0];
+        }
+        if (t[0] > 20 && s1732W != null) {
+            c.removeEffect(net.minecraft.world.effect.MobEffects.WITHER);
+            if (c.getHealth() <= s1732Hp - 2f) s1732Hits++; s1732Hp = c.getHealth(); // (a sword hit through his armor is 4+; the wither's own tick, 1, isn't one: its damage source overwrites the hit's in the same tick, so health it is)
+            for (var w : new net.minecraft.world.entity.monster.WitherSkeleton[] { s1732W, s1732V }) if (w.isAlive() && w.swinging && w.swingTime == 0) { s1732Swings++; var vv = c.getViewVector(1f); var to = w.position().subtract(c.position()).multiply(1, 0, 1).normalize(); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1732 t{} {} swings {} off: blocking {} shield up {}t facing {} charge {} task {}", t[0], w == s1732W ? "W" : "V", String.format("%.2f", w.distanceTo(c)), c.isBlocking(), c.isUsingItem() ? c.getTicksUsingItem() : 0, String.format("%.2f", vv.x * to.x + vv.z * to.z), String.format("%.2f", c.getAttackStrengthScale(0f)), c.currentTask); } // (vanilla's melee goal swings only when it attacks: each swing is a hit on him or on his shield)
+            if (!s1732W.isAlive() && !s1732V.isAlive() && s1732Wave >= 3 || c.getHealth() <= 2 || t[0] > s1732T + 20 * 75) {
+                boolean dead = !s1732W.isAlive() && !s1732V.isAlive(); float hp = c.getHealth(); int took = s1732Hits; int secs = (t[0] - s1732T) / 20;
+                s1732W.discard(); s1732V.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.removeAllEffects(); c.setHealth(20);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                check(dead, "wave " + s1732Wave + " of 3: a wither skeleton still up after " + secs + " s: " + took + " of " + s1732Swings + " swing(s) landed, health " + hp);
+                check(took * 3 <= s1732Swings, took + " of their " + s1732Swings + " swing(s) landed in " + secs + " s, health " + hp + ": his swings lowered the shield into theirs");
+                pass(stage, t, "three pairs killed in " + secs + " s, " + took + " of " + s1732Swings + " swing(s) landed, health " + hp);
+            }
+        }
+        return true;
+    }
+    /** Stage 1733 (D2D death-284, live 12:31:31-33 11-14 at the fortress 239,60,509: 13 HP and withering, his route east to 299,60,538, "heard a Wither Skeleton 12 blocks off (about 252,59,507)" on its next nodes; no decide line, he sprinted on along the route into it, 14 -> 9 [shield down] 1.5 s later; at 12:31:26 the same, heard 6 off and hit a second after). Here: a fortress corridor 3 wide running east, him at 13 HP withering in iron with sword and shield, walking east (GoTo 28 off), a wither skeleton 12 east coming for him. Its first swing doesn't land (he squared up behind his shield, or ran), at most one hit of it lands, and he's alive after 30 s. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1733W; private static int s1733T, s1733Hits, s1733Swings; private static float s1733Hp, s1733Hp1, s1733Hp2; private static Boolean s1733First;
+    private static boolean st1733(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1733W = null; s1733Hits = 0; s1733Swings = 0; s1733First = null; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1733W) e.discard();
+        if (t[0] == 10) {
+            for (int x = -20; x <= 34; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 7; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -20; x <= 34; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 4; y++) if (y == -1 || y == 4 || Math.abs(z) == 2) level.setBlock(o.offset(x, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COOKED_COD, 16)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(18000);
+        }
+        if (t[0] == 20) {
+            c.setHealth(13); c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 200, 0));
+            s1733W = EntityType.WITHER_SKELETON.create(level); s1733W.moveTo(o.getX() + 12.5, o.getY(), o.getZ() + 0.5, 90, 0); s1733W.setPersistenceRequired(); s1733W.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(s1733W); s1733W.setTarget(c);
+            c.tasks.add(new Task.GoTo(o.offset(28, 0, 0), 1.5)); s1733T = t[0]; s1733Hp = s1733Hp1 = s1733Hp2 = 13;
+        }
+        if (t[0] > 20 && s1733W != null) {
+            float hp = c.getHealth(); if (hp <= s1733Hp - 2f) s1733Hits++; s1733Hp2 = s1733Hp1; s1733Hp1 = s1733Hp; s1733Hp = hp; // (a sword hit through iron is 4+, a wither tick 1)
+            if (s1733W.isAlive() && s1733W.swinging && s1733W.swingTime == 0) { s1733Swings++; if (s1733First == null) s1733First = hp <= s1733Hp2 - 2f; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1733 t{} swing {} off: blocking {} shield up {}t sprinting {} health {} (2 ticks back {}) task {}", t[0], String.format("%.2f", s1733W.distanceTo(c)), c.isBlocking(), c.isUsingItem() ? c.getTicksUsingItem() : 0, c.isSprinting(), hp, s1733Hp2, c.currentTask); }
+            if (!s1733W.isAlive() && t[0] > s1733T + 40 || c.getHealth() <= 2 || t[0] > s1733T + 20 * 30) {
+                boolean dead = !s1733W.isAlive(); float hpEnd = c.getHealth(); int took = s1733Hits; int secs = (t[0] - s1733T) / 20; Boolean first = s1733First;
+                s1733W.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.removeAllEffects(); c.setHealth(20);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                check(hpEnd > 2, "down to " + hpEnd + " in " + secs + " s: " + took + " of its " + s1733Swings + " swing(s) landed");
+                check(first != Boolean.TRUE, "its first swing landed (walked into it with the shield down): " + took + " of its " + s1733Swings + " swing(s) landed, health " + hpEnd);
+                check(took <= 1, took + " of its " + s1733Swings + " swing(s) landed in " + secs + " s, health " + hpEnd);
+                pass(stage, t, (dead ? "killed it" : "kept clear of it") + " in " + secs + " s, " + took + " of its " + s1733Swings + " swing(s) landed, first " + (first == null ? "never came" : "on the shield") + ", health " + hpEnd);
+            }
         }
         return true;
     }

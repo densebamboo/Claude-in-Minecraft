@@ -427,6 +427,16 @@ public class WorkGoal extends Goal {
                 ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE;
             }
         }
+        // A melee mob he knows of (seen or heard) coming for him and on him within a couple of seconds: squared up to before it's on him, the fight or the run priced as a hit's is (the self-defence below), never walked or sprinted into with his shield down (D2D death-284, live 12:31:26-33 11-14: heard 6 off, hit a second later; heard 12 off on his route's next nodes at 13 HP withering, sprinted on into it, 14 -> 9, no decide line; stage 1733)
+        if (g.tickCount % 5 == 1 && g.urgentAttacker == null && !(current instanceof Task.Attack) && !(current instanceof Task.Flee) && !(current instanceof Task.Eat) && !(current instanceof Task.Pocket) && !diggingIn() && !underLid && !g.isSleeping()) {
+            net.minecraft.world.entity.Mob comer = null; double eta = 0;
+            for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16, 4, 16), m -> m.isAlive() && m.getTarget() == g && m instanceof net.minecraft.world.entity.monster.Enemy && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) && !(m instanceof net.minecraft.world.entity.monster.Ghast) && !(m instanceof net.minecraft.world.entity.monster.Phantom))) {
+                double e = (m.distanceTo(g) - w("fight.reach_blocks", 3.5)) / Math.max(0.5, mobPace(m, 1.2));
+                if (e <= w("fight.meet_s", 2.5) && g.tickCount - metAt.getOrDefault(m.getUUID(), -100000) > 200 && (comer == null || e < eta)) { comer = m; eta = e; }
+            }
+            if (comer != null) { metAt.put(comer.getUUID(), g.tickCount); g.urgentAttacker = comer.getUUID();
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a {} {} off is coming for him ({}, on him in ~{} s, health {}, doing {}): squared up to before it's on him, the fight or the run priced (WorkGoal.tick)", comer.getType().getDescription().getString(), String.format("%.1f", comer.distanceTo(g)), com.claudemod.entity.life.Perception.seesNow(g, comer) ? "in sight" : "heard", String.format("%.1f", Math.max(0, eta)), (int) g.getHealth(), current == null ? "nothing" : current.getClass().getSimpleName()); }
+        }
         if (g.tickCount % 20 == 3 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && g.getHealth() < g.getMaxHealth() && !diggingIn() && g.tickCount - desperateTick > 20 * 90
                 && !g.isSleeping() && com.claudemod.director.ClaudeLife.foodToEat(g, true) == null && (!(g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 4 && !com.claudemod.director.ClaudeLife.dayHere(g.level()) ? enemiesNear(24) : hostilesNear(16)).isEmpty() || enemiesNear(16).size() >= 3)
                 && coverPays("nothing to eat", enemiesNear(24).size())) { // (priced, cover.dig_in: was "health 4 or less")
@@ -6099,7 +6109,7 @@ public class WorkGoal extends Goal {
             else if (d > 0.3) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(escapeAt.getX() + 0.5, escapeAt.getY(), escapeAt.getZ() + 0.5, 1.0); double up = escapeAt.getY() - g.getY(); if (up > 0.5 && up <= 1.25 && g.onGround() && g.horizontalCollision) g.getJumpControl().jump(); } /* a hide a step up: his hands press space as well (live 06:51:54-06:52:24 11-12: 30 s against the step under it, 20 -> 11; stage 1599) */ // the last block into it: held 1 off, in the line beside it, the fireballs land on him (D2D death 47, live 10:58:09 11-11, "1.0 off it ... to him true"; stage 1497)
             for (var m : mobs) if (farShooter(m) && m.isAlive() && com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), Vec3.atBottomCenterOf(escapeAt).add(0, 1.6, 0))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the {} {} off sees him again at {}: on out of its sight (WorkGoal.atEscape)", m.getType().getDescription().getString(), (int) m.distanceTo(g), escapeAt.toShortString()); clearEscape(); pickEscape(mobs); return 0; }
             net.minecraft.world.entity.Mob close = null; for (var m : mobs) if (!farShooter(m) && m.isAlive() && (close == null || m.distanceTo(g) < close.distanceTo(g))) close = m;
-            if (close != null && close.distanceTo(g) < 5) { equipWeapon(); g.getLookControl().setLookAt(close); if (canHitNow(close)) { g.attack(close); g.swing(InteractionHand.MAIN_HAND); } }
+            if (close != null && close.distanceTo(g) < 5) { equipWeapon(); g.getLookControl().setLookAt(close); if (canHitNow(close) && swingDue() == null) { g.attack(close); g.swing(InteractionHand.MAIN_HAND); } }
             boolean seen = false; for (var m : mobs) if (farShooter(m) && m.isAlive() && com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), g.getEyePosition())) seen = true; /* (out of their sight is where he stands, not the spot: 3 meals "out of their sight" 1.1 off it, in a blaze's line; death 170) */
             if (!seen && (close == null || close.distanceTo(g) >= 5) && g.hurtTime == 0 && !g.isUsingItem() && g.getHealth() < g.getMaxHealth() && g.getFoodData().getFoodLevel() < 20 && current instanceof Task.Flee fl) { // out of their sight, nothing in reach: a meal now, as a player eats in his hide (live 09:52:18-09:53:05 11-11, fight 29: 45 s held at 2-3 HP, food 17 so no regen, his Eat queued behind the run; review 143, stage 1495)
                 net.minecraft.world.item.Item food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6);
@@ -6178,8 +6188,9 @@ public class WorkGoal extends Goal {
         if (d > 0.6) g.getMoveControl().setWantedPosition(escapeAt.getX() + 0.5, escapeAt.getY(), escapeAt.getZ() + 0.5, 1.0);
         if (d > 3.5) { escapeHeld = false; escapeBest = d; escapeBestTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] knocked {} off his spot by the gap: back to it (WorkGoal.atEscape)", String.format("%.1f", d)); return 0; }
         net.minecraft.world.entity.Mob near = null; for (var m : mobs) if (near == null || m.distanceTo(g) < near.distanceTo(g)) near = m;
-        if (near != null) { if (incoming(near)) shieldUp(near); else shieldDown(); }
-        if (near != null && canHitNow(near)) {
+        var nearDue = swingDue(); // (a swing of his now lowers the shield into one of theirs: held, the shield on it)
+        if (near != null) { if (nearDue != null) shieldUp(nearDue); else if (incoming(near)) shieldUp(near); else shieldDown(); }
+        if (near != null && nearDue == null && canHitNow(near)) {
             equipWeapon(); shieldDown(); g.getLookControl().faceNow(near.getBoundingBox().getCenter()); g.attack(near); g.swing(InteractionHand.MAIN_HAND); escapeSwings++;
         }
         if (g.tickCount % 100 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] holding the gap at {}: {} swings so far, health {}, {} after him, nearest {} (WorkGoal.atEscape)", escapeGap == null ? "?" : escapeGap.toShortString(), escapeSwings, (int) g.getHealth(), mobs.stream().filter(m -> m.getTarget() == g).count(), near == null ? "-" : String.format("%.1f", near.distanceTo(g))); else if (escapeGap != null) { equipWeapon(); g.getLookControl().setLookAt(Vec3.atCenterOf(escapeGap.above())); }
@@ -6221,7 +6232,7 @@ public class WorkGoal extends Goal {
         if (g.getAttackStrengthScale(0.5f) >= w("flee.swing_charge", 0.95)) {
             net.minecraft.world.entity.Mob hitOne = null;
             for (var m : mobs) if (!(m instanceof net.minecraft.world.entity.monster.Creeper) && m.getTarget() == g && canHitNow(m) && (hitOne == null || m.distanceTo(g) < hitOne.distanceTo(g))) hitOne = m;
-            if (hitOne != null) { equipWeapon(); if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND) shieldDown(); g.getLookControl().faceNow(hitOne.getBoundingBox().getCenter()); g.attack(hitOne); g.swing(InteractionHand.MAIN_HAND); }
+            if (hitOne != null && swingDue() == null) { equipWeapon(); if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND) shieldDown(); g.getLookControl().faceNow(hitOne.getBoundingBox().getCenter()); g.attack(hitOne); g.swing(InteractionHand.MAIN_HAND); }
         }
         // a meal on the run, like a player: right click held as he goes, slowed to a fifth while it's in his mouth (Controls), when nothing on him gets into reach before it's down; poisoned or hurt, a meal now beats one at the run's end (D2D death 496, live 03:28:49-55 11-14: poisoned from 7 HP, the meal only at the hide at 2 HP, too late; stage 1728)
         if (!g.isUsingItem() && g.getFoodData().getFoodLevel() < 20 && (g.getHealth() < g.getMaxHealth() || g.hasEffect(net.minecraft.world.effect.MobEffects.POISON)) && meleeByMeal(false) == null
@@ -6861,7 +6872,9 @@ public class WorkGoal extends Goal {
         if (CombatBrain.dodge(g, g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) != null) return false;
         // Shield work, like a player with one in his off hand: up (facing it) when a shot or a hit is coming, down to swing
         // and to move at full speed. A raised shield walks at a fifth, so it's never just held up through a chase.
-        if (incoming(mob)) shieldUp(mob); else shieldDown();
+        var swingDue = swingDue(); // (one that can swing before his shield blocks again: the shield on it, his swing waits)
+        boolean letCome = mob instanceof net.minecraft.world.entity.Mob lm && lm.isAlive() && lm.getTarget() == g && lm instanceof net.minecraft.world.entity.monster.Enemy && !shoots(lm) && !(lm instanceof net.minecraft.world.entity.monster.Creeper) && !(lm instanceof net.minecraft.world.entity.monster.Blaze) && !(lm instanceof net.minecraft.world.entity.monster.Ghast) && !(lm instanceof net.minecraft.world.entity.monster.Phantom) && g.getOffhandItem().is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD) && lm.distanceTo(g) < w("fight.let_come_blocks", 8) && Math.abs(lm.getY() - g.getY()) < 1.5 && lm.getDeltaMovement().multiply(1, 0, 1).dot(g.position().subtract(lm.position()).multiply(1, 0, 1).normalize()) > 0.03; // a melee mob walking in on him, shield in hand: he stands behind it and lets it come, its first swing on the shield (a sprint at it met its swing with the shield down: D2D death-284 12:31:27 and :33, stage 1733)
+        if (swingDue != null) shieldUp(swingDue); else if (incoming(mob) || letCome) shieldUp(mob); else shieldDown();
         // In reach like a player (3 blocks from his eyes to its hitbox, clear line): hit it, even up a ledge;
         // the knockback can knock it off the edge to him.
         boolean inReach = mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob);
@@ -6887,7 +6900,9 @@ public class WorkGoal extends Goal {
                 }
             }
             // Swing once the attack is charged, like a player who doesn't spam-click (the game's own cooldown: ~0.6s sword, ~1s axe).
-            if (g.getAttackStrengthScale(0.5f) >= 0.95f && (mob.invulnerableTime <= w("combat.move.strike.iframes_max", 10) || !com.claudemod.entity.life.CombatLog.hitWithin(mob, 10)) && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
+            if (swingDue != null && g.getAttackStrengthScale(0.5f) >= 0.95f && g.tickCount - swingHeldSaid > 20) { swingHeldSaid = g.tickCount; Integer at = swungAt.get(swingDue.getUUID());
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the swing waits behind his shield: the {} {} off {} (WorkGoal.doAttack)", swingDue.getType().getDescription().getString(), String.format("%.1f", swingDue.distanceTo(g)), at == null ? "hasn't swung yet, its first goes on the shield" : "swung " + (g.tickCount - at) + " ticks ago, its next can land before the shield's warm again"); }
+            if (swingDue == null && g.getAttackStrengthScale(0.5f) >= 0.95f && (mob.invulnerableTime <= w("combat.move.strike.iframes_max", 10) || !com.claudemod.entity.life.CombatLog.hitWithin(mob, 10)) && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
                 if (rodHold(mob)) return false; // the killing hit over lava: held till its rod lands on ground
                 reachWaitStart = -1;
                 int cj = critJump().getOrDefault(g.getUUID(), -100);
@@ -6901,6 +6916,7 @@ public class WorkGoal extends Goal {
             }
             return false;
         }
+        if (letCome) { g.getNavigation().stop(); g.setSprinting(false); if (g.tickCount - letComeSaid > 40) { letComeSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} {} off is walking in on him: standing behind his shield for it, its first swing on the shield, then the sword (WorkGoal.doAttack)", mob.getType().getDescription().getString(), String.format("%.1f", mob.distanceTo(g))); } return false; }
         if (ticks % 8 != 1) return false; // re-think the chase a few times a second (it moves)
         if (mob instanceof net.minecraft.world.entity.animal.Animal || mob instanceof net.minecraft.world.entity.animal.AbstractFish) { // (a fish is no Animal: a salmon 5-7 off chased 15 s with no hit till the no-effect watchdog, live 11:18 11-09, D2D reviews 212/213) // a chase goes on while he's closing in: 5 s with no new closest approach (it keeps its distance up a slope, across water, behind a fence) and it's not to be had on foot as things stand; the next one (the hunt's choice skips it for a while)
             double dNow = g.distanceTo(mob);
@@ -7913,6 +7929,23 @@ public class WorkGoal extends Goal {
     private java.util.UUID lastPillarMob;
 
     /** Something a raised shield would stop: a skeleton about to loose (bow drawn ~half a second), an arrow flying his way, a mob in arm's reach. */
+    private final java.util.Map<java.util.UUID, Integer> swungAt = new java.util.HashMap<>(), swingHeld = new java.util.HashMap<>(), metAt = new java.util.HashMap<>(); private int letComeSaid = -100; private int swingHeldSaid = -100; // (the tick each melee mob on him was last seen to swing)
+    /** A melee mob on him whose swing can land before his shield blocks again after a swing of his (down for the swing, up the next tick, blocking 5 ticks on): vanilla's melee mobs swing at most every 20 ticks (MeleeAttackGoal), so a player with a shield takes its swing on the shield and hits in the 14 ticks after; one too far to close into its reach (~0.83 past its box) in that time can't. Null with no shield to block with. D2D death-284, live 12:31:34-36 11-14: 9 -> 4 and 4 -> 0 [shield down], each a swing of his before; stage 1732. */
+    private net.minecraft.world.entity.Mob swingDue() {
+        if (!g.getOffhandItem().is(net.minecraft.world.item.Items.SHIELD) || g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) return null;
+        int lead = (int) w("fight.shield_warm_ticks", 6); net.minecraft.world.entity.Mob due = null;
+        for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(6), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) && !(m instanceof net.minecraft.world.entity.monster.Ghast))) {
+            if (m.swinging) swungAt.put(m.getUUID(), g.tickCount - Math.max(0, m.swingTime) - 1);
+            Integer at = swungAt.get(m.getUUID());
+            double gap = Math.max(Math.abs(m.getX() - g.getX()), Math.abs(m.getZ() - g.getZ())) - (m.getBbWidth() + g.getBbWidth()) / 2;
+            double inBy = 0.83 + mobPace(m, 1.2) * lead / 20.0; // (its reach past its box, and what it walks in the shield's warm-up)
+            if (at != null && g.tickCount - at < 20 - lead || gap > inBy || Math.abs(m.getY() - g.getY()) > 2.5) { if (at != null && g.tickCount - at < 20 - lead || gap > inBy + 1.5) swingHeld.remove(m.getUUID()); continue; } // its next swing comes after the shield's back up, or it can't be in its reach in that time (the hold's clock goes on while it hangs at the edge of that: one 2.6 off, in and out of it, held his sword 15 s, stage 1733)
+            if (g.tickCount - swingHeld.computeIfAbsent(m.getUUID(), k -> g.tickCount) > w("fight.shield_hold_ticks", 20)) continue; // its swing due that long and none came: it isn't swinging (its sight cut, its goal off; 1732 stood 20 s behind the shield with one 1.5 off): the hit
+            if (due == null || m.distanceTo(g) < due.distanceTo(g)) due = m;
+        }
+        return due;
+    }
+
     private boolean incoming(net.minecraft.world.entity.LivingEntity mob) {
         if (!g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD)) return false;
         if (mob instanceof net.minecraft.world.entity.monster.Creeper cr) return cr.getSwellDir() > 0 && cr.distanceTo(g) < w("creeper.blast_reach", 7); // a lit one in reach of its bang: the shield takes it (an unlit one is hit back or left, not shielded)

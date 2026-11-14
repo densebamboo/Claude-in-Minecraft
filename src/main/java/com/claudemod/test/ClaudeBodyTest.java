@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1731: return st1731(stage, t, c, h, level, mock);
             case 1730: return st1730(stage, t, c, h, level, mock);
             case 1729: return st1729(stage, t, c, h, level, mock);
             case 1728: return st1728(stage, t, c, h, level, mock);
@@ -24435,6 +24436,34 @@ public final class ClaudeBodyTest {
             check(at >= 0, "withering at 14, hunger 19, running from a wither skeleton 9 off: no meal in 3 s: " + (q.length() > 140 ? q.substring(0, 140) : q));
             check(at < 9.5, String.format("the meal only once the wither skeleton was %.1f off: its pace counted with him standing still, not walking on at a fifth", at));
             pass(stage, t, String.format("a meal on the run with the wither skeleton %.1f off", at));
+        }
+        return true;
+    }
+    /** Stage 1731 (D2D death-419, live 09:02:50-52 11-14: "through the gap at 292, 65, 518: plugging it with two Cobblestone", both blocks put, then a wither skeleton 1 off hit him at 292, 65, 520 on his side: it was through already, the plug shut him in with it; only the gap's own cells were checked for mobs): a 1-wide way 4 long between two rooms, a wither skeleton after him from his room's side, another 14 off in the room he runs into (as the two below him live could come up on his side: on his heels none gets past him in a 1-wide way). No plug with one of them on his side of it. */
+    private static int s1731T; private static String s1731Bad; private static java.util.List<net.minecraft.world.entity.monster.WitherSkeleton> s1731W = new java.util.ArrayList<>();
+    private static boolean st1731(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1731T = -1; s1731Bad = null; for (var w : s1731W) w.discard(); s1731W.clear(); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -20; x <= 20; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -1 || y == 4 || Math.abs(x) == 20 || Math.abs(z) == 10 || x >= 1 && x <= 4 && (z != 0 || y == 3) ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); // his room x < 1, theirs x > 4, the 1-wide way x 1-4
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 6.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.removeAllEffects(); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x : new int[] {9, -14}) { var m = EntityType.WITHER_SKELETON.create(level); m.moveTo(o.getX() + x + 0.5, o.getY(), o.getZ() + 0.5, 90, 0); m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).setBaseValue(0.25); m.setPersistenceRequired(); level.addFreshEntity(m); s1731W.add(m); }
+            c.getLookControl().setLookAt(s1731W.get(0));
+        }
+        if (t[0] == 30) { c.setHealth(9); for (var w : s1731W) w.setTarget(c); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Flee(600)); s1731T = t[0]; }
+        if (s1731T > 0 && s1731Bad == null) for (int x = 1; x <= 4; x++) { BlockPos q = o.offset(x, 0, 0); if (!level.getBlockState(q).is(Blocks.COBBLESTONE)) continue;
+            for (var w : s1731W) if (w.isAlive() && w.getX() < q.getX()) s1731Bad = String.format("plugged at x %d with a wither skeleton on his side of it at x %.1f (him at x %.1f)", x, w.getX() - o.getX(), c.getX() - o.getX()); }
+        if (s1731T > 0 && (t[0] == s1731T + 20 * 15 || !c.isAlive() || s1731Bad != null)) {
+            String bad = s1731Bad; boolean alive = c.isAlive(); boolean plugged = false; for (int x = 1; x <= 4; x++) plugged |= level.getBlockState(o.offset(x, 0, 0)).is(Blocks.COBBLESTONE);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard(); s1731W.clear();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.stopUsingItem(); c.clearFire(); c.removeAllEffects(); if (alive) c.setHealth(20); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -20; x <= 20; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(bad == null, bad);
+            check(alive, "died by the gap");
+            pass(stage, t, plugged ? "plugged with both of them on the far side" : "no plug with one through: held or ran on");
         }
         return true;
     }

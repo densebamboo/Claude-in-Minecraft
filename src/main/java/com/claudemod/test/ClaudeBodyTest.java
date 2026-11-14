@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1726: return st1726(stage, t, c, h, level, mock);
             case 1725: return st1725(stage, t, c, h, level, mock);
             case 1724: return st1724(stage, t, c, h, level, mock);
             case 1723: return st1723(stage, t, c, h, level, mock);
@@ -24265,6 +24266,35 @@ public final class ClaudeBodyTest {
     private static boolean st1725(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { s1714Hover = true; }
         return st1724(stage, t, c, h, level, mock);
+    }
+    /** Stage 1726 (D2D death 22:49:28 11-13 at the fortress 310,65,512, incident 20261113-224928-death-203): 8 HP, full iron, a shield, a wither skeleton on him by a bridge's edge; "a lip behind him ... to firm footing first, then the fight" lowered the shield and walked with it in reach, 8 -> 3, then at 3 the same again, dead; all 5 of its hits landed [shield down]. Here: a deck with a 7-block drop on his east side, a wither skeleton coming from the west, 8 HP: alive after 25 s with at most one of its hits landed. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1726W; private static int s1726T, s1726Hits, s1726Blocks; private static float s1726Low;
+    private static boolean st1726(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1726T = -1; s1726Hits = 0; s1726Blocks = 0; s1726Low = 20; if (s1726W != null) s1726W.discard(); s1726W = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -7; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 4; y++) {
+                boolean deck = x <= 0 && z >= -2 && z <= 2; // (the deck: him at its east edge, the drop east of him)
+                level.setBlock(o.offset(x, y, z), (y == -8 ? Blocks.NETHERRACK : y == -1 && deck ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_COD, 12));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(8); c.getFoodData().setFoodLevel(19); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var m = EntityType.WITHER_SKELETON.create(level); m.moveTo(o.getX() - 3.5, o.getY(), o.getZ() + 0.5, -90, 0); m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); m.setPersistenceRequired(); level.addFreshEntity(m); s1726W = m;
+        }
+        if (t[0] == 14) { s1726W.setTarget(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1726W.getUUID(), 20 * 30)); s1726T = t[0]; }
+        if (s1726T > 0) { s1726Low = Math.min(s1726Low, c.getHealth()); if (c.hurtTime == 10 && c.getLastDamageSource() != null && c.getLastDamageSource().getEntity() == s1726W) s1726Hits++; if (c.isBlocking() && s1726W != null && s1726W.swingTime == 1) s1726Blocks++; }
+        if (s1726T > 0 && (t[0] == s1726T + 500 || !c.isAlive() || s1726W != null && !s1726W.isAlive())) {
+            String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), q = c.currentTask + " " + c.tasks; float hp = c.getHealth(); boolean alive = c.isAlive(), dead = !s1726W.isAlive(); int sec = (t[0] - s1726T) / 20;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard(); s1726W = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.removeAllEffects(); if (alive) c.setHealth(20); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -7; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -8 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(alive, "died by the deck's edge to the wither skeleton at 8 HP with a shield (at " + at + ", " + s1726Hits + " hit(s) taken, lowest " + (int) s1726Low + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            check(s1726Hits <= 1, s1726Hits + " of the wither skeleton's hits landed (lowest " + (int) s1726Low + ", at " + at + "): a shield up as it swings blocks them");
+            pass(stage, t, (dead ? "the wither skeleton killed in " + sec + " s" : "held 25 s") + ", health " + (int) hp + ", lowest " + (int) s1726Low + ", " + s1726Hits + " hit(s) taken");
+        }
+        return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

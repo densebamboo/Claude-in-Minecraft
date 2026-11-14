@@ -7224,6 +7224,9 @@ public class WorkGoal extends Goal {
             footRefused.put(footTry, g.tickCount); footOffAt = feet.immutable(); footOffUntil = g.tickCount + 100; footTry = null; footBest = null; footFeet = feet; footTick = g.tickCount; footingSaid = feet;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] not getting onto the footing at {} ({} off after {} s, no nearer): written off 10 s, the {} fought from {} for 5 s (WorkGoal.fightFooting)", best.toShortString(), String.format("%.1f", bd), (g.tickCount - footTrySince) / 20, mob.getType().getDescription().getString(), feet.toShortString());
             return null; }
+        if (!fire && !shooter && incoming(mob)) { // a melee mob in its reach: the step behind the raised shield (a blocked hit throws nobody), or the charged swing first (its knockback on it, not him). Dropped for the step, the wither skeleton's hits all landed: D2D death 22:49:28 11-13, 8 -> 3 -> 0 [shield down]; stage 1726
+            if (canHitNow(mob)) return null;
+            g.setSprinting(false); shieldUp(mob); cfMove(best, 1.0); return false; }
         if (g.isUsingItem()) g.stopUsingItem();
         g.setSprinting(false); cfMove(best, 1.0);
         return false;

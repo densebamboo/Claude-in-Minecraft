@@ -6216,6 +6216,13 @@ public class WorkGoal extends Goal {
             for (var m : mobs) if (!(m instanceof net.minecraft.world.entity.monster.Creeper) && m.getTarget() == g && canHitNow(m) && (hitOne == null || m.distanceTo(g) < hitOne.distanceTo(g))) hitOne = m;
             if (hitOne != null) { equipWeapon(); if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND) shieldDown(); g.getLookControl().faceNow(hitOne.getBoundingBox().getCenter()); g.attack(hitOne); g.swing(InteractionHand.MAIN_HAND); }
         }
+        // a meal on the run, like a player: right click held as he goes, slowed to a fifth while it's in his mouth (Controls), when nothing on him gets into reach before it's down; poisoned or hurt, a meal now beats one at the run's end (D2D death 496, live 03:28:49-55 11-14: poisoned from 7 HP, the meal only at the hide at 2 HP, too late; stage 1728)
+        if (!g.isUsingItem() && g.getFoodData().getFoodLevel() < 20 && (g.getHealth() < g.getMaxHealth() || g.hasEffect(net.minecraft.world.effect.MobEffects.POISON)) && meleeByMeal(false) == null
+                && (g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) || mobs.stream().noneMatch(m -> farShooter(m) && m.hasLineOfSight(g))) // (a shooter with a line on him: out of its sight at full pace first, unless the poison is eating him meanwhile)
+                && mobs.stream().noneMatch(m -> m instanceof net.minecraft.world.entity.monster.Creeper cr && cr.getSwellDir() > 0)) {
+            var food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); ItemStack fs = food == null ? ItemStack.EMPTY : g.inventory.find(s0 -> s0.is(food));
+            if (!fs.isEmpty() && g.hold(fs) && g.useHeld()) { g.setSprinting(false); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] eating {} on the run: health {}, hunger {}{}, nothing on him in reach before it's down (WorkGoal.doFlee)", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(food).getPath(), (int) g.getHealth(), g.getFoodData().getFoodLevel(), g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) ? ", poisoned" : ""); }
+        }
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
         // (a back-off hold is a corner too: it never swings, and the run's clock never ends a hold; live 14:30 11-07 two hoglins, 30 s shield up, 20 -> 0, stage 1052)
@@ -7909,8 +7916,9 @@ public class WorkGoal extends Goal {
     /** A melee mob on him that walks into reach before a meal (1.6 s) is down: vanilla's pace, ~44 x (speed x its chase modifier)^2 blocks a second (a zombie 2.3, a wither skeleton at its 1.2 about 4). Live 18:39 11-08: "eating first" at 2 HP, a wither skeleton 5 off was on him in 1.1 s. */
     private boolean meleeInByMeal() { return meleeByMeal() != null; }
     /** The nearest of those (meleeInByMeal), or null. */
-    private net.minecraft.world.entity.Mob meleeByMeal() {
-        return level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) /* (a blaze hangs back and shoots; its touch inside 2 is blazeInReach's: 1321 read one 6 off as walking in) */
+    private net.minecraft.world.entity.Mob meleeByMeal() { return meleeByMeal(true); }
+    private net.minecraft.world.entity.Mob meleeByMeal(boolean witches) {
+        return level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) && (witches || !(m instanceof net.minecraft.world.entity.monster.Witch)) /* (a witch throws, never swings: on the run one 7 off read as walking in, no meal, D2D death 496; in a fight it still counts, the kill before the meal) */ /* (a blaze hangs back and shoots; its touch inside 2 is blazeInReach's: 1321 read one 6 off as walking in) */
             && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < mobPace(m, 1.2) * w("food.eat_s", 1.6)).stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).orElse(null);
     }
     /** A melee mob on him, in before a meal's down (meleeByMeal): no standing still to eat or heal with it coming, shield down and facing the blaze; it's fought first, this fight after it (D2D death 850, live 09:20:15-27 11-13: "healing out of their sight" as a wither skeleton walked up, 15 -> 10, then "eating where he stands" at 4 with one 2.8 off, dead; stages 1711, 1712). */

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1728: return st1728(stage, t, c, h, level, mock);
             case 1727: return st1727(stage, t, c, h, level, mock);
             case 1726: return st1726(stage, t, c, h, level, mock);
             case 1725: return st1725(stage, t, c, h, level, mock);
@@ -24325,6 +24326,33 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1728 (D2D death 03:29:07 11-14, incident 20261114-032907-death-496, Loops' read): poisoned by a witch and running from 7 HP, hunger 19-17, 7 cooked salmon on him, the meal only at the escape's end ("out of their sight ... health 2: eating cooked_salmon here"), too late; nothing eats on the run, and a witch 7 off read as a melee mob in before the meal's down (it never swings). Here: flat ground, 10 HP, hunger 16, poisoned, running from a witch 10 off: a meal started inside 3 s of the run, the Flee still on. */
+    private static net.minecraft.world.entity.monster.Witch s1728W; private static int s1728T, s1728Ate = -1; private static double s1728Moved;
+    private static boolean st1728(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1728T = -1; s1728Ate = -1; s1728Moved = 0; if (s1728W != null) s1728W.discard(); s1728W = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(10); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); c.removeAllEffects(); c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.POISON, 400)); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var m = EntityType.WITCH.create(level); m.moveTo(o.getX() + 10.5, o.getY(), o.getZ() + 0.5, 90, 0); m.setPersistenceRequired(); level.addFreshEntity(m); s1728W = m;
+        }
+        if (t[0] == 14) { s1728W.setTarget(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Wait(40, false)); c.getLookControl().setLookAt(s1728W); }
+        if (t[0] == 34) { s1728W.setTarget(c); c.stopUsingItem(); c.getFoodData().setFoodLevel(16); c.getFoodData().setSaturation(0); c.setHealth(10); c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.POISON, 400)); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Flee(400)); s1728T = t[0]; } // (a second to see it: what he runs from is what he knows of)
+        if (s1728T > 0 && s1728Ate < 0 && c.isUsingItem() && c.getUseItem().is(Items.COOKED_SALMON) && c.currentTask instanceof Task.Flee) { s1728Ate = t[0] - s1728T; s1728Moved = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(o)); }
+        if (s1728T > 0 && (t[0] == s1728T + 100 || !c.isAlive())) {
+            String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), q = c.currentTask + " " + c.tasks; boolean alive = c.isAlive(); int ate = s1728Ate; double moved = s1728Moved; float hp = c.getHealth();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard(); s1728W = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.removeAllEffects(); if (alive) c.setHealth(20); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(alive, "died poisoned on the run (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            check(ate >= 0 && ate <= 60, "poisoned at 10 HP, hunger 16, running from a witch 10 off: " + (ate < 0 ? "no meal in 5 s" : "the meal only " + ate / 20.0 + " s in") + " (health " + (int) hp + ", at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            pass(stage, t, "a meal " + ate / 20.0 + " s into the run, " + String.format("%.1f", moved) + " blocks out, health " + (int) hp);
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -27530,13 +27558,13 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
-    /** Stage 1341 (D2D, death 496 live 03:28:23-03:28:49 11-14 by home at night, full iron, shield, sword, 7 salmon: clearOnSight "a Witch 12 off in sight: after it", 3 s on doAttack "breaking off the fight with the Witch (fight ~669 s, run ~263 s)", clear of it, "after it" again, four rounds in 25 s in her potion range, harming 13 -> 7). The fight on sight is the fight doAttack prices: one it would break off at once is not started. A witch 10 off, in sight, him at 20 HP in iron: let be. */
+    /** Stage 1341 (D2D, death 496 live 03:28:23-03:28:49 11-14 by home at night, full iron, shield, sword, 7 salmon: clearOnSight "a Witch 12 off in sight: after it", 3 s on doAttack "breaking off the fight with the Witch (fight ~669 s, run ~263 s)", clear of it, "after it" again, four rounds in 25 s in her potion range, harming 13 -> 7). The fight on sight is the fight doAttack prices: one it would break off at once is not started. A witch 10 off, in sight, him at 5 HP in iron: let be (at 20 the fight is his, stage 1727). */
     private static boolean st1341(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); level.setDayTime(18000); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
         if (t[0] == 5) {
             for (net.minecraft.world.item.Item a : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS}) c.setItemSlot(((net.minecraft.world.item.ArmorItem) a).getEquipmentSlot(), new ItemStack(a));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7));
-            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.setHealth(5); c.getFoodData().setFoodLevel(20); /* (5: a fight he breaks off at once; at 20 in iron a lone witch is his to kill since its throws are priced as vanilla throws them, stage 1727) */
             BlockPos me = h.absolutePos(new BlockPos(3, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f);
             var w = EntityType.WITCH.create(level); BlockPos wp = h.absolutePos(new BlockPos(13, 2, 7)); w.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); w.setNoAi(true); level.addFreshEntity(w); hzMob = w;
         }

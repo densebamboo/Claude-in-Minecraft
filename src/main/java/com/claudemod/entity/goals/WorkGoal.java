@@ -260,15 +260,21 @@ public class WorkGoal extends Goal {
         if (!(surfacing && ((current == null && roofDig(g.tasks.peek())) || roofDig(current)))) surfacing = false; // (still surfacing while the roof dig runs below: not a fresh start, no re-queue, every tick)
         // In lava: out first, everything else waits (he stood 3 s in a lava flow finishing a Place and died, 09:02)
         if (!g.isInLava() && g.onGround() && g.tickCount % 5 == 0 && g.level().getFluidState(g.blockPosition()).isEmpty()) { BlockPos f0 = g.blockPosition().immutable(); if (!f0.equals(dryCells.peekLast())) { dryCells.addLast(f0); if (dryCells.size() > 12) dryCells.pollFirst(); } } // (the cells he stood dry on lately: the way he came in, known good footing)
+        if (!g.isInLava() && lavaStepOut != null) { // up on his step out of the lava: the hop on onto the way out, or it is an island in the pool (stage 1716)
+            BlockPos lo = lavaStepOut; double off = Math.hypot(g.getX() - lo.getX() - 0.5, g.getZ() - lo.getZ() - 0.5);
+            if (g.tickCount - lavaStepTick > 80 || (off < 0.6 && g.onGround() && g.getY() >= lo.getY() - 0.1)) { if (g.tickCount - lavaStepTick <= 80) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] out of the lava over his step onto {} (WorkGoal.reflexes)", lo.toShortString()); lavaStepOut = null; }
+            else { g.getNavigation().stop(); g.getLookControl().setLookAt(Vec3.atCenterOf(lo)); g.getMoveControl().setWantedPosition(lo.getX() + 0.5, lo.getY(), lo.getZ() + 0.5, 1.0); if (g.onGround() && lo.getY() > g.getY() + 0.5) g.getJumpControl().jump(); return true; } }
         if (g.isInLava()) {
             if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
             var lv = g.level(); BlockPos me = g.blockPosition(), out = null; double bd = Double.MAX_VALUE;
-            for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -1, -6), me.offset(6, 1, 6))) { // ponytail: 6 out, not 3 (live 19:53 World 15: fell into a Nether lava lake, no dry cell within 3, he only jumped till he died)
+            BlockPos top = me; while (top.getY() < me.getY() + 8 && lv.getFluidState(top).is(net.minecraft.tags.FluidTags.LAVA)) top = top.above(); // (the first cell over the lava he is in: he swims up to it)
+            int upTo = Math.max(me.getY() + 1, top.getY() + 1); Vec3 eyeUp = new Vec3(g.getX(), Math.max(g.getEyeY(), top.getY() + 0.5), g.getZ()); // (a block over the surface is a wall he swims to and jumps out onto, vanilla's climb out of a fluid; sunk 2 under a pool's surface, his search went 1 up from his feet and looked from his sunk eyes through the wall: "no dry cell near: jumping" with brick a step east 1.1 over the surface, 20 -> 0 in 7 s, live 15:49 11-13, stage 1716)
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -1, -6), new BlockPos(me.getX() + 6, upTo, me.getZ() + 6))) { // ponytail: 6 out, not 3 (live 19:53 World 15: fell into a Nether lava lake, no dry cell within 3, he only jumped till he died)
                 if (!lv.getFluidState(q).isEmpty() || !lv.getFluidState(q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty() || !lv.getBlockState(q.above()).getCollisionShape(lv, q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q.below()).isFaceSturdy(lv, q.below(), Direction.UP)) continue;
                 if (lavaOutBad.containsKey(q) && g.tickCount - lavaOutBad.get(q) < 20 * 4) continue; // (a step he couldn't make just now: another way out, never the same failing step till he burns: live 06:53 World 15)
-                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 1000); // (a wall between: last resort)
+                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(q.getY() > me.getY() + 1 ? eyeUp : g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 1000); // (a wall between: last resort)
                 if (d >= 1000 && q.distSqr(me) > 2) continue; // (behind a wall and not beside him: no way out at all, the wall dig below is; 1.5 s lost walking at one in a sealed pocket)
                 if (d < bd) { bd = d; out = q.immutable(); }
             }
@@ -301,6 +307,17 @@ public class WorkGoal extends Goal {
                     if (dig != null) wallUp = !lv.getBlockState(dig).getCollisionShape(lv, dig).isEmpty() || !lv.getBlockState(dig.above()).getCollisionShape(lv, dig.above()).isEmpty();
                 }
             }
+            if (out != null && !wallUp && out.getY() > top.getY() && g.tickCount - lavaStepTick >= 8) { // the way out a block over the lava's surface: more than a jump out of lava (it lifts ~1.25, the ledge wants 1.45: up to the surface and back down, 4 HP a hit; stage 1716): a block in the lava beside the wall at the surface, a step up, as a player does
+                var it = com.claudemod.entity.life.FortressFight.wallItem(g, 1); BlockPos step = null, wall = null; Direction face = null; double sb = Double.MAX_VALUE;
+                if (it != null) for (BlockPos l0 : BlockPos.betweenClosed(new BlockPos(me.getX() - 2, top.getY() - 1, me.getZ() - 2), new BlockPos(me.getX() + 2, top.getY() - 1, me.getZ() + 2))) { BlockPos l = l0.immutable();
+                    if (!lv.getFluidState(l).is(net.minecraft.tags.FluidTags.LAVA) || g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(l))) continue;
+                    if (!lv.getBlockState(l.above()).getCollisionShape(lv, l.above()).isEmpty() || !lv.getBlockState(l.above(2)).getCollisionShape(lv, l.above(2)).isEmpty()) continue;
+                    for (Direction d1 : Direction.Plane.HORIZONTAL) { BlockPos w = l.relative(d1);
+                        if (w.getX() != out.getX() || w.getZ() != out.getZ() || !lv.getBlockState(w).isFaceSturdy(lv, w, d1.getOpposite())) continue; // (against the way out's own column: the step leads onto it; one against the nearest wall left him on a block in the pool, stage 1716)
+                        double dd = l.distToCenterSqr(g.position()); if (dd < sb) { sb = dd; step = l; wall = w; face = d1.getOpposite(); } } }
+                if (step != null && g.hold(g.inventory.find(x -> x.is(it)))) { lavaStepTick = g.tickCount; g.getLookControl().faceNow(Vec3.atCenterOf(wall)); boolean put = g.useOn(wall, face) && !lv.getBlockState(step).getCollisionShape(lv, step).isEmpty();
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: the way out at {} is {} over the lava's surface, more than a jump: a {} at {} against {} as a step out ({}) (WorkGoal.reflexes)", me.toShortString(), out.toShortString(), String.format("%.2f", out.getY() - (top.getY() - 1 + lv.getFluidState(top.below()).getHeight(lv, top.below()))), BuiltInRegistries.ITEM.getKey(it).getPath(), step.toShortString(), wall.toShortString(), put ? "set" : "didn't take");
+                    if (put) { lavaOut = null; lavaStepOut = out.immutable(); out = step.above(); } } }
             if (wallUp) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); g.getMoveControl().setWantedPosition(g.getX(), g.getY(), g.getZ(), 0); return true; }
             if (out != null) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); /* (at once, then the walk: a turn over 4 ticks lost 4 of the ~22 a cell takes in lava drag) */ g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
             if (out == null || out.getY() > g.getY() + 0.1) g.getJumpControl().jump(); // (up only toward a way out above his feet: held beside a lava fall with the way out level, the jump swam him up the fall 72 -> 76 till he burnt, death 48, stage 897)
@@ -309,7 +326,7 @@ public class WorkGoal extends Goal {
         return false;
     }
 
-    private int lavaDigTick = -100;
+    private int lavaDigTick = -100, lavaStepTick = -100; private BlockPos lavaStepOut; // (the way out his lava step leads onto: the hop onto it after)
     private String lavaWhy(BlockPos out) { // what holds him in the lava, for the log: World 17 20:41 his own dry cell was the way out and he wasn't out of it in 1.5 s, unproven why (stage 746 gets out in 6 ticks)
         var lv = g.level(); var bb = g.getBoundingBox().deflate(0.001); StringBuilder touch = new StringBuilder();
         for (BlockPos q : BlockPos.betweenClosed(BlockPos.containing(bb.minX, bb.minY, bb.minZ), BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ))) { var fs = lv.getFluidState(q);

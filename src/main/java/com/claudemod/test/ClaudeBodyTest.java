@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1716: return st1716(stage, t, c, h, level, mock);
             case 1715: return st1715(stage, t, c, h, level, mock);
             case 1714: return st1714(stage, t, c, h, level, mock);
             case 1713: return st1713(stage, t, c, h, level, mock);
@@ -23978,6 +23979,41 @@ public final class ClaudeBodyTest {
             check(alive, "died on the lip by the lava with the big magma cube on him (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
             check(hit, "6 s with a big magma cube on him and not one hit landed on it (" + cube + ", health " + (int) hp + ", at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
             pass(stage, t, "the cube fought from the lip, health " + (int) hp);
+        }
+        return true;
+    }
+    /** Stage 1716 (D2D death 15:49:28 11-13 at 320,31,451 by the fortress, incident 20261113-154928-death-51): he fell 3 into a lava pool three deep (surface 31.9) and sank to y 29.9; the way out, nether brick a step east with its top 1.1 over the lava's surface, was never looked at ("in lava ...: getting out (no dry cell near: jumping)", 20 -> 0 in 7 s): the search went 1 up from his feet and looked from his sunk eyes through the brick. A player swims to that wall and jumps out. Here: a pool three deep, walled high but on one side, where the wall's top is a block over the surface. Passes out of the lava and alive inside 6 s. */
+    private static int s1716T;
+    private static boolean st1716(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13700, 60, 8300);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; s1716T = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(30), e -> !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) {
+                boolean pool = Math.abs(x) <= 2 && Math.abs(z) <= 2 && y >= 0 && y <= 2;
+                boolean east = x == 3 && Math.abs(z) <= 2 && y >= 0 && y <= 3; // (the low side: its top at y 4, 1.1 over the lava's surface at 2.9)
+                boolean high = !pool && !(x == 3 && Math.abs(z) <= 2) && Math.max(Math.abs(x), Math.abs(z)) == 3 && y >= 0 && y <= 7; // (the other sides: too high to get onto)
+                net.minecraft.world.level.block.Block b = y == -1 ? Blocks.NETHERRACK : pool ? Blocks.LAVA : east ? Blocks.NETHER_BRICKS : high ? Blocks.NETHERRACK : (x >= 4 && y <= 3 && y >= 0 ? Blocks.NETHER_BRICKS : Blocks.AIR); // (past the east wall: the fortress floor on with it)
+                nl.setBlock(o.offset(x, y, z), b.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.IRON_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.IRON_CHESTPLATE : sl == net.minecraft.world.entity.EquipmentSlot.LEGS ? Items.IRON_LEGGINGS : Items.IRON_BOOTS));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(nl, o.getX() + 0.3, o.getY() + 4.5, o.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.clearFire(); c.fallDistance = 0; s1716T = t[0]; // (dropped in from 1.5 over the surface, as he fell in live)
+        }
+        if (s1716T > 0 && t[0] > s1716T + 5) {
+            boolean out = !c.isInLava() && c.onGround() && c.getY() >= o.getY() + 3.9; boolean dead = !c.isAlive() || c.getHealth() <= 0; double s = (t[0] - s1716T) / 20.0;
+            if (out || dead || s > 6) {
+                String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()); float hp = c.getHealth();
+                c.clearFire(); if (c.isAlive()) c.setHealth(20); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(!dead, "died in the lava pool with the low wall a step east (at " + at + ", " + (int) s + " s)");
+                check(out, (int) s + " s in the lava pool and not out onto the low wall a step east (at " + at + ", health " + (int) hp + ")");
+                pass(stage, t, "out of the lava in " + String.format("%.1f", s) + " s, health " + (int) hp);
+            }
         }
         return true;
     }

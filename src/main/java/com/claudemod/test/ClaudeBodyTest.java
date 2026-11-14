@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1723: return st1723(stage, t, c, h, level, mock);
             case 1722: return st1722(stage, t, c, h, level, mock);
             case 1721: return st1721(stage, t, c, h, level, mock);
             case 1720: return st1720(stage, t, c, h, level, mock);
@@ -24215,6 +24216,35 @@ public final class ClaudeBodyTest {
                 check(!dead, "killed by the creepers in the open cave after " + String.format("%.1f", s) + " s (at " + at + " arena coords)");
                 check(low >= 16, "a creeper's blast got him in the open cave: lowest health " + (int) low + " (at " + at + ", " + left + " creeper(s) left)");
                 pass(stage, t, "30 s among three creepers in an open cave, lowest health " + (int) low + ", " + left + " creeper(s) left, him at " + at);
+            }
+        }
+        return true;
+    }
+    /** Stage 1723 (D2D death 75, live 18:50:52 11-13 at -116,19,-657): after two creeper blasts, at 3 HP, armor 0, "hit by a mob that's gone from the world now: healing up", "healing here first, ~6 s" with a skeleton heard 10.6 off and a clear line to him (not targeting him yet, so healUp's "skeleton on him" check passed it by); its arrow 3 -> 0. A skeleton 11 off with a line on him, a wall 3 off to step behind, 3 HP: out of its line within 3 s of the 8, healing after. */
+    private static net.minecraft.world.entity.monster.Skeleton s1723S; private static int s1723T, s1723In;
+    private static boolean st1723(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; if (s1723S != null) s1723S.discard(); s1723S = null; s1723T = -1; s1723In = 0; }
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 4)).offset(0, 0, -10);
+        if (t[0] == 10) {
+            for (int x = -16; x <= 10; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -2; z <= 2; z++) for (int y = 0; y <= 2; y++) level.setBlock(o.offset(3, y, z), Blocks.STONE.defaultBlockState(), 2); // (the wall a step or three east)
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 14));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(90); c.setYHeadRot(90); c.setHealth(3); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1723S = EntityType.SKELETON.create(level); s1723S.moveTo(o.getX() - 10.5, o.getY(), o.getZ() + 0.5, -90, 0); s1723S.setNoAi(true); s1723S.setInvulnerable(true); s1723S.setPersistenceRequired(); s1723S.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(s1723S);
+        }
+        if (t[0] == 20) { c.urgentAttacker = java.util.UUID.randomUUID(); s1723T = t[0]; } // (hit by a mob now gone from the world: the creeper that blew up, as live)
+        if (s1723T > 0 && t[0] > s1723T && s1723S != null) {
+            boolean line = com.claudemod.entity.life.Perception.clear(level, s1723S.getEyePosition(), c.getEyePosition()) && c.distanceTo(s1723S) <= 16;
+            if (line) s1723In++;
+            if (t[0] - s1723T >= 20 * 8 || !c.isAlive()) {
+                int in = s1723In; float hp = c.getHealth(); String q = c.currentTask + " " + c.tasks.stream().limit(3).toList(); BlockPos at = c.blockPosition();
+                s1723S.discard(); s1723S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.urgentAttacker = null; c.setHealth(20); c.getInventory().clearContent(); c.prefs.remove("stay_close");
+                for (int x = -16; x <= 10; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); flatBox(h);
+                check(in <= 60, "3 HP, armor 0, a skeleton 11 off with a line on him: " + in / 20.0 + " s of 8 in its line (at " + at.toShortString() + ", " + q + ")");
+                pass(stage, t, "out of its line: " + in / 20.0 + " s in it, at " + at.toShortString() + ", health " + (int) hp + " (" + q + ")");
             }
         }
         return true;

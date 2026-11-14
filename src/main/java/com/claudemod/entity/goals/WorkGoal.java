@@ -6338,8 +6338,10 @@ public class WorkGoal extends Goal {
     }
     private void healUp() {
         // a skeleton still drawing on him: no standing there eating in its sights; cover first (the dig-in), the eating from in there
-        if (!diggingIn() && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(20), m -> m.isAlive() && (com.claudemod.entity.goals.WorkGoal.shoots(m)) && (m.getTarget() == g || m.distanceTo(g) < 10)).isEmpty()) {
+        var lined = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(20), m -> m.isAlive() && (com.claudemod.entity.goals.WorkGoal.shoots(m)) && (m.getTarget() == g || m.distanceTo(g) < 10 || m.distanceTo(g) <= 16 && com.claudemod.entity.life.Perception.clear((ServerLevel) g.level(), m.getEyePosition(), g.getEyePosition()))); /* (a line on him counts, targeting him yet or not: a skeleton heard 10.6 off with a clear line, "healing here first, ~6 s" at 3 HP, its arrow 3 -> 0, D2D death 75; stage 1723) */
+        if (!diggingIn() && !lined.isEmpty()) {
             if (digInFromArrows()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a skeleton still on him (health {}): under cover before any healing", (int) g.getHealth()); return; }
+            if (!(current instanceof Task.Flee) && !(g.tasks.peek() instanceof Task.Flee)) { g.tasks.addFirst(new Task.Flee(60)); fleeSeed = lined.get(0).getUUID(); /* (the run is from it: not hunting him yet, the run's own list left it out and ended at once) */ com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the {} {} off has a line on him (health {}) and no cover goes up under it: out of its line first, the healing after (WorkGoal.healUp)", lined.get(0).getType().getDescription().getString(), Math.round(lined.get(0).distanceTo(g)), (int) g.getHealth()); return; } /* (the dig-in's "out of their sights before any building" had nothing carry it out: he stood in its line) */
         }
         if (g.getHealth() >= g.getMaxHealth() - 4) return;
         if (current instanceof Task.Eat || current instanceof Task.Wait || g.tasks.peek() instanceof Task.Eat || g.tasks.peek() instanceof Task.Wait) return;

@@ -11200,6 +11200,7 @@ public final class ClaudeBodyTest {
             case 1338: return st1338(stage, t, c, h, level, mock);
             case 1339: return st1339(stage, t, c, h, level, mock);
             case 1340: return st1340(stage, t, c, h, level, mock);
+            case 1341: return st1341(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -27499,6 +27500,21 @@ public final class ClaudeBodyTest {
             check(!stays, "the control: the same block over a 2-drop onto stone, not taken up");
             pass(stage, t, "beside the lava drop his block stays; over a 2-drop it comes up");
         }
+        return true;
+    }
+    /** Stage 1341 (D2D, death 496 live 03:28:23-03:28:49 11-14 by home at night, full iron, shield, sword, 7 salmon: clearOnSight "a Witch 12 off in sight: after it", 3 s on doAttack "breaking off the fight with the Witch (fight ~669 s, run ~263 s)", clear of it, "after it" again, four rounds in 25 s in her potion range, harming 13 -> 7). The fight on sight is the fight doAttack prices: one it would break off at once is not started. A witch 10 off, in sight, him at 20 HP in iron: let be. */
+    private static boolean st1341(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); level.setDayTime(18000); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 5) {
+            for (net.minecraft.world.item.Item a : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS}) c.setItemSlot(((net.minecraft.world.item.ArmorItem) a).getEquipmentSlot(), new ItemStack(a));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f);
+            var w = EntityType.WITCH.create(level); BlockPos wp = h.absolutePos(new BlockPos(13, 2, 7)); w.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); w.setNoAi(true); level.addFreshEntity(w); hzMob = w;
+        }
+        if (t[0] == 10) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); boolean went = c.tasks.stream().anyMatch(q -> q instanceof Task.Attack); String q = String.valueOf(c.tasks); c.tasks.clear();
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); hzMob = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); level.setDayTime(6000);
+            check(!went, "on sight: after a witch 10 off whose fight doAttack breaks off at once (" + q + ")"); pass(stage, t, "the witch let be on sight: the fight he would break off is not started"); }
         return true;
     }
     private static int s1511At = -1;

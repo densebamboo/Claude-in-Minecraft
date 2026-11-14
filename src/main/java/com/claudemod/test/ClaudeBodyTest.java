@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1720: return st1720(stage, t, c, h, level, mock);
             case 1719: return st1719(stage, t, c, h, level, mock);
             case 1718: return st1718(stage, t, c, h, level, mock);
             case 1717: return st1717(stage, t, c, h, level, mock);
@@ -24110,6 +24111,40 @@ public final class ClaudeBodyTest {
                 nsHome(c, h, level);
                 check(!lava, "jumped at the step 1 up across the gap and fell toward the lava (at " + at + " arena coords, " + String.format("%.1f", s) + " s)");
                 pass(stage, t, "no jump across the gap over the lava (at " + at + ")");
+            }
+        }
+        return true;
+    }
+    /** Stage 1720 (D2D death 28, 18:18 11-13 in his iron mine at -147,18,-645, incident 20261113-181800-death-28): armor 0, a stone axe, mining; a creeper heard closing for 9 s (14, 10, 4, 1 off, "not in sight: turning to it") while he went on with coal and patches; at 1 off "fight.flee: fight ~769 s (3 swings, ~10 HP of hits); run ~1804 s: fight", its blast (22 through armor 0, his 20 HP) priced as ~10 HP of hits; it went off, 20 -> 0. Here: a dark L-shaped tunnel, him at its face with stone to dig, a creeper 14 along it round the bend coming for him. Passes on a run (not a fight) priced with it under 3 off, and alive with 8+ HP after 25 s (it gone, or walled off). */
+    private static net.minecraft.world.entity.monster.Creeper s1720Cr; private static int s1720T; private static float s1720Low; private static String s1720Pick;
+    private static boolean st1720(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 4, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(18000); if (s1720Cr != null) s1720Cr.discard(); s1720Cr = null; s1720T = -1; s1720Low = 20; s1720Pick = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 12; x++) for (int z = -3; z <= 12; z++) for (int y = -1; y <= 4; y++) {
+                boolean air = (y == 0 || y == 1) && (z == 0 && x >= 1 && x <= 8 || x == 8 && z >= 0 && z <= 10); // his tunnel east from the face at x 0, a bend at x 8 north 10 more
+                level.setBlock(o.offset(x, y, z), (air ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.DIRT, 18)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 18));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(o.getX() + 1.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; for (int k = 0; k >= -5; k--) { c.tasks.add(new Task.Break(o.offset(k, 0, 0))); c.tasks.add(new Task.Break(o.offset(k, 1, 0))); if (k < 0) c.tasks.add(new Task.GoTo(o.offset(k + 1, 0, 0), 0.5)); } // (his tunnel on west, as he mines)
+            var cr = EntityType.CREEPER.create(level); BlockPos at = o.offset(8, 0, 10); cr.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 180, 0); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); s1720Cr = cr; s1720T = t[0]; }
+        if (s1720T > 0 && t[0] > s1720T) {
+            s1720Low = Math.min(s1720Low, c.getHealth()); double s = (t[0] - s1720T) / 20.0; boolean dead = !c.isAlive() || c.getHealth() <= 0, gone = s1720Cr == null || !s1720Cr.isAlive();
+            if (s1720Cr != null && s1720Cr.isAlive() && s1720Cr.getTarget() == null) s1720Cr.setTarget(c);
+            if (s1720Pick == null && s1720Cr != null && s1720Cr.isAlive() && s1720Cr.distanceTo(c) < 3) { try { var m = c.work.getClass().getDeclaredMethod("shouldFlee", net.minecraft.world.entity.Entity.class, boolean.class); m.setAccessible(true); boolean run = (Boolean) m.invoke(c.work, s1720Cr, false); var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); s1720Pick = (run ? "run: " : "fight: ") + fo.get(c.work); } catch (ReflectiveOperationException e) { s1720Pick = "fight: " + e; } } // (his pick with it 3 off: the blast is his death at armor 0, 20 HP)
+            if (dead || gone || s > 25) {
+                String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); float low = s1720Low;
+                if (s1720Cr != null) s1720Cr.discard(); s1720Cr = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (c.isAlive()) c.setHealth(20);
+                for (int x = -6; x <= 12; x++) for (int z = -3; z <= 12; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(s1720Pick == null || s1720Pick.startsWith("run"), "a creeper under 3 off, armor 0, a stone axe, 20 HP: its blast is his death, and he priced a " + s1720Pick);
+                check(!dead, "killed by the creeper in his tunnel after " + String.format("%.1f", s) + " s (at " + at + " arena coords)");
+                check(low >= 8, "the creeper's done, but it took him to " + (int) low + " HP (at " + at + ")");
+                pass(stage, t, (gone ? "the creeper gone in " : "the creeper walled off or kept off, ") + String.format("%.1f", s) + " s, lowest health " + (int) low + " (" + s1720Pick + ")");
             }
         }
         return true;

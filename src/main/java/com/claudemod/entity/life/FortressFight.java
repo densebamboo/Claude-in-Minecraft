@@ -118,7 +118,7 @@ public final class FortressFight {
     /** A blaze seen at {@code at}: where their spawner or spawning ground is. */
     public static void noteBlaze(ClaudeEntity g, BlockPos at) { blazeLast().put(g.getUUID(), new long[] {at.asLong(), serverT(g), 0}); }
 
-    public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); nones().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); blazeLast().remove(g.getUUID()); BOW_NEEDED.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { POCKET_BARREN.remove(g.getUUID()); covers().remove(g.getUUID()); nones().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); blazeLast().remove(g.getUUID()); BOW_NEEDED.remove(g.getUUID()); }
 
     private static java.util.Map<java.util.UUID, BlockPos> lastGap; // the last 2-high gap he fought a wither skeleton from (static: fields added live start null)
     public static boolean coverMob(Entity e) { return e instanceof Blaze || e instanceof WitherSkeleton; }
@@ -601,6 +601,27 @@ public final class FortressFight {
             if (pk != null && blocks >= need && !feet(g).equals(pk.cell()) && g.getHealth() < Weights.w("blaze.pocket_go_hp", 16) && food > 0) { g.skillQueue.addFirst(again); return healHere(g, level, "the walk into the pocket at " + pk.cell().toShortString() + " is under their fire: " + (int) Weights.w("blaze.pocket_go_hp", 16) + "+ health first, he's at " + (int) g.getHealth()); } /* (a player heals before he goes in: 11 HP on arrival, dead at the pocket's edge, stage 1714) */
             final BlockPos sp0 = sp; int crowd = pk == null ? 0 : (int) level.getEntitiesOfClass(Blaze.class, new net.minecraft.world.phys.AABB(sp).inflate(12), x -> x.isAlive() && g.hasLineOfSight(x)).size(); // (the ones he sees round the cage: a room full is thinned from cover first, the walk in under 5 of them took 20 -> 9 and he died a step off the cell, stage 1714)
             if (pk != null && blocks >= need && crowd > Weights.w("blaze.pocket_go_blazes", 2) && Math.sqrt(pk.cell().distSqr(feet(g))) > 2.5) ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blazes in sight round the spawner at {}: thinned from cover before the walk into the pocket at {} (FortressFight.blazeRods)", have, goal, crowd, sp0.toShortString(), pk.cell().toShortString());
+            else if (pk != null && blocks >= need && pocketBarren(g, level, sp)) { // his last pocket here ran its time with the sword alone and not a kill: never the same wait again unchanged; the user 11-13: "he should patrol the fortress if that's the case, or find a spawner he can access", or arrows, priced (live 20:43-20:56, 12 min, 0 kills, the same pocket every 4 min; stage 1725)
+                int left = Math.max(1, goal - have); double perKill = Weights.w("blaze.elsewhere_find_s", 60), kills = Math.ceil(left / Weights.w("blaze.rods_per_kill", 0.5));
+                BlockPos deck = FortressScout.onFortress(g) ? FortressScout.deckStep(g, level) : null;
+                BlockPos other = null; for (BlockPos q : Atlas.spots(g, level, "blaze_spawner")) if (!q.equals(sp) && (other == null || q.distSqr(g.blockPosition()) < other.distSqr(g.blockPosition()))) other = q;
+                var pick = Decide.choose(g, "blaze.barren", "his pocket at the spawner at " + sp.toShortString() + " got no kill in 4 min with the sword alone, " + left + " rod(s) to go", true, List.of(
+                    deck == null ? Decide.Option.out("patrol the fortress", "no deck of it left unwalked from here") : Decide.Option.of("patrol the fortress", Math.sqrt(deck.distSqr(g.blockPosition())) / Decide.sprint() + kills * perKill, "along its deck to " + deck.toShortString() + ", the fortress's own blazes fought as they come in reach, " + (int) kills + " kill(s) at ~" + (int) perKill + " s"),
+                    other == null ? Decide.Option.out("another spawner", "no other blaze spawner on his map") : Decide.Option.of("another spawner", Math.sqrt(other.distSqr(g.blockPosition())) / Decide.sprint() + Weights.w("blaze.pocket_s", 240), "the one at " + other.toShortString() + ", " + (int) Math.sqrt(other.distSqr(g.blockPosition())) + " off, a pocket there"),
+                    Decide.Option.of("arrows first", Weights.w("blaze.arrows_trip_s", 900), "home through the portal for arrows (skeletons at night, or flint and feathers), back with a bow that reaches them")));
+                String name = pick == null ? "arrows first" : pick.name();
+                if (name.equals("patrol the fortress")) {
+                    if (crowds == null) crowds = new HashMap<>(); crowds.put(g.getUUID(), new long[] {sp.asLong(), serverT(g) + 20L * (long) Weights.w("blaze.crowd_memory_s", 600)});
+                    g.tasks.add(new Task.GoTo(deck, 2.0)); g.skillQueue.addFirst(again);
+                    ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: the pocket at {} got nothing with the sword: patrolling the fortress, along its deck to {} (FortressFight.blazeRods)", have, goal, sp.toShortString(), deck.toShortString());
+                    return "patrolling the fortress: my pocket at the spawner at " + sp.toShortString() + " got no kill in 4 min (they hang in sight out of reach), so the fortress's own blazes, along its deck to " + deck.toShortString() + " (" + have + "/" + goal + " rods)"; }
+                if (name.equals("another spawner")) {
+                    g.tasks.add(new Task.GoTo(other, 4.0)); g.skillQueue.addFirst(again);
+                    ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: the pocket at {} got nothing with the sword: to the spawner at {} (FortressFight.blazeRods)", have, goal, sp.toShortString(), other.toShortString());
+                    return "to the other blaze spawner at " + other.toShortString() + ": my pocket at " + sp.toShortString() + " got no kill in 4 min (" + have + "/" + goal + " rods)"; }
+                noteBowNeeded(g, level); runs().remove(g.getUUID());
+                ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: his last pocket at the spawner at {} ran its time with the sword alone and not a kill: a bow and arrows first (FortressFight.blazeRods)", have, goal, sp.toShortString());
+                return "failed: my pocket at the spawner at " + sp.toShortString() + " got no kill in 4 min with the sword alone: the blazes hang in sight out of reach and only come in when they lose sight of me; a bow and arrows is what this needs (" + have + "/" + goal + " rods)"; }
             else if (pk != null && blocks >= need) {
                 g.tasks.add(new Task.Pocket(sp, pk.cell(), onHim + goal - have, 20 * 240)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: the pocket beside the spawner at {}: {}, {} block(s) to wall it, the window over the cage at {} (FortressFight.blazeRods)", have, goal, sp.toShortString(), pk.cell().toShortString(), need, pk.window().toShortString());
@@ -883,6 +904,10 @@ public final class FortressFight {
         double kills = Math.ceil(left / Weights.w("blaze.rods_per_kill", 0.5));
         return (int) Math.max(16, Math.min(64, Math.ceil(kills * Weights.w("blaze.out_of_reach_share", 0.55) * Weights.w("blaze.arrows_per_kill", 5))));
     }
+    private static final java.util.Map<java.util.UUID, long[]> POCKET_BARREN = new java.util.HashMap<>(); // {spawner, game time} shortcut: in memory, lost on a restart; the next barren pocket sets it again
+    /** His pocket at this spawner ran its time with the sword alone and not a kill: the blazes hang in sight out of reach (vanilla: one that sees him hovers and shoots, it closes in only when it loses sight). */
+    public static void notePocketBarren(ClaudeEntity g, ServerLevel level, BlockPos sp) { POCKET_BARREN.put(g.getUUID(), new long[] {sp.asLong(), level.getGameTime()}); ClaudeMod.LOGGER.info("[Claude fight] the pocket at the spawner at {}: its time up with the sword alone and not a kill: not again there without a bow and arrows (FortressFight.notePocketBarren)", sp.toShortString()); }
+    public static boolean pocketBarren(ClaudeEntity g, ServerLevel level, BlockPos sp) { long[] b = POCKET_BARREN.get(g.getUUID()); return b != null && b[0] == sp.asLong() && level.getGameTime() - b[1] < 20L * 60 * 10 && !rangedKit(g); }
     public static void noteBowNeeded(ClaudeEntity g, ServerLevel level) { BOW_NEEDED.put(g.getUUID(), level.getGameTime()); }
     public static boolean bowNeeded(ClaudeEntity g, ServerLevel level) { Long t = BOW_NEEDED.get(g.getUUID()); return t != null && level.getGameTime() - t < 20L * 60 * 60; }
 }

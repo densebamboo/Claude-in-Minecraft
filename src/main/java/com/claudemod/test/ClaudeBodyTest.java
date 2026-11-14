@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1725: return st1725(stage, t, c, h, level, mock);
+            case 1724: return st1724(stage, t, c, h, level, mock);
             case 1723: return st1723(stage, t, c, h, level, mock);
             case 1722: return st1722(stage, t, c, h, level, mock);
             case 1721: return st1721(stage, t, c, h, level, mock);
@@ -23926,7 +23928,7 @@ public final class ClaudeBodyTest {
             th.postProcess(nl, nl.structureManager(), nl.getChunkSource().getGenerator(), rnd, big, new net.minecraft.world.level.ChunkPos(o), o);
             s1714Sp = o.offset(1, 5, 5).immutable();
             check(nl.getBlockState(s1714Sp).is(Blocks.SPAWNER), "setup: no spawner at " + s1714Sp.toShortString() + " (" + nl.getBlockState(s1714Sp) + ")");
-            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, Integer.getInteger("claude.s1714Arrows", 5)));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); if (!s1714Sword) { c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, Integer.getInteger("claude.s1714Arrows", 5))); } com.claudemod.entity.life.FortressFight.reset(c);
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
             c.teleportTo(nl, o.getX() + 1.5, o.getY() + 2, o.getZ() - 16.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.clearFire();
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear(); c.lastSkillLine = null;
@@ -23935,6 +23937,8 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
             c.teleportTo(nl, o.getX() + 1.5, o.getY() + 2, o.getZ() - 16.5, 0f, 0f);
             com.claudemod.entity.life.Atlas.note(c, nl, "blaze_spawner", s1714Sp); com.claudemod.entity.life.Perception.noteSignTest(c, s1714Sp, "a mob spawner"); // (on his map, as live: he has fought there all day)
+            if (s1714Hover) { for (int k = 0; k < 4; k++) { var b = EntityType.BLAZE.create(nl); b.moveTo(s1714Sp.getX() + 0.5 + (k % 2 == 0 ? -3 : 3), s1714Sp.getY() + 2, s1714Sp.getZ() + 0.5 + (k < 2 ? 3 : 5), 180, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); }
+                if (nl.getBlockEntity(s1714Sp) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) { var tag = sb.saveWithoutMetadata(nl.registryAccess()); tag.putShort("RequiredPlayerRange", (short) 0); sb.loadWithComponents(tag, nl.registryAccess()); } } else // (1725: no new ones, 4 hovering 4-6 off in sight of the window, out of sword reach, as live 20:43-20:55 11-13)
             for (BlockPos bp : new BlockPos[] {o.offset(-5, 4, -9), o.offset(7, 3, -3)}) { var b = EntityType.BLAZE.create(nl); b.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 0, 0); nl.addFreshEntity(b); } // (a fresh arrival, as live after a trip home: spawner blazes despawn 128+ off him, so the cage starts empty and spawns its waves (1-4 every 10-40 s) once he is within 16; two blazes from the fortress about, off the bridge)
             for (BlockPos w : new BlockPos[] {o.offset(1, 2, 1), o.offset(1, 2, -8)}) { var ws = EntityType.WITHER_SKELETON.create(nl); ws.moveTo(w.getX() + 0.5, w.getY(), w.getZ() + 0.5, 180, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); nl.addFreshEntity(ws); }
             c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 2, "near_you")); s1714T = t[0];
@@ -23943,8 +23947,9 @@ public final class ClaudeBodyTest {
             int rods = c.getInventory().countItem(Items.BLAZE_ROD); s1714Low = Math.min(s1714Low, c.getHealth()); double s = (t[0] - s1714T) / 20.0;
             if ((t[0] - s1714T) % 200 == 0) { int bz = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(s1714Sp).inflate(24)).size(), ws = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new net.minecraft.world.phys.AABB(s1714Sp).inflate(32)).size();
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1714 rods on the ground: {}", nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(s1714Sp).inflate(24), x -> x.getItem().is(Items.BLAZE_ROD)).stream().map(x -> x.blockPosition().toShortString() + (nl.getFluidState(x.blockPosition()).isEmpty() ? "" : " in lava")).toList()); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1714 {} s: at {} ({} off the spawner), health {}, low {}, rods {}, {} blaze(s), {} wither skeleton(s), arrows {}, food {}, doing {} next {}", (int) s, c.blockPosition().toShortString(), (int) Math.sqrt(c.blockPosition().distSqr(s1714Sp)), (int) c.getHealth(), (int) s1714Low, rods, bz, ws, c.getInventory().countItem(Items.ARROW), com.claudemod.director.Kit.food(c), c.currentTask, c.tasks.peekFirst()); }
+            if (s1714Sword && com.claudemod.entity.life.FortressFight.pocketBarren(c, nl, s1714Sp)) { if (s1714Barren == null) s1714Barren = c.currentTask; else if (c.currentTask instanceof Task.Pocket && c.currentTask != s1714Barren) s1714Again = true; } // (a fresh pocket at the same spawner after a barren one: the wait taken again unchanged)
             boolean dead = !c.isAlive() || c.getHealth() <= 0;
-            if (dead || rods >= 2 || s > 300) {
+            if (dead || rods >= 2 || s > (s1714Sword ? 360 : 300)) { // (sword only: the pocket's own 4 min clock ends inside it, a late start too)
                 String q = String.valueOf(c.currentTask); BlockPos at = c.blockPosition(); float low = s1714Low;
                 for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> !(e instanceof ServerPlayer))) e.discard();
                 nl.setBlock(s1714Sp, Blocks.AIR.defaultBlockState(), 2);
@@ -23952,6 +23957,7 @@ public final class ClaudeBodyTest {
                 for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
                 nsHome(c, h, level);
                 check(!dead, "died at the blaze spawner after " + (int) s + " s with " + rods + " rod(s) (at " + at.toShortString() + ", " + q + ")");
+                if (s1714Sword) { s1714Sword = false; s1714Hover = false; boolean again = s1714Again; s1714Again = false; s1714Barren = null; check(!again, "sword only: his pocket ran its time with no kill, and he went back into the same pocket unchanged"); check(rods >= 2 || com.claudemod.entity.life.FortressFight.bowNeeded(c, nl), "sword only, 5 min at the blaze spawner, " + rods + " rod(s) of 2 and the bow still not the rods' need (at " + at.toShortString() + ", " + q + ")"); pass(stage, t, rods >= 2 ? "2 rods sword only in " + (int) s + " s" : rods + " rod(s) sword only: a bow and arrows into the rods' kit"); return true; }
                 check(rods >= 2, "5 min at the blaze spawner and " + rods + " rod(s) of 2 (lowest health " + (int) low + ", at " + at.toShortString() + ", " + q + ")");
                 check(low >= 6, "2 rods in " + (int) s + " s but down to " + (int) low + " health on the way: a player farming a spawner from a pocket keeps a margin");
                 pass(stage, t, "2 rods in " + (int) s + " s, lowest health " + (int) low);
@@ -24248,6 +24254,17 @@ public final class ClaudeBodyTest {
             }
         }
         return true;
+    }
+    /** Stage 1724 (D2D 20:33 11-13: live he went to the spawner at 315,63,489 with 5/7 rods, iron kit, no bow and no arrows, lost in the 17:46 death; "obtain bow" never ran: the bow only became the rods' need when a blaze he fought floated over his swing, never from the pocket). Stage 1714's spawner, sword only: 2 rods, or the pocket's time up short of them makes a bow and arrows the rods' own need; no death either way. */
+    private static boolean s1714Sword, s1714Again, s1714Hover; private static Task s1714Barren;
+    private static boolean st1724(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { s1714Sword = true; s1714Again = false; s1714Barren = null; }
+        return st1714(stage, t, c, h, level, mock);
+    }
+    /** Stage 1725 (D2D 20:55 11-13, live at the spawner 315,63,489: sword only, 12 min in the pocket and not a kill, "waiting: 11-13 blaze(s) about" every 5 s, the same pocket taken again every 4 min, a CONFLICT at 20:55:30). Stage 1714's room, sword only, the spawner idle and 4 blazes hovering 4-6 off in sight of the window, out of reach: the pocket runs its time with no kill and is never taken again unchanged; the bow and arrows become the rods' need; no death. */
+    private static boolean st1725(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { s1714Hover = true; }
+        return st1724(stage, t, c, h, level, mock);
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

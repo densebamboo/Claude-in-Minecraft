@@ -54,6 +54,8 @@ public final class Gate {
     private static Map<Task, Rec> book(ClaudeEntity g) { return BOOK.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
     private static long now(ClaudeEntity g) { return g.level().getGameTime(); }
     public static void reset(ClaudeEntity g) { BOOK.remove(g.getUUID()); SAID.remove(g.getUUID()); START.remove(g.getUUID()); HIST.remove(g.getUUID()); VERDICT.remove(g.getUUID()); VSAID.remove(g.getUUID()); }
+    /** A cell one job opens and shuts on purpose (his spawner pocket's window: shut to heal, opened again): its flips are that job's plan, not two systems undoing each other; the history is cleared as it toggles it (stage 1724). */
+    public static void ownToggle(ClaudeEntity g, BlockPos p) { Map<Long, Change[]> h = HIST.get(g.getUUID()); if (h != null) h.remove(p.asLong()); }
     public static int refused(ClaudeEntity g) { return REFUSED.getOrDefault(g.getUUID(), 0); }
 
     /** The jobs it measures: those with a target cell, the fight and the flight left out (D2D's combat rewrite owns those). */

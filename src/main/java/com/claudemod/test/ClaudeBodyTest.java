@@ -10584,6 +10584,7 @@ public final class ClaudeBodyTest {
             case 1751: return st1751(stage, t, c, h, level, mock);
             case 1752: return st1752(stage, t, c, h, level, mock);
             case 1753: return st1753(stage, t, c, h, level, mock);
+            case 1754: return st1754(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23509,6 +23510,30 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1754 (D2D death-419, live 09:03:06 11-14: dead by the fortress with 13 ender pearls and two iron sets; respawned with nothing, recover_drops "aren't worth the run from here (~3555 s to get them again, ~4779 s there and back)": a pearl priced at 90 s to get again, a rod at 600, when a pearl took him as long to hunt as a rod). His Nether pile of 13 pearls, 3 wither skeletons known there, no rods job: still pending, a run to it. */
+    private static boolean st1754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pile = new BlockPos(13515, 61, 8140);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            try { var k = com.claudemod.entity.life.DeathLog.Death.class.getDeclaredConstructor(String.class, BlockPos.class, long.class, String.class, String.class, int.class); k.setAccessible(true);
+                var d = k.newInstance("the_nether", pile, level.getGameTime(), "ender_pearl 13, cobblestone 64, rotten_flesh 21", "pending", 0); d.threat = 3; d.hit = 8;
+                com.claudemod.entity.life.DeathLog.of(c).add(d); } catch (ReflectiveOperationException e) { check(false, "setup: " + e); }
+        }
+        if (t[0] == 14) {
+            String r = null;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("runSkill", ClaudeEntity.class, ServerPlayer.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                r = String.valueOf(m.invoke(null, c, mock[0], new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1))); } catch (Exception e) { check(false, "runSkill: " + e); }
+            var d = com.claudemod.entity.life.DeathLog.of(c).isEmpty() ? null : com.claudemod.entity.life.DeathLog.of(c).get(com.claudemod.entity.life.DeathLog.of(c).size() - 1);
+            String status = d == null ? "none" : d.status;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c);
+            check("pending".equals(status), "his 13 pearls by the fortress: " + status + " | " + r);
+            check(r != null && !r.contains("aren't worth"), "13 ender pearls in the Nether, from the overworld with nothing on: \"" + r + "\"");
+            pass(stage, t, r);
         }
         return true;
     }

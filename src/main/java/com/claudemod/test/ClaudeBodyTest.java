@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1722: return st1722(stage, t, c, h, level, mock);
+            case 1721: return st1721(stage, t, c, h, level, mock);
             case 1720: return st1720(stage, t, c, h, level, mock);
             case 1719: return st1719(stage, t, c, h, level, mock);
             case 1718: return st1718(stage, t, c, h, level, mock);
@@ -24128,6 +24130,7 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.DIRT, 18)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 18));
             for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            if (mock[0] != null) mock[0].teleportTo(o.getX() + 60.5, o.getY() + 40, o.getZ() + 0.5); // (them far off, as live: in another world)
             c.teleportTo(o.getX() + 1.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0;
         }
         if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; for (int k = 0; k >= -5; k--) { c.tasks.add(new Task.Break(o.offset(k, 0, 0))); c.tasks.add(new Task.Break(o.offset(k, 1, 0))); if (k < 0) c.tasks.add(new Task.GoTo(o.offset(k + 1, 0, 0), 0.5)); } // (his tunnel on west, as he mines)
@@ -24145,6 +24148,73 @@ public final class ClaudeBodyTest {
                 check(!dead, "killed by the creeper in his tunnel after " + String.format("%.1f", s) + " s (at " + at + " arena coords)");
                 check(low >= 8, "the creeper's done, but it took him to " + (int) low + " HP (at " + at + ")");
                 pass(stage, t, (gone ? "the creeper gone in " : "the creeper walled off or kept off, ") + String.format("%.1f", s) + " s, lowest health " + (int) low + " (" + s1720Pick + ")");
+            }
+        }
+        return true;
+    }
+    /** Stage 1721 (D2D death 28, 18:18 11-13, incident 20261113-181800-death-28, link 1): heard at 14, 10, 4 and 1 off ("not in sight: turning to it") while he dug and patched at -146,17,-645, the creeper came up a way he couldn't see down and never was in sight till it was on him; the creeper rule only weighed creepers in his line of sight (one walled off behind a block is no threat), so a heard one with an open way to him got no decision at all. Here: a 1-wide side tunnel joins his cell from the north and bends west behind the rock, a creeper 10 along it coming for him, him digging south. Passes alive with 16+ HP after 25 s (it gone, or shut out). */
+    private static net.minecraft.world.entity.monster.Creeper s1721Cr; private static int s1721T; private static float s1721Low;
+    private static boolean st1721(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(12, 4, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(18000); if (s1721Cr != null) s1721Cr.discard(); s1721Cr = null; s1721T = -1; s1721Low = 20; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -12; x <= 8; x++) for (int z = -4; z <= 8; z++) for (int y = -1; y <= 4; y++) {
+                boolean air = (y == 0 || y == 1) && (z == 0 && x >= 0 && x <= 6 || x == 0 && z == -1 || z == -1 && x <= 0 && x >= -11); // his tunnel east of him, the side tunnel north of his cell then west behind the rock
+                level.setBlock(o.offset(x, y, z), (air ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 18));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            if (mock[0] != null) mock[0].teleportTo(o.getX() + 60.5, o.getY() + 40, o.getZ() + 0.5); // (them far off, as live: in another world; by him, the guard fought it for them)
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(180); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; for (int k = 1; k <= 6; k++) { c.tasks.add(new Task.Break(o.offset(0, 0, k))); c.tasks.add(new Task.Break(o.offset(0, 1, k))); if (k % 2 == 0) c.tasks.add(new Task.GoTo(o.offset(0, 0, k - 1), 0.5)); } // (digging south, his back to the side tunnel's mouth)
+            var cr = EntityType.CREEPER.create(level); BlockPos at = o.offset(-10, 0, -1); cr.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 90, 0); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); s1721Cr = cr; s1721T = t[0]; }
+        if (s1721T > 0 && t[0] > s1721T) {
+            s1721Low = Math.min(s1721Low, c.getHealth()); double s = (t[0] - s1721T) / 20.0; boolean dead = !c.isAlive() || c.getHealth() <= 0, gone = s1721Cr == null || !s1721Cr.isAlive();
+            if (s1721Cr != null && s1721Cr.isAlive() && s1721Cr.getTarget() == null) s1721Cr.setTarget(c);
+            if (dead || gone || s > 25) {
+                String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); float low = s1721Low;
+                if (s1721Cr != null) s1721Cr.discard(); s1721Cr = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (c.isAlive()) c.setHealth(20);
+                for (int x = -12; x <= 8; x++) for (int z = -4; z <= 8; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(!dead, "killed by the creeper that came up the side tunnel after " + String.format("%.1f", s) + " s (at " + at + " arena coords)");
+                check(low >= 16, "the creeper came up the side tunnel unseen and took him to " + (int) low + " HP (at " + at + ")");
+                pass(stage, t, (gone ? "the creeper gone in " : "the creeper shut out, ") + String.format("%.1f", s) + " s, lowest health " + (int) low);
+            }
+        }
+        return true;
+    }
+    /** Stage 1722 (D2D death 75, 18:50 11-13, incident 20261113-185052-death-75, armor 0, a stone sword, 88 cobblestone, night, an open cave): the run from 2-3 creepers never ended (six "run's end reached, them still on him: on from here" in 30 s), cover refused near creepers ("distance is the only cover from one"), then "every way out goes by the Creeper: backing off ... holding" 7 off one till it blew, 20 -> 15 -> 1. A player in the open pillars 3 up out of their reach (they light within 3 and can't climb), or puts a block between. Here: a wide dark cave, him unarmored in its middle, three creepers 9-10 off coming for him from three sides. Passes alive with no blast on him (16+ HP) after 30 s. */
+    private static final java.util.List<net.minecraft.world.entity.monster.Creeper> s1722Cr = new java.util.ArrayList<>(); private static int s1722T; private static float s1722Low;
+    private static boolean st1722(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(14, 4, 14));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(18000); for (var cr : s1722Cr) cr.discard(); s1722Cr.clear(); s1722T = -1; s1722Low = 20; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -13; x <= 13; x++) for (int z = -13; z <= 13; z++) for (int y = -1; y <= 7; y++) {
+                boolean air = Math.abs(x) <= 12 && Math.abs(z) <= 12 && y >= 0 && y <= 6; // a cave 25 across, 7 high, rock all round and over it
+                level.setBlock(o.offset(x, y, z), (air ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            if (mock[0] != null) mock[0].teleportTo(o.getX() + 60.5, o.getY() + 40, o.getZ() + 0.5); // (them far off, as live)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 24)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 18));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0;
+        }
+        if (t[0] == 20) {
+            for (int[] d : new int[][] {{-9, 3}, {8, 6}, {2, -10}}) { var cr = EntityType.CREEPER.create(level); BlockPos at = o.offset(d[0], 0, d[1]); cr.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0, 0); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); s1722Cr.add(cr); }
+            s1722T = t[0]; }
+        if (s1722T > 0 && t[0] > s1722T) {
+            s1722Low = Math.min(s1722Low, c.getHealth()); double s = (t[0] - s1722T) / 20.0; boolean dead = !c.isAlive() || c.getHealth() <= 0;
+            for (var cr : s1722Cr) if (cr.isAlive() && cr.getTarget() == null) cr.setTarget(c);
+            if (dead || s > 30) {
+                String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); float low = s1722Low; long left = s1722Cr.stream().filter(net.minecraft.world.entity.Entity::isAlive).count();
+                for (var cr : s1722Cr) cr.discard(); s1722Cr.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (c.isAlive()) c.setHealth(20);
+                for (int x = -13; x <= 13; x++) for (int z = -13; z <= 13; z++) for (int y = -1; y <= 7; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(!dead, "killed by the creepers in the open cave after " + String.format("%.1f", s) + " s (at " + at + " arena coords)");
+                check(low >= 16, "a creeper's blast got him in the open cave: lowest health " + (int) low + " (at " + at + ", " + left + " creeper(s) left)");
+                pass(stage, t, "30 s among three creepers in an open cave, lowest health " + (int) low + ", " + left + " creeper(s) left, him at " + at);
             }
         }
         return true;

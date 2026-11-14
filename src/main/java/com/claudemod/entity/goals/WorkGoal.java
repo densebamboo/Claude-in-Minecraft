@@ -326,7 +326,7 @@ public class WorkGoal extends Goal {
         return false;
     }
 
-    private int lavaDigTick = -100, lavaStepTick = -100; private BlockPos lavaStepOut; private BlockPos climbStep; // (the ledge his step off a climb's top is for: held on as his feet leave the vines) // (the way out his lava step leads onto: the hop onto it after)
+    private int lavaDigTick = -100, lavaStepTick = -100; private BlockPos lavaStepOut; private BlockPos creeperWall; private int creeperPillarUntil; /* (the tunnel wall he is putting across against a creeper) */ private BlockPos climbStep; // (the ledge his step off a climb's top is for: held on as his feet leave the vines) // (the way out his lava step leads onto: the hop onto it after)
     private String lavaWhy(BlockPos out) { // what holds him in the lava, for the log: World 17 20:41 his own dry cell was the way out and he wasn't out of it in 1.5 s, unproven why (stage 746 gets out in 6 ticks)
         var lv = g.level(); var bb = g.getBoundingBox().deflate(0.001); StringBuilder touch = new StringBuilder();
         for (BlockPos q : BlockPos.betweenClosed(BlockPos.containing(bb.minX, bb.minY, bb.minZ), BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ))) { var fs = lv.getFluidState(q);
@@ -386,8 +386,9 @@ public class WorkGoal extends Goal {
         boolean underLid = g.pillarBlocks.contains(g.blockPosition().above(2)) || g.pillarBlocks.contains(g.blockPosition().above(1)) || g.pillarBlocks.contains(g.blockPosition().above(3)); // down his own hole with the lid on
         if (g.tickCount % 5 == 0 && !(current instanceof Task.Flee) && !(diggingIn() && inDigInHole()) && !underLid) {
             var creepers = g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class, g.getBoundingBox().inflate(7),
-                    c -> c.isAlive() && c.distanceTo(g) < 7 && g.hasLineOfSight(c)); // (any creeper that close, whoever it's after: one on the player's trail blew up next to him; one walled off behind a block is no threat, that kept him running back and forth in his stairs 22 times)
+                    c -> c.isAlive() && c.distanceTo(g) < 7 && (g.hasLineOfSight(c) || creeperWay(c) != null)); // (one out of sight he heard, with an open way to him round a corner: on him as surely as one he sees; heard at 10, 4, 1 off, no decision till 1 off, death 28 18:18 11-13, stage 1721) (any creeper that close, whoever it's after: one on the player's trail blew up next to him; one walled off behind a block is no threat, that kept him running back and forth in his stairs 22 times)
             if (g.onGround()) creepers.removeIf(c -> g.getY() - c.getY() >= w("creeper.fuse_blocks", 3)); // (it lights within 3 of him and can't climb: 3+ below his feet it never gets there. World 17 06:15, up his 5-high tower over three creepers, he ran off the top into them for 3+ min; stage 767)
+            if (creeperWall != null && (current instanceof Task.Place cp0 && (cp0.pos().equals(creeperWall) || cp0.pos().equals(creeperWall.above())) || g.tasks.stream().anyMatch(t -> t instanceof Task.Place tp0 && (tp0.pos().equals(creeperWall) || tp0.pos().equals(creeperWall.above()))))) creepers = new java.util.ArrayList<>(); else creeperWall = null; // (his wall across the tunnel still going in: on with it; the next look at the creeper put a run in its place, the wall never in, cornered in his dead end, stage 1720)
             creepers.removeIf(c -> g.tasks.stream().anyMatch(t -> t instanceof Task.Attack a && a.target().equals(c.getUUID()))); // a fight with it already queued (clearing the block in the way first): leave that be, don't re-arm it every 5 ticks
             creepers.sort(java.util.Comparator.comparingDouble(c -> c.getSwellDir() > 0 ? -1 - c.getSwelling(1f) : c.distanceTo(g))); // the most dangerous first: a lit one (shortest fuse) before any other, then the nearest; only get(0) is judged below (the list's order was the world's: the one he fought came first, the lit one behind him was never looked at, 29.4 through iron, World 17 15:30; stage 1134)
             // armed, healthy and it isn't hissing yet: hit it (knocks it back) instead of being chased around by it
@@ -398,17 +399,24 @@ public class WorkGoal extends Goal {
                 com.claudemod.director.ClaudeLife.nookSay(g, "creeperHit", "[Claude life] a creeper close and not hissing yet: hitting it back, armed and healthy (WorkGoal.tick)");
                 creepers = java.util.List.of();
             } else if (busyOther) com.claudemod.director.ClaudeLife.nookSay(g, "creeperHit", "[Claude life] a creeper close while he fights something else: away from the creeper first, the fight waits (WorkGoal.tick)"); // (live 12:25 11-02: fighting a skeleton, the creeper was neither fought nor run from till it blew beside him in full iron)
-            if (!creepers.isEmpty() && !g.level().canSeeSky(g.blockPosition()) && creepers.get(0).distanceTo(g) >= 4 && !scaffoldBlock().isEmpty()) { // down a tunnel: a block across it at feet and head and the creeper is shut out, like a player (running up and down his stairs from one went nowhere)
-                Direction to = Direction.getNearest(creepers.get(0).getX() - g.getX(), 0, creepers.get(0).getZ() - g.getZ());
-                BlockPos w1 = g.blockPosition().relative(to), w2 = w1.above();
-                boolean passage = !g.level().getBlockState(w1.relative(to.getClockWise())).getCollisionShape(g.level(), w1.relative(to.getClockWise())).isEmpty() && !g.level().getBlockState(w1.relative(to.getCounterClockWise())).getCollisionShape(g.level(), w1.relative(to.getCounterClockWise())).isEmpty(); // a 1-wide tunnel only: in an open cave it just walks round the wall (it did, and blew him up mid-placing)
-                if (passage && g.level().getBlockState(w1).canBeReplaced() && g.level().getBlockState(w2).canBeReplaced() && !creepers.get(0).getBoundingBox().intersects(new net.minecraft.world.phys.AABB(w1).minmax(new net.minecraft.world.phys.AABB(w2)))) {
+            if (!creepers.isEmpty() && (current instanceof Task.Pillar || g.tickCount < creeperPillarUntil)) creepers = new java.util.ArrayList<>(); // (going up out of its reach: on with it; between its steps the next look ran him off it after one block, stage 753)
+            if (!creepers.isEmpty() && !g.level().canSeeSky(g.blockPosition()) && creepers.get(0).distanceTo(g) >= 3 && !scaffoldBlock().isEmpty()) { // down a tunnel: a block across it at feet and head, at the first 1-wide cell its way to him goes through, and the creeper is shut out, like a player (running up and down his stairs from one went nowhere; beside him only, a junction cell never qualified and he ran into his dead end, stage 1721)
+                BlockPos w1 = creeperChoke(creepers.get(0)), w2 = w1 == null ? null : w1.above();
+                if (w1 != null && !creepers.get(0).getBoundingBox().intersects(new net.minecraft.world.phys.AABB(w1).minmax(new net.minecraft.world.phys.AABB(w2)))) {
                     if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
                     g.tasks.addFirst(new Task.Place(w2.immutable(), scaffoldBlock().getItem()));
                     g.tasks.addFirst(new Task.Place(w1.immutable(), scaffoldBlock().getItem()));
-                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] creeper {} blocks off down here: walling it off at {}", (int) creepers.get(0).distanceTo(g), w1.toShortString());
+                    creeperWall = w1.immutable(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] creeper {} blocks off down here: walling it off at {}", (int) creepers.get(0).distanceTo(g), w1.toShortString());
                     creepers = java.util.List.of();
                 }
+            }
+            if (!creepers.isEmpty() && g.onGround() && !g.isInWater() && creepers.get(0).distanceTo(g) >= w("creeper.pillar_from", 5.5) && creepers.get(0).getSwellDir() <= 0 && /* (3 up before it is within 3 of him: lit, it stays lit till he is 7 off or out of its sight, 3 up is no escape then; ~1.2 s of steps at its ~2.5 b/s) */ g.inventory.count(com.claudemod.entity.life.ClaudeInventory::isBuildingBlock) >= 3
+                    && java.util.stream.IntStream.rangeClosed(2, 4).allMatch(k -> g.level().getBlockState(g.blockPosition().above(k)).getCollisionShape(g.level(), g.blockPosition().above(k)).isEmpty())
+                    && g.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(20), m -> m.isAlive() && shoots(m) && m.hasLineOfSight(g)).isEmpty()) { // nowhere to shut it out (an open cave): 3 up out of its reach, as a player pillars: it lights only within 3 of him and can't climb, and from up there his swing still reaches it (D2D death 75 18:50 11-13: 30 s of runs it caught up with, then holding still 7 off till it blew, 20 -> 1; stage 1722)
+                if (current != null) { clearCrack(); g.tasks.addFirst(current); }
+                current = new Task.Pillar(3); g.currentTask = current; ticks = 0; stuck = 0; creeperPillarUntil = g.tickCount + 60;
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] creeper {} blocks off, no tunnel to shut it out of: 3 up out of its reach (it lights within 3 and can't climb) (WorkGoal.tick)", (int) creepers.get(0).distanceTo(g));
+                creepers = java.util.List.of();
             }
             if (!creepers.isEmpty() && diggingIn() && inDigInHole()) { BlockPos lid0 = BlockPos.containing(g.getEyePosition()).above(); if (!g.level().getBlockState(lid0).getCollisionShape(g.level(), lid0).isEmpty()) { if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] creeper {} blocks off: staying down in his covered hole (the rock takes the blast; out in the open it took him in one)", (int) creepers.get(0).distanceTo(g)); creepers = java.util.List.of(); } } // (he climbed out of a lidded hole at dawn to run from a creeper 6 off, and it blew him up, 20 damage, no armor)
             if (!creepers.isEmpty()) {
@@ -8237,6 +8245,28 @@ public class WorkGoal extends Goal {
         for (var e : g.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(eye, to).inflate(1.0), x -> x != g && x != mob && x.isAlive())) {
             boolean wouldTurn = !(e instanceof net.minecraft.world.entity.monster.Enemy) || e instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin || e instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g);
             if (wouldTurn && e.getBoundingBox().inflate(0.5).clip(eye, to).isPresent()) return e; }
+        return null;
+    }
+    /** A creeper out of his sight he knows of (heard), and its way to him: the cell beside his it comes in by, walked 12 cells or less; null: none (walled off, too far round, or not known). */
+    private BlockPos creeperWay(net.minecraft.world.entity.monster.Creeper c) {
+        if (!com.claudemod.entity.life.Perception.aware(g, c)) return null;
+        var p = c.getNavigation().createPath(g.blockPosition(), 1); if (p == null || !p.canReach() || p.getNodeCount() > 12 || !pathOpen(p)) return null;
+        for (int i = p.getNodeCount() - 1; i >= 0; i--) { BlockPos n = p.getNodePos(i); if (!n.equals(g.blockPosition()) && Math.abs(n.getX() - g.getBlockX()) + Math.abs(n.getZ() - g.getBlockZ()) == 1 && Math.abs(n.getY() - g.getBlockY()) <= 1) return n; }
+        return p.getNodeCount() > 0 ? p.getNodePos(0) : null;
+    }
+    /** Every cell of a mob's path open now (feet and head): createPath hands back the mob's own path while its target stands, made before his wall went in; it still "reached" him through the wall, and he walled again past it into the creeper's side, stage 1721. */
+    private boolean pathOpen(net.minecraft.world.level.pathfinder.Path p) { var lv = g.level(); for (int i = 0; i < p.getNodeCount(); i++) { BlockPos n = p.getNodePos(i); if (!lv.getBlockState(n).getCollisionShape(lv, n).isEmpty() || !lv.getBlockState(n.above()).getCollisionShape(lv, n.above()).isEmpty()) return false; } return true; }
+    /** The cell to wall a creeper out at: on its way to him (its own path), the first cell from his side that is 1 wide (rock both sides at feet and head, across the way), open now, in his reach and clear of it; null: none. */
+    private BlockPos creeperChoke(net.minecraft.world.entity.monster.Creeper c) {
+        var lv = g.level(); var p = c.getNavigation().createPath(g.blockPosition(), 1); if (p == null || p.getNodeCount() < 2 || !pathOpen(p)) return null;
+        for (int i = p.getNodeCount() - 1; i >= 1; i--) { BlockPos n = p.getNodePos(i), prev = p.getNodePos(i - 1);
+            if (g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(n).minmax(new net.minecraft.world.phys.AABB(n.above())))) continue;
+            if (n.distToCenterSqr(g.getEyePosition()) > 4.5 * 4.5) break;
+            if (c.blockPosition().equals(n) || c.blockPosition().equals(prev)) break;
+            int dx = n.getX() - prev.getX(), dz = n.getZ() - prev.getZ(); if (Math.abs(dx) + Math.abs(dz) != 1) continue;
+            Direction along = Direction.getNearest(dx, 0, dz);
+            boolean tight = true; for (BlockPos q : new BlockPos[] {n, n.above()}) for (Direction sd : new Direction[] {along.getClockWise(), along.getCounterClockWise()}) if (lv.getBlockState(q.relative(sd)).getCollisionShape(lv, q.relative(sd)).isEmpty()) tight = false;
+            if (tight && lv.getBlockState(n).canBeReplaced() && lv.getBlockState(n.above()).canBeReplaced()) return n.immutable(); }
         return null;
     }
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {

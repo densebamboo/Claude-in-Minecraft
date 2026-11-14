@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1734: return st1734(stage, t, c, h, level, mock);
             case 1733: return st1733(stage, t, c, h, level, mock);
             case 1732: return st1732(stage, t, c, h, level, mock);
             case 1731: return st1731(stage, t, c, h, level, mock);
@@ -24534,6 +24535,38 @@ public final class ClaudeBodyTest {
                 check(first != Boolean.TRUE, "its first swing landed (walked into it with the shield down): " + took + " of its " + s1733Swings + " swing(s) landed, health " + hpEnd);
                 check(took <= 1, took + " of its " + s1733Swings + " swing(s) landed in " + secs + " s, health " + hpEnd);
                 pass(stage, t, (dead ? "killed it" : "kept clear of it") + " in " + secs + " s, " + took + " of its " + s1733Swings + " swing(s) landed, first " + (first == null ? "never came" : "on the shield") + ", health " + hpEnd);
+            }
+        }
+        return true;
+    }
+    /** Stage 1734 (D2D death-54, live 13:37:37-44 11-14 at the fortress 301,63,483: on his own cobblestone, the path's next node 300,65,484 a diagonal 1 up; the side cell 301,_,484 open 33 down to a lava lake; the jump hit the step's face (blocked across), slid him along into the open side, the edge guard stepped him back, the next tick jumped again, off, dead in the lava). Here: a block over a pit 20 deep onto lava, the floor going on west of it, a step up 1 diagonally (-x, +z) with the pit beside it on the +z side. A walk up onto the raised floor beyond: he gets there, never drops into the pit and never stands in the cell over it (live: stood there at 301,64,484 between the two jumps, the edge guard stepping him back, then the second jump off). */
+    private static int s1734T, s1734Over; private static double s1734Low;
+    private static boolean st1734(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1734T = -1; s1734Low = 999; s1734Over = 0; level.setDayTime(6000); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -22; y <= 6; y++) level.setBlock(o.offset(x, y, z), y == -22 ? Blocks.BEDROCK.defaultBlockState() : y == -21 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -6; x <= 3; x++) for (int z = -6; z <= 0; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the floor he's on, south of the pit
+            level.setBlock(o.offset(0, -1, 0), Blocks.COBBLESTONE.defaultBlockState(), 2);
+            for (int x = -6; x <= -1; x++) for (int z = 1; z <= 6; z++) level.setBlock(o.offset(x, 0, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the raised floor, 1 up, north-west: its corner at (-1, 0, 1) is the diagonal step
+            for (int x = 1; x <= 3; x++) level.setBlock(o.offset(x, 0, 0), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a low wall east of him: the way is west
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_PICKAXE)); c.getInventory().selected = 0;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+        }
+        if (t[0] == 25) { c.teleportTo(o.getX() + 0.33, o.getY(), o.getZ() + 0.96); c.tasks.add(new Task.GoTo(o.offset(-4, 1, 4), 1.0)); s1734T = t[0]; } // (on the north half of his block, as he stood live: 483.96)
+        if (s1734T > 0) {
+            if (t[0] <= s1734T + 3 || t[0] % 10 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1734 t{} at {} {} {} ground {} task {}", t[0], String.format("%.2f", c.getX() - o.getX()), String.format("%.2f", c.getY() - o.getY()), String.format("%.2f", c.getZ() - o.getZ()), c.onGround(), c.currentTask);
+            s1734Low = Math.min(s1734Low, c.getY() - o.getY()); if (c.blockPosition().getX() == o.getX() && c.blockPosition().getZ() == o.getZ() + 1) s1734Over++; // (his feet in the column over the pit)
+            boolean there = c.getY() >= o.getY() + 0.9 && c.getX() < o.getX() - 1 && c.getZ() > o.getZ() + 1;
+            if (there || s1734Low < -1.5 || t[0] > s1734T + 20 * 25) {
+                int secs = (t[0] - s1734T) / 20; double low = s1734Low; BlockPos at = c.blockPosition();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.removeAllEffects(); c.clearFire(); c.setHealth(20); c.getInventory().clearContent();
+                check(low >= -1.5, "off the edge into the pit: " + String.format("%.1f", low) + " below his block, at " + at.toShortString() + " after " + secs + " s");
+                check(s1734Over == 0, "stood over the pit (the cell beside the diagonal step, lava 20 under it) " + s1734Over + " tick(s); at " + at.toShortString());
+                check(there, "not up on the raised floor in 25 s (at " + at.toShortString() + ")");
+                check(secs <= 10, "up there, but " + secs + " s for 3 blocks");
+                pass(stage, t, "up on the raised floor in " + secs + " s, never off the edge");
             }
         }
         return true;

@@ -27564,13 +27564,19 @@ public final class ClaudeBodyTest {
         if (t[0] == 5) {
             for (net.minecraft.world.item.Item a : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS}) c.setItemSlot(((net.minecraft.world.item.ArmorItem) a).getEquipmentSlot(), new ItemStack(a));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7));
-            c.setHealth(5); c.getFoodData().setFoodLevel(20); /* (5: a fight he breaks off at once; at 20 in iron a lone witch is his to kill since its throws are priced as vanilla throws them, stage 1727) */
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); /* (the health is set at the check: the highest of 12-19 where the fight is broken off; at 20 in iron a lone witch is his to kill since its throws are priced as vanilla throws them, stage 1727) */
             BlockPos me = h.absolutePos(new BlockPos(3, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f);
             var w = EntityType.WITCH.create(level); BlockPos wp = h.absolutePos(new BlockPos(13, 2, 7)); w.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); w.setNoAi(true); level.addFreshEntity(w); hzMob = w;
         }
-        if (t[0] == 10) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); boolean went = c.tasks.stream().anyMatch(q -> q instanceof Task.Attack); String q = String.valueOf(c.tasks); c.tasks.clear();
+        if (t[0] == 10) { com.claudemod.entity.life.Perception.lookNow(c);
+            int hp = -1; for (int k = 19; k >= 12 && hp < 0; k--) { c.setHealth(k); if (c.work.breaksOff(hzMob) != null) hp = k; } // (at 12+ the "health under 12" let-be doesn't fire: only the price lets her be; at 5 that rule did it alone and the stage tested nothing of this one)
+            boolean went = true; String q = "-"; if (hp > 0) { c.setHealth(hp); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); went = c.tasks.stream().anyMatch(x -> x instanceof Task.Attack); q = String.valueOf(c.tasks); c.tasks.clear(); }
+            c.setHealth(20); boolean fightsAt20 = c.work.breaksOff(hzMob) == null; com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); boolean went20 = c.tasks.stream().anyMatch(x -> x instanceof Task.Attack); c.tasks.clear(); // the control: a fight he keeps is started (a lone witch at 20 in iron is his to kill, stage 1727)
             for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); hzMob = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); level.setDayTime(6000);
-            check(!went, "on sight: after a witch 10 off whose fight doAttack breaks off at once (" + q + ")"); pass(stage, t, "the witch let be on sight: the fight he would break off is not started"); }
+            check(hp > 0, "setup: doAttack keeps the witch fight at every health 12-19: no health where only the price lets her be");
+            check(!went, "on sight at health " + hp + ": after a witch whose fight doAttack breaks off at once (" + q + ")");
+            check(!fightsAt20 || went20, "the control: at 20 the fight is kept, yet not started on sight");
+            pass(stage, t, "at health " + hp + " the witch let be on sight (the fight he'd break off), at 20 taken on: " + went20); }
         return true;
     }
     private static int s1511At = -1;

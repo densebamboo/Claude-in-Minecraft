@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1719: return st1719(stage, t, c, h, level, mock);
+            case 1718: return st1718(stage, t, c, h, level, mock);
             case 1717: return st1717(stage, t, c, h, level, mock);
             case 1716: return st1716(stage, t, c, h, level, mock);
             case 1715: return st1715(stage, t, c, h, level, mock);
@@ -24047,6 +24049,67 @@ public final class ClaudeBodyTest {
                 nsHome(c, h, level);
                 check(on, (int) s + " s and not up the vines onto the ledge top (at " + at + " arena coords, " + q + ")");
                 pass(stage, t, "up the vines and onto the ledge in " + String.format("%.1f", s) + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1718 (D2D death 17:46 11-13 by the fortress lava lake, incident 20261113-174615-death-234, link 1): the way to 321,55,442 dug his own pillar blocks 325,49,438 and 325,50,437 to pass, then planned a jump off 325,51,437, whose floor was the block it had dug ("lip cell air, under it air": the jump left, the fallback walker took him into the lava). The search priced every move on the world as it was, never on the world its own earlier digs left. Here: a cobblestone in a bedrock corridor, a ceiling over his start (no jump from there): the only way onto that cobblestone's top would be through it first. No move may stand on a cell the same plan dug. */
+    private static boolean st1718(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)), b = o.offset(0, 0, 1), to = o.offset(0, 1, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 4; z++) for (int y = -1; y <= 4; y++) {
+                boolean air = x == 0 && (z == 0 && y <= 1 || z == 1 && y >= 1 && y <= 3 || z == 2 && y >= 0 && y <= 2); // his cell and head (bedrock over it), the cells over the cobblestone, the cell past it
+                level.setBlock(o.offset(x, y, z), (air ? Blocks.AIR : Blocks.BEDROCK).defaultBlockState(), 2); }
+            level.setBlock(b, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 30) {
+            var p = com.claudemod.entity.nav.ActionPath.plan(c, level, o, to, 0.5, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0);
+            String bad = null; java.util.Set<BlockPos> dug = new java.util.HashSet<>();
+            if (p != null) for (var a : p.acts()) {
+                if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d) dug.add(d.pos());
+                else if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w0 && dug.contains(w0.feet().below())) bad = "a walk onto " + w0.feet().toShortString() + ", its floor dug earlier in the plan";
+                else if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap l && (dug.contains(l.from().below()) || dug.contains(l.land().below()))) bad = "a leap " + l.from().toShortString() + " -> " + l.land().toShortString() + " off or onto a floor dug earlier in the plan";
+                if (bad != null) break; }
+            String acts = p == null ? "no way" : p.acts().toString();
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(bad == null, "the plan stands on a block it dug: " + bad + " (" + acts + ")");
+            pass(stage, t, "no move on a cell the plan dug (" + (p == null ? "no way" : p.acts().size() + " acts") + ")");
+        }
+        return true;
+    }
+    /** Stage 1719 (D2D death 17:46 11-13, incident 20261113-174615-death-234, link 2): on his cobblestone at 324,50,438 at the edge of a gap over the fortress lava lake 19 down, the fallback walker's next node 324,52,440 one up across the gap; the lip guard saw the lava and stopped the walk, but the path's jump went on ("walk none ... jump true"): a standing hop, steered over the gap in the air, into the lava. Here: the same step on a vanilla path, lava 18 down. He doesn't jump at it: passes out of the lava and on his block after 5 s. */
+    private static int s1719T;
+    private static boolean st1719(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13900, 40, 8500), me = o.offset(0, 19, 0), far = o.offset(0, 20, 2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; s1719T = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(30), e -> !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 6; z++) for (int y = -1; y <= 24; y++) {
+                boolean pillar = x == 0 && z == 0 && y <= 18, ledge = Math.abs(x) <= 2 && z >= 2 && y >= 17 && y <= 19;
+                nl.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.NETHERRACK : y <= 1 ? Blocks.LAVA : pillar ? Blocks.COBBLESTONE : ledge ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(nl, me.getX() + 0.7, me.getY(), me.getZ() + 0.9, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.clearFire(); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null;
+            var path = new net.minecraft.world.level.pathfinder.Path(new java.util.ArrayList<>(java.util.List.of(new net.minecraft.world.level.pathfinder.Node(me.getX(), me.getY(), me.getZ()), new net.minecraft.world.level.pathfinder.Node(far.getX(), far.getY(), far.getZ()))), far, true);
+            path.advance(); c.getNavigation().moveTo(path, 1.0); com.claudemod.entity.body.Controls.traceMoves(c, 40); s1719T = t[0]; }
+        if (s1719T > 0 && t[0] > s1719T) {
+            double s = (t[0] - s1719T) / 20.0; boolean lava = c.isInLava() || c.getY() < me.getY() - 2;
+            if (lava || s > 5) {
+                String at = String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ());
+                c.clearFire(); if (c.isAlive()) c.setHealth(20); c.getNavigation().stop(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (int x = -4; x <= 4; x++) for (int z = -4; z <= 6; z++) for (int y = -1; y <= 24; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(!lava, "jumped at the step 1 up across the gap and fell toward the lava (at " + at + " arena coords, " + String.format("%.1f", s) + " s)");
+                pass(stage, t, "no jump across the gap over the lava (at " + at + ")");
             }
         }
         return true;

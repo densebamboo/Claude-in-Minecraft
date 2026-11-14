@@ -140,7 +140,7 @@ public final class ActionPath {
         final java.util.Set<BlockPos> wetPriced = new java.util.HashSet<>();
         /** The dig of the goal from there under water, and the swim in and back out: longer than his air, not done on one breath. */
         boolean airShort(Node n) { double wx = c.wetDig(n.feet); if (wx <= 1 || c.passable(to)) return false; return c.digSeconds(to) * wx + 2 * n.wet * com.claudemod.entity.life.Weights.w("path.swim_cell_s", 0.5) > g.getAirSupply() / 20.0; }
-        boolean arrived(Node n) { return Math.sqrt(n.feet.distSqr(to)) <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below())); }
+        boolean arrived(Node n) { if (Math.sqrt(n.feet.distSqr(to)) > within) return false; if (!n.feet.equals(to.below())) return true; var dn = c.dugNow; c.dugNow = java.util.Set.of(); try { return !(c.floor(to) && !c.passable(to.below())); } finally { c.dugNow = dn; } } // (the goal's floor as the world has it: dug by the way, it is still the floor he was to stand on, stage 937)
         /** Searches on for up to {@code sliceNs}: the plan, null (no way), or PENDING (the slice ran out, the 500 ms not). */
         Plan run(long sliceNs) {
             long t0 = System.nanoTime(); slices++;
@@ -149,6 +149,7 @@ public final class ActionPath {
                 if ((expanded & 15) == 0 && System.nanoTime() - t0 > sliceNs) { expanded--; spent += System.nanoTime() - t0; return PENDING; } // (this tick's slice is spent: on next tick)
                 Node n = open.poll();
                 { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.fire() <= n.fire() && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
+                { java.util.Set<Long> dg = null; for (Node a0 = n; a0 != null; a0 = a0.from) for (Act x : a0.acts) if (x instanceof Act.Dig d0) { if (dg == null) dg = new java.util.HashSet<>(); dg.add(d0.pos().asLong()); } c.dugNow = dg == null ? java.util.Set.of() : dg; }
                 double dd = Math.sqrt(n.feet.distSqr(to));
                 if (arrived(n)) { double wx = c.wetDig(n.feet); double ts0 = wx > 1 && !c.passable(to) ? c.digSeconds(to) : 0;
                     if (airShort(n)) { c.digAirRefused++; continue; } // (a dig under water there and the swim in and back out: longer than his air, it can't be done on one breath; live 06:01 11-12 copper floating 25x slow on ~15 s of air, down and up every 22 s; stage 1597)
@@ -503,7 +504,8 @@ public final class ActionPath {
     private static final class Costs {
         // the world as this plan reads it, each cell once (it doesn't change while he plans): block lookups were most of a plan's time (JFR on stage 637: chunk and palette reads under passable/door/water/solid), the 500 ms cap hit at 512-1024 nodes live (reviews 536, 689)
         private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockState> stateMemo = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(4096);
-        BlockState bs(BlockPos p) { long k = p.asLong(); BlockState s = stateMemo.get(k); if (s == null) { s = level.getBlockState(p); stateMemo.put(k, s); } return s; }
+        java.util.Set<Long> dugNow = java.util.Set.of(); // the cells this way's earlier moves dug: air to every later move (live 17:46 11-13, it dug his pillar block to pass and then jumped off it; stage 1718)
+        BlockState bs(BlockPos p) { long k = p.asLong(); if (dugNow.contains(k)) return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(); BlockState s = stateMemo.get(k); if (s == null) { s = level.getBlockState(p); stateMemo.put(k, s); } return s; }
         net.minecraft.world.level.material.FluidState fs(BlockPos p) { return bs(p).getFluidState(); }
         final int maxPuts; // the blocks he has to put down
         final int fireProof; // of those, the ones that don't burn (not wood): what goes down by lava

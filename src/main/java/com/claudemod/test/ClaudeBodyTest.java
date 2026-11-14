@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1730: return st1730(stage, t, c, h, level, mock);
             case 1729: return st1729(stage, t, c, h, level, mock);
             case 1728: return st1728(stage, t, c, h, level, mock);
             case 1727: return st1727(stage, t, c, h, level, mock);
@@ -24382,6 +24383,33 @@ public final class ClaudeBodyTest {
             check(knows, "he doesn't know of the wither skeleton 5 off him in plain view (the stage tests nothing)");
             check(dw > 8, "blaze cover picked " + String.format("%.1f", dw) + " off a wither skeleton he knows of: " + (cov == null ? "-" : cov.how()));
             pass(stage, t, "no blaze cover by the wither skeleton: " + (cov == null ? "none here" : cov.how() + String.format(", %.1f off it", dw)));
+        }
+        return true;
+    }
+    /** Stage 1730 (D2D death-419, live 09:02:45 11-14: "no meal on the run: health 14, hunger 19, withering: the Wither Skeleton 8.7 off (after him) is in reach before it's down (4.0 b/s for 1.6 s, reach 3.5)", the same at 6.8, 4.6, 5.8 off down to 1 HP, cooked_cod 8 on him, dead of the withering): the pace that closes on him while he eats is the chaser's less his own (he walks on at a fifth while it's in his mouth). Withering at 14, hunger 19, running from a wither skeleton 8.7 off: the meal starts under 9.5 off. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1730W; private static int s1730T; private static double s1730At;
+    private static boolean st1730(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1730T = -1; s1730At = -1; if (s1730W != null) s1730W.discard(); s1730W = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_COD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.removeAllEffects(); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var m = EntityType.WITHER_SKELETON.create(level); m.moveTo(o.getX() + 9.2, o.getY(), o.getZ() + 0.5, 90, 0); m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); m.setNoAi(true); m.setPersistenceRequired(); level.addFreshEntity(m); s1730W = m;
+        }
+        if (t[0] == 14) { s1730W.setTarget(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Wait(40, false)); c.getLookControl().setLookAt(s1730W); }
+        if (t[0] == 34) { s1730W.setTarget(c); c.stopUsingItem(); c.getFoodData().setFoodLevel(19); c.getFoodData().setSaturation(0); c.setHealth(14); c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 400)); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Flee(400)); s1730T = t[0]; }
+        if (s1730T > 0 && s1730At < 0 && c.isUsingItem() && c.getUseItem().is(Items.COOKED_COD) && c.currentTask instanceof Task.Flee) s1730At = c.distanceTo(s1730W);
+        if (s1730T > 0 && (t[0] == s1730T + 60 || s1730At >= 0 || !c.isAlive())) {
+            double at = s1730At; String q = c.currentTask + " " + c.tasks; boolean alive = c.isAlive();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard(); s1730W = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.stopUsingItem(); c.clearFire(); c.removeAllEffects(); if (alive) c.setHealth(20); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(at >= 0, "withering at 14, hunger 19, running from a wither skeleton 9 off: no meal in 3 s: " + (q.length() > 140 ? q.substring(0, 140) : q));
+            check(at < 9.5, String.format("the meal only once the wither skeleton was %.1f off: its pace counted with him standing still, not walking on at a fifth", at));
+            pass(stage, t, String.format("a meal on the run with the wither skeleton %.1f off", at));
         }
         return true;
     }

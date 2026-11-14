@@ -6225,7 +6225,7 @@ public class WorkGoal extends Goal {
         }
         else if (!g.isUsingItem() && g.getFoodData().getFoodLevel() < 20 && g.getHealth() < g.getMaxHealth()) { // the meal held: why, said when it changes or every 3 s (D2D death-728, live 06:35:19-26 11-14: 3-5 HP, 8 meals on him, wither skeletons 6-9 off, no meal and no line saying why)
             var near = meleeByMeal(false); var seer = mobs.stream().filter(m -> farShooter(m) && m.hasLineOfSight(g)).findFirst().orElse(null);
-            String why = near != null ? String.format("the %s %.1f off (after him) is in reach before it's down (%.1f b/s for %.1f s, reach %.1f)", near.getType().getDescription().getString(), near.distanceTo(g), mobPace(near, 1.2), w("food.eat_s", 1.6), w("fight.reach_blocks", 3.5))
+            String why = near != null ? String.format("the %s %.1f off (after him) is in reach before it's down (closing %.1f b/s on him walking on at a fifth, for %.1f s, reach %.1f)", near.getType().getDescription().getString(), near.distanceTo(g), mobPace(near, 1.2) - w("flee.eat_walk_bps", 0.86), w("food.eat_s", 1.6), w("fight.reach_blocks", 3.5))
                 : seer != null && !g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) ? String.format("the %s %.1f off has a line on him: out of its sight first", seer.getType().getDescription().getString(), seer.distanceTo(g))
                 : mobs.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.Creeper cr && cr.getSwellDir() > 0) ? "a creeper swelling" : "nothing to eat that he'd eat now";
             String key = why.replaceAll("[0-9.]+", "#");
@@ -7926,9 +7926,10 @@ public class WorkGoal extends Goal {
     /** The nearest of those (meleeInByMeal), or null. */
     private net.minecraft.world.entity.Mob meleeByMeal() { return meleeByMeal(true); }
     private String mealHeldWhy; private int mealHeldTick; // (the last "no meal on the run" reason said, and when)
+    /** witches false: on the run, where he walks on at a fifth (0.2 x 4.317 b/s) while it's in his mouth, so it closes by its pace less his (D2D death-419, live 09:02:45 11-14: "8.7 off ... 4.0 b/s", no meal from 14 HP to 1, withering; stage 1730). */
     private net.minecraft.world.entity.Mob meleeByMeal(boolean witches) {
         return level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) && (witches || !(m instanceof net.minecraft.world.entity.monster.Witch)) /* (a witch throws, never swings: on the run one 7 off read as walking in, no meal, D2D death 496; in a fight it still counts, the kill before the meal) */ /* (a blaze hangs back and shoots; its touch inside 2 is blazeInReach's: 1321 read one 6 off as walking in) */
-            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < mobPace(m, 1.2) * w("food.eat_s", 1.6)).stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).orElse(null);
+            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < (mobPace(m, 1.2) - (witches ? 0 : w("flee.eat_walk_bps", 0.86))) * w("food.eat_s", 1.6)).stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).orElse(null);
     }
     /** A melee mob on him, in before a meal's down (meleeByMeal): no standing still to eat or heal with it coming, shield down and facing the blaze; it's fought first, this fight after it (D2D death 850, live 09:20:15-27 11-13: "healing out of their sight" as a wither skeleton walked up, 15 -> 10, then "eating where he stands" at 4 with one 2.8 off, dead; stages 1711, 1712). */
     private boolean meleeFirst(Task.Attack t, net.minecraft.world.entity.LivingEntity mob, net.minecraft.world.entity.Mob on, String where) {

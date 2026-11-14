@@ -1638,6 +1638,7 @@ public final class ClaudeLife {
             return sides >= 3;
         });
         g.pillarBlocks.removeIf(q -> { if (!level.isLoaded(q) || !com.claudemod.entity.life.TempLedger.hisBuild(g, level, q)) return false; ClaudeMod.LOGGER.info("[Claude life] the block at {} he put down to stand on is in a cell of his build (mine, house, nook, farm): his build now, off his take-down list (ClaudeLife.tidyLitter)", q.toShortString()); return true; }); // (a step into a hole in his mine's floor: its dig queued 7 times, each refused by the shell guard, live 04:39-04:52 11-11, D2D review 185, stage 1502)
+        { int r = (int) com.claudemod.entity.life.Weights.w("tidy.hostile_r", 12); if (g.urgentAttacker != null || !g.pillarBlocks.isEmpty() && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(r), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy).isEmpty()) return; } // (hostiles he knows of round him, or one on him: no tidying, wherever the blocks are; the cover teardown stopped for a skeleton's arrows and this queued it again at once, stage 1131)
         BlockPos best = null; double bd = 48 * 48;
         for (BlockPos q : g.pillarBlocks) {
             if (!level.isLoaded(q) || pillarTries().getOrDefault(q, 0) > 3) continue;

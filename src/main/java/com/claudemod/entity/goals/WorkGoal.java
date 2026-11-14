@@ -326,7 +326,7 @@ public class WorkGoal extends Goal {
         return false;
     }
 
-    private int lavaDigTick = -100, lavaStepTick = -100; private BlockPos lavaStepOut; private BlockPos creeperWall; private int creeperPillarUntil; /* (the tunnel wall he is putting across against a creeper) */ private BlockPos climbStep; // (the ledge his step off a climb's top is for: held on as his feet leave the vines) // (the way out his lava step leads onto: the hop onto it after)
+    private int lavaDigTick = -100, lavaStepTick = -100; private BlockPos lavaStepOut; private BlockPos creeperWall; private int pkReachTick = -100; private final java.util.Map<java.util.UUID, Vec3> pkSeen = new java.util.HashMap<>(); private final java.util.List<Vec3> pkKills = new java.util.ArrayList<>(); private int creeperPillarUntil; /* (the tunnel wall he is putting across against a creeper) */ private BlockPos climbStep; // (the ledge his step off a climb's top is for: held on as his feet leave the vines) // (the way out his lava step leads onto: the hop onto it after)
     private String lavaWhy(BlockPos out) { // what holds him in the lava, for the log: World 17 20:41 his own dry cell was the way out and he wasn't out of it in 1.5 s, unproven why (stage 746 gets out in 6 ticks)
         var lv = g.level(); var bb = g.getBoundingBox().deflate(0.001); StringBuilder touch = new StringBuilder();
         for (BlockPos q : BlockPos.betweenClosed(BlockPos.containing(bb.minX, bb.minY, bb.minZ), BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ))) { var fs = lv.getFluidState(q);
@@ -478,26 +478,26 @@ public class WorkGoal extends Goal {
         if (g.urgentAttacker != null && diggingIn() && byCover) { // shot up his own bare tower: a perch, not cover; the cover choice again (a lid and walls, or down to a hole), never holding there (live 18:13 11-04: 30 s of arrows on a roofless dirt tower, "digging on, not a fight", 20 -> 0)
             var shot0 = ((ServerLevel) g.level()).getEntity(g.urgentAttacker); BlockPos ft = g.blockPosition();
             if (shoots(shot0) && digInAt != null && ft.getY() >= digInAt.getY() + 2 && Math.abs(ft.getX() - digInAt.getX()) <= 1 && Math.abs(ft.getZ() - digInAt.getZ()) <= 1 && g.level().getBlockState(ft.above(2)).getCollisionShape(g.level(), ft.above(2)).isEmpty()) {
-                if (digInTasks != null) g.tasks.removeAll(digInTasks);
+                if (digInTasks != null) dropCover();
                 if (current != null) { clearCrack(); current = null; g.currentTask = null; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] shot on his bare tower at {} by a {} {} off: no holding up here, the cover choice again (WorkGoal.tick)", ft.toShortString(), shot0.getType().getDescription().getString(), (int) shot0.distanceTo(g));
                 g.urgentAttacker = null;
                 digInFromArrows();
             }
         }
-        if (g.tickCount % 10 == 0 && diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && (x == current || g.tasks.contains(x))) && digInTasks.stream().anyMatch(x -> x instanceof Task.Break && (x == current || g.tasks.contains(x)))) { // taking his cover down, its wait over, with hostiles he knows of near: the blocks wait like any litter (death 02:57 11-12: the teardown's pickup walked him into a creeper with 5 hostiles within 10, stage 1144)
+        if (g.tickCount % 10 == 0 && diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && queued(x)) && digInTasks.stream().anyMatch(x -> x instanceof Task.Break && queued(x))) { // taking his cover down, its wait over, with hostiles he knows of near: the blocks wait like any litter (death 02:57 11-12: the teardown's pickup walked him into a creeper with 5 hostiles within 10, stage 1144)
             int r = (int) w("tidy.hostile_r", 12); var near = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(r), x -> x.isAlive());
             if (!near.isEmpty()) {
-                int left = (int) g.tasks.stream().filter(x -> x instanceof Task.Break && digInTasks.contains(x)).count();
-                g.tasks.removeAll(digInTasks); if (current != null && digInTasks.contains(current)) { clearCrack(); current = null; g.currentTask = null; }
+                int left = (int) g.tasks.stream().filter(x -> x instanceof Task.Break && digInTasks.stream().anyMatch(y -> y == x)).count();
+                dropCover(); if (current != null && digInTasks.stream().anyMatch(y -> y == current)) { clearCrack(); current = null; g.currentTask = null; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his cover at {} stays up: {} hostile(s) he knows of within {} (first {} {} off), {} block(s) left standing on his list for later (WorkGoal.tick)", digInAt == null ? "?" : digInAt.toShortString(), near.size(), r, near.get(0).getType().getDescription().getString(), (int) near.get(0).distanceTo(g), left);
             }
         }
-        if (g.urgentAttacker != null && diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && (x == current || g.tasks.contains(x))) && digInTasks.stream().anyMatch(x -> x instanceof Task.Break && (x == current || g.tasks.contains(x)))) { // taking his cover down, its wait over: a shooter's hit isn't "digging on" (live 01:32:56-01:33:10 11-12: the teardown ran on under blazes 11-14 off, 17 -> 11, review 013454-47, stage 1131)
+        if (g.urgentAttacker != null && diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && queued(x)) && digInTasks.stream().anyMatch(x -> x instanceof Task.Break && queued(x))) { // taking his cover down, its wait over: a shooter's hit isn't "digging on" (live 01:32:56-01:33:10 11-12: the teardown ran on under blazes 11-14 off, 17 -> 11, review 013454-47, stage 1131)
             var sh = ((ServerLevel) g.level()).getEntity(g.urgentAttacker);
             if (sh != null && farShooter(sh)) {
-                int left = (int) g.tasks.stream().filter(x -> x instanceof Task.Break && digInTasks.contains(x)).count();
-                g.tasks.removeAll(digInTasks); if (current != null && digInTasks.contains(current)) { clearCrack(); current = null; g.currentTask = null; }
+                int left = (int) g.tasks.stream().filter(x -> x instanceof Task.Break && digInTasks.stream().anyMatch(y -> y == x)).count();
+                dropCover(); if (current != null && digInTasks.stream().anyMatch(y -> y == current)) { clearCrack(); current = null; g.currentTask = null; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] shot taking his cover down at {} by a {} {} off: the teardown stops, {} block(s) left standing (on his list for later), the hit answered (WorkGoal.tick)", digInAt == null ? "?" : digInAt.toShortString(), sh.getType().getDescription().getString(), (int) sh.distanceTo(g), left);
             }
         }
@@ -4943,7 +4943,7 @@ public class WorkGoal extends Goal {
             boolean covered = digInAt != null && inDigInHole() && !g.isInWater() && (walled || stayPut || (tower ? g.getY() >= digInAt.getY() + 1.9 : g.getY() <= digInAt.getY() - 1.9));
             if (!covered && ticks > 5) {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] out of his cover at {} ({}, he's at {}): that wait's over, cover again from here", digInAt == null ? "?" : digInAt.toShortString(), g.isInWater() ? "in water" : tower ? "off the tower" : "out of the hole", g.blockPosition().toShortString());
-                g.tasks.removeAll(digInTasks); digInAt = null; digInTasks = null;
+                dropCover(); digInAt = null; digInTasks = null;
                 if (com.claudemod.director.ClaudeLife.nightOutsideNo(g, (ServerLevel) g.level(), g.blockPosition()) != null) { desperateNow = true; digInFromArrows(); desperateNow = false; } // night and no gear: cover again right here, whether or not anything is on him now
                 else digInFromArrows(); // fresh cover where he stands, if anything still calls for it; else back to the job
                 return true;
@@ -5057,7 +5057,7 @@ public class WorkGoal extends Goal {
         BlockPos end = feet.below(depth).relative(d, n);
         leaveBore = new Task.Bore(end.immutable(), end.getY());
         java.util.List<Task> dig = new java.util.ArrayList<>(); for (int k = 1; k <= depth; k++) dig.add(new Task.Break(feet.below(k).immutable())); dig.add(leaveBore); // (the bore's own steps: dug and walked as one, no walker to turn it back at the camper; no coming up at the end: the camper follows him along the top, what's next is the planner's)
-        tunnelOut().add(digInAt.immutable()); g.tasks.removeAll(digInTasks);
+        tunnelOut().add(digInAt.immutable()); dropCover();
         for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hurt in his cover with {} about: {}, {} blocks (WorkGoal.leaveCover)", near.size(), pick.name(), n);
         return true;
@@ -6395,6 +6395,8 @@ public class WorkGoal extends Goal {
     private static java.util.Set<BlockPos> tunnelOut; // holes he's already tunnelled out of (static: fields added live start null)
     private static java.util.Set<BlockPos> tunnelOut() { if (tunnelOut == null) tunnelOut = new java.util.HashSet<>(); return tunnelOut; }
     private java.util.List<Task> digInTasks = java.util.List.of(); private int coverLeftSaid = -1000;
+    private boolean queued(Task t) { return t == current || g.tasks.stream().anyMatch(y -> y == t); } // (by identity: a record task equals any other at the same spot; the walk's Break through a cover wall read as the teardown's, and "his cover stays up" cancelled it 13 times, 4 min stuck in his box, stage 1714)
+    private void dropCover() { if (digInTasks != null) g.tasks.removeIf(x -> digInTasks.stream().anyMatch(y -> y == x)); }
 
     /** Standing in (or at the top of) the hole he's digging: same column, up to two below where he started it. */
     private boolean inDigInHole() {
@@ -6409,7 +6411,7 @@ public class WorkGoal extends Goal {
     private boolean diggingIn() {
         if (digInAt == null || digInTasks == null) return false;
         if (Math.hypot(g.getX() - digInAt.getX() - 0.5, g.getZ() - digInAt.getZ() - 0.5) > w("cover.at_blocks", 4)) { if (g.tickCount - coverLeftSaid > 200) { coverLeftSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his cover at {} is {} off: he left it another way, not building it now (its leftover tasks run as plain jobs) (WorkGoal.diggingIn)", digInAt.toShortString(), (int) Math.hypot(g.getX() - digInAt.getX(), g.getZ() - digInAt.getZ())); } return false; } /* (D2D death 09:37:20 11-12: walked off his skytower at 298,71,505 by escapeStuck's legs, its tasks still deep in a 64-task queue; buildingCover() stayed true 20+ blocks off and the Nether eat rule skipped every meal, Wither 13 -> 0 with 9 salmon on him; stage 1650) */
-        for (Task t : digInTasks) if (t == current || g.tasks.contains(t)) return true; // its wait still running counts, however long (the 28 s cap below had the cover rules stack a second tower on the first)
+        for (Task t : digInTasks) if (queued(t)) return true; // its wait still running counts, however long (the 28 s cap below had the cover rules stack a second tower on the first)
         return false;
     }
 
@@ -6460,11 +6462,11 @@ public class WorkGoal extends Goal {
         coverGap = false;
         ServerLevel level = level();
         BlockPos feet = g.blockPosition();
-        boolean tearingDown = diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && (x == current || g.tasks.contains(x))); // its wait over, the lid coming out: no cover round him any more (D2D death 55, live 02:57:42 11-12: "in his hole" ended every run at its first tick, a creeper 2 off, 9 rounds of walk vs break-off in 0.7 s; stage 1545)
+        boolean tearingDown = diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && queued(x)); // its wait over, the lid coming out: no cover round him any more (D2D death 55, live 02:57:42 11-12: "in his hole" ended every run at its first tick, a creeper 2 off, 9 rounds of walk vs break-off in 0.7 s; stage 1545)
         if (diggingIn() && !tearingDown) {
             if (inDigInHole()) return true; // at it already (or down in it): carry on (one threat, one cover: never a second over it)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] knocked off his cover at {} (he's at {}): its steps dropped, cover again from here if anything still calls for it (WorkGoal.digInFromArrows)", digInAt.toShortString(), feet.toShortString());
-            g.tasks.removeAll(digInTasks); // knocked off the spot: that hole's no use, start again here
+            dropCover(); // knocked off the spot: that hole's no use, start again here
             digInAt = null;
         }
         var shooters = new java.util.ArrayList<>(com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(24),
@@ -7534,6 +7536,9 @@ public class WorkGoal extends Goal {
         Vec3 key = in ? g.position() : Vec3.atBottomCenterOf(t.cell());
         for (var m : lv.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(4), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && m.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(m)))
             if (hit == null || m.position().distanceTo(key) < hit.position().distanceTo(key)) hit = m;
+        if (hit != null) pkReachTick = g.tickCount;
+        boolean drawn = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW); /* (one weapon at a time: a blaze hovering at the edge of sword reach flipped him bow -> sword -> bow every few ticks, each swap holding the swing a tick, 12 swings in a row took nothing, 0 rods with 32 arrows, stage 1714) */
+        if (hit != null && drawn && hit.getBoundingBox().distanceToSqr(g.getEyePosition()) > 6.25) hit = null; // (a draw under way is let go for one well in reach only)
         if (hit != null && g.getAttackStrengthScale(0.5f) >= 0.95f && !rodHold(hit)) {
             if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem();
             shieldDown(); equipWeapon(); g.getLookControl().faceNow(hit.getBoundingBox().getCenter());
@@ -7543,18 +7548,18 @@ public class WorkGoal extends Goal {
         }
         net.minecraft.world.entity.monster.Blaze sees = null; for (var b : blazes) if (b.distanceTo(g) <= 20 && b.hasLineOfSight(g) && (sees == null || b.distanceTo(g) < sees.distanceTo(g))) sees = b;
         if (in && due == null && (lit != null || sees != null)) { // no volley due: the bow between volleys, the lit one first (it shoots next); the shield goes up for the volley that is due (the 44-tick charge leaves it time to be up): shielding from every blaze in sight he never drew once in 3 min walled in, 1 rod, stage 1714
-            net.minecraft.world.entity.monster.Blaze aim = null; for (var b : blazes) { double d = b.distanceTo(g); if (d >= 2 && d <= 20 && canHit(b) && (aim == null || (b.isOnFire() ? 0 : 100) + d < (aim.isOnFire() ? 0 : 100) + aim.distanceTo(g))) aim = b; }
+            net.minecraft.world.entity.monster.Blaze aim = null; double near = g.tickCount - pkReachTick > 20 ? 2 : 4.5; /* (one in sword reach this last second: the sword stays out for it, no draw at one that close) */ for (var b : blazes) { double d = b.distanceTo(g); if (d >= near && d <= 20 && canHit(b) && (aim == null || (b.isOnFire() ? 0 : 100) + d < (aim.isOnFire() ? 0 : 100) + aim.distanceTo(g))) aim = b; }
             if (aim != null && shootAt(aim)) { pkSay("shooting", "the blaze " + (int) aim.distanceTo(g) + " off in view through the window" + (aim.isOnFire() ? ", lit" : "") + ", no volley due: arrows"); return false; } }
         if (in && shield && (due != null || lit != null || sees != null)) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); g.getNavigation().stop(); var th = due != null ? due : lit != null ? lit : sees; shieldUp(th); pkSay("shield up", (due != null ? "a volley due from the " : lit != null ? "lit and in sight of him through the window: the " : "in sight of him through the window: the ") + th.getType().getDescription().getString() + " " + (int) th.distanceTo(g) + " off: the swing waits (a shield blocks only once it's been up a moment; swinging between the shots let all of them in, 0 blocked, stage 1714)"); return false; }
         if (!in) { // not in it yet (or knocked out of it): back in, the shield up for a volley on the way
             double off = Math.sqrt(t.cell().distSqr(feet));
             if (g.getHealth() < (off > w("blaze.pocket_far", 8) ? w("blaze.pocket_go_hp", 16) : w("blaze.pocket_back_hp", 9)) && off > 2.0) { /* (near it, its walls are the nearest cover: backed out 4.5 off at 15 HP, his retreat box then shut the way back in and he sat 4 min under the throne, 1 rod, stage 1714) (far out still: the walk in starts healed, as the step's own gate; withered by the bridge's wither skeletons he walked on at 13 -> 0 under 4 blazes, stage 1714) */ shieldDown(); pkSay("back out to heal", "health " + (int) g.getHealth() + " and not in yet (" + String.format("%.1f", off) + " off): the step heals him out of their sight first"); return true; }
             if (off > 2.5) { shieldDown(); if (walkTo(t.cell(), 2.5) && Math.sqrt(t.cell().distSqr(com.claudemod.entity.life.FortressFight.feet(g))) > 3) { pkSay("out of it", "at " + feet.toShortString() + ", " + (int) off + " off the pocket at " + t.cell().toShortString() + " and the walk to it gave up: the step weighs it again"); return true; } pkSay("to the pocket", (int) off + " off " + t.cell().toShortString() + ", what gets in his reach on the way hit as he goes"); return false; } /* (the walk is the pocket's own: a GoTo first left him unarmed against blazes on him, 20 -> 3 on the bridge, stage 1714) */
-            if (due != null && shield) { /* (a volley on the walk in is blocked, at any distance: shield down on the bridge, 5 a fireball) */ g.getNavigation().stop(); shieldUp(due); pkSay("shield up", "a volley due from the " + due.getType().getDescription().getString() + " " + (int) due.distanceTo(g) + " off, a step off his pocket"); return false; }
-            shieldDown();
+            boolean up = due != null && shield; /* (a volley on the walk in is blocked, at any distance: shield down on the bridge, 5 a fireball) */
+            if (up) { shieldUp(due); pkSay("shield up", "a volley due from the " + due.getType().getDescription().getString() + " " + (int) due.distanceTo(g) + " off, a step off his pocket: stepping in behind it"); } else shieldDown(); /* (stepping on with it up, slowed as anyone: stood still behind it a step off the cell, the fireballs from its sides and his fire ticks took him 12 -> 1 while the wall cells his body was over waited for him to be in, stage 1714) */
             if (level0 && hoff < 1.6 && straightIn(lv, t.cell())) cfMove(t.cell(), 1.0); /* (a straight step only where his body passes: from its corner it pushed into the corner, stage 1714) */
             else { var p0 = g.getNavigation().getPath(); if (g.getNavigation().isDone() || p0 == null || !t.cell().equals(p0.getTarget())) { var way = g.getNavigation().createPath(t.cell(), 0); if (way != null && way.canReach()) g.getNavigation().moveTo(way, 1.0); else cfMove(t.cell(), 1.0); } } /* (to the cell itself, up the throne's steps: vanilla's moveTo stops within 1 of it, a step below, stage 1714) */
-            pkSay("into the pocket", "a step to " + t.cell().toShortString() + String.format(" (%.2f off its middle, y %.2f)", hoff, g.getY())); return false;
+            if (!up) pkSay("into the pocket", "a step to " + t.cell().toShortString() + String.format(" (%.2f off its middle, y %.2f)", hoff, g.getY())); return false;
         }
         if (hoff > 0.2) g.getMoveControl().setWantedPosition(t.cell().getX() + 0.5, t.cell().getY(), t.cell().getZ() + 0.5, 0.6); /* (to its middle as he works: his body clear of the wall cells round it) */
         g.setSprinting(false);
@@ -7562,10 +7567,16 @@ public class WorkGoal extends Goal {
             if (food != null) { shieldDown(); g.tasks.addFirst(rest); g.tasks.addFirst(new Task.Eat(food)); pkSay("eating", "health " + (int) g.getHealth() + ", hunger " + g.getFoodData().getFoodLevel() + ", walled in: " + BuiltInRegistries.ITEM.getKey(food).getPath()); return true; } }
         if (lit == null) { for (var b : blazes) { double d = b.distanceTo(g); if (d >= 4 && d <= 20 && canHit(b) && shootAt(b)) { pkSay("shooting", "the blaze " + (int) d + " off is in view through the window and quiet: arrows"); return false; } } }
         else if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem();
+        for (var b : blazes) if (canHit(b)) pkSeen.put(b.getUUID(), b.position()); // the blazes he sees die: where their rod (if any) came down, out of his sight on the floor below the window
+        for (var it0 = pkSeen.entrySet().iterator(); it0.hasNext();) { var e0 = it0.next(); var b0 = lv.getEntity(e0.getKey()); if (b0 == null || !b0.isAlive()) { pkKills.add(e0.getValue()); it0.remove(); } }
+        if (pkKills.size() > 32) pkKills.remove(0);
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> down = lv.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(t.cell()).inflate(8, 4, 8), x -> x.isAlive() && x.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) && lv.getFluidState(x.blockPosition()).isEmpty() && x.distanceTo(g) > 1.3
+            && (g.hasLineOfSight(x) || pkKills.stream().anyMatch(k -> Math.hypot(k.x - x.getX(), k.z - x.getZ()) <= 2.5))); // (rods he saw, or under a blaze he saw die: no sensing through his walls)
+        boolean sweep = !down.isEmpty() && (rods + down.stream().mapToInt(x -> x.getItem().getCount()).sum() >= t.goal() || ticks >= t.maxTicks() - 200); // enough rods down for the job (or his time here nearly up): out for them now, quiet or not, as a player sweeps the floor before leaving (3 rods lay 2-4 off him on the throne's floor at the 5 min mark, 0 on him, never quiet enough to fetch with 6-9 blazes about, stage 1714)
         boolean quiet = lit == null && due == null && g.getHealth() >= w("blaze.pocket_out_hp", 16) && blazes.stream().noneMatch(b -> b.isOnFire() && b.distanceTo(g) < 16) && blazes.stream().noneMatch(b -> b.distanceTo(g) < 6) /* (one hanging at the window walks in on him at the door: 3 off when he stepped out, dead at the door, stage 1714) */ && lv.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(10), net.minecraft.world.entity.Entity::isAlive).isEmpty();
-        if (quiet) { // a rod out of his pickup's reach: out for it while nothing's on him, the wall it went by put back after
-            net.minecraft.world.entity.item.ItemEntity rod = null;
-            for (var it : lv.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(t.cell()).inflate(6, 3, 6), x -> x.isAlive() && x.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) && lv.getFluidState(x.blockPosition()).isEmpty() && x.distanceTo(g) > 1.3))
+        if (quiet || sweep) { // a rod out of his pickup's reach: out for it while nothing's on him (or the sweep), the wall it went by put back after
+            net.minecraft.world.entity.item.ItemEntity rod = null; if (sweep) for (var it : down) if (rod == null || it.distanceTo(g) < rod.distanceTo(g)) rod = it;
+            if (!sweep) for (var it : lv.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(t.cell()).inflate(6, 3, 6), x -> x.isAlive() && x.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) && lv.getFluidState(x.blockPosition()).isEmpty() && x.distanceTo(g) > 1.3))
                 if (rod == null || it.distanceTo(g) < rod.distanceTo(g)) rod = it;
             if (rod != null) {
                 net.minecraft.core.Direction toSp = net.minecraft.core.Direction.getNearest(t.spawner().getX() - t.cell().getX(), 0, t.spawner().getZ() - t.cell().getZ());
@@ -7577,7 +7588,7 @@ public class WorkGoal extends Goal {
                     shieldDown(); g.tasks.addFirst(rest); g.tasks.addFirst(new Task.GoTo(t.cell(), 0.3)); g.tasks.addFirst(new Task.Pickup(60)); g.tasks.addFirst(new Task.GoTo(rod.blockPosition(), 0.6));
                     if (!lv.getBlockState(door.above()).getCollisionShape(lv, door.above()).isEmpty()) g.tasks.addFirst(new Task.Break(door.above()));
                     if (!lv.getBlockState(door).getCollisionShape(lv, door).isEmpty()) g.tasks.addFirst(new Task.Break(door));
-                    pkSay("out for a rod", "a rod " + String.format("%.1f", rod.distanceTo(g)) + " off at " + rod.blockPosition().toShortString() + ", no blaze lit on him, no wither skeleton within 10, health " + (int) g.getHealth() + ": out by " + door.toShortString() + ", back in and walled after"); return true; }
+                    pkSay(sweep ? "the sweep" : "out for a rod", (sweep ? down.size() + " rod(s) down he saw fall, " + rods + " on him, " + t.goal() + " wanted: " : "") + "a rod " + String.format("%.1f", rod.distanceTo(g)) + " off at " + rod.blockPosition().toShortString() + ", no blaze lit on him, no wither skeleton within 10, health " + (int) g.getHealth() + ": out by " + door.toShortString() + ", back in and walled after"); return true; }
             }
         }
         if (lit == null && due == null) shieldDown();

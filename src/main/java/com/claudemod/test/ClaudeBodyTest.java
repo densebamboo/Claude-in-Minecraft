@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1727: return st1727(stage, t, c, h, level, mock);
             case 1726: return st1726(stage, t, c, h, level, mock);
             case 1725: return st1725(stage, t, c, h, level, mock);
             case 1724: return st1724(stage, t, c, h, level, mock);
@@ -12035,7 +12036,7 @@ public final class ClaudeBodyTest {
             for (int x = 3; x <= 9; x++) for (int z = 3; z <= 9; z++) for (int y = 2; y <= 7; y++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE); // (the platform: 6 up, its east lip at x 9)
             for (int y = 2; y <= 7; y++) h.setBlock(new BlockPos(0, y, 6), Blocks.STONE); // (the skeleton's pillar, 9 west)
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(90f); }
-        if (t[0] == 10) { var sk = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(0, 8, 6)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, -90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); ffMob = sk; ffT = t[0]; c.tasks.add(new Task.Attack(sk.getUUID(), 20 * 20)); }
+        if (t[0] == 10) { var sk = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(0, 8, 6)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, -90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); ffMob = sk; ffT = t[0]; c.tasks.add(new Task.Attack(sk.getUUID(), 20 * 20)); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); /* (unburnt in the noon sun: a burning one is let burn, priced, and whether an arrow left before it caught fire was a race) */ }
         if (ffT > 0) { if (c.getY() < me.getY() - 1.5) ffFell = true; if (ffBack < 0 && c.getX() < h.absolutePos(new BlockPos(8, 0, 0)).getX()) ffBack = t[0]; }
         if (ffT > 0 && t[0] == ffT + 20 * 8) {
             int shot = 16 - c.inventory.count(x -> x.is(Items.ARROW));
@@ -24294,6 +24295,33 @@ public final class ClaudeBodyTest {
             check(alive, "died by the deck's edge to the wither skeleton at 8 HP with a shield (at " + at + ", " + s1726Hits + " hit(s) taken, lowest " + (int) s1726Low + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
             check(s1726Hits <= 1, s1726Hits + " of the wither skeleton's hits landed (lowest " + (int) s1726Low + ", at " + at + "): a shield up as it swings blocks them");
             pass(stage, t, (dead ? "the wither skeleton killed in " + sec + " s" : "held 25 s") + ", health " + (int) hp + ", lowest " + (int) s1726Low + ", " + s1726Hits + " hit(s) taken");
+        }
+        return true;
+    }
+    /** Stage 1727 (D2D death 03:29:07 11-14 by home at -146,67,-14, incident 20261114-032907-death-496): 20 HP, full iron, sword and shield, one witch: "fight ~669 s (kill in 5, ~16 HP of hits)" against "run ~263 s", broken off 4 times, 31 s of running in circles inside its range while its poison ticked 20 -> 13, then harming 13 -> 7 and dead at a hide 4.5 from it. Every throw was priced as a 6-HP harming, the first is poison (it can't kill). Here: flat ground, a witch 10 off, him at 20 HP in iron: the witch dead within 20 s, him alive. */
+    private static net.minecraft.world.entity.monster.Witch s1727W; private static int s1727T, s1727Runs;
+    private static boolean st1727(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1727T = -1; s1727Runs = 0; if (s1727W != null) s1727W.discard(); s1727W = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.removeAllEffects(); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var m = EntityType.WITCH.create(level); m.moveTo(o.getX() + 10.5, o.getY(), o.getZ() + 0.5, 90, 0); m.setPersistenceRequired(); level.addFreshEntity(m); s1727W = m;
+        }
+        if (t[0] == 14) { s1727W.setTarget(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1727W.getUUID(), 20 * 30)); s1727T = t[0]; }
+        if (s1727T > 0 && c.currentTask instanceof Task.Flee && t[0] % 20 == 0) s1727Runs++;
+        if (s1727T > 0 && (t[0] == s1727T + 400 || !c.isAlive() || !s1727W.isAlive())) {
+            String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), q = c.currentTask + " " + c.tasks; float hp = c.getHealth(); boolean alive = c.isAlive(), dead = !s1727W.isAlive(); int sec = (t[0] - s1727T) / 20; float wh = s1727W.getHealth();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard(); s1727W = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.removeAllEffects(); if (alive) c.setHealth(20); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(alive, "died to one witch at 20 HP in iron with a sword (at " + at + ", " + s1727Runs + " s running): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            check(dead, "20 s with one witch and it's still alive (" + wh + " HP, " + s1727Runs + " s of it running, him at " + (int) hp + "): in iron with a sword a player closes in and kills it: " + (q.length() > 140 ? q.substring(0, 140) : q));
+            pass(stage, t, "the witch killed in " + sec + " s, health " + (int) hp + ", " + s1727Runs + " s running");
         }
         return true;
     }

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1729: return st1729(stage, t, c, h, level, mock);
             case 1728: return st1728(stage, t, c, h, level, mock);
             case 1727: return st1727(stage, t, c, h, level, mock);
             case 1726: return st1726(stage, t, c, h, level, mock);
@@ -24350,6 +24351,37 @@ public final class ClaudeBodyTest {
             check(alive, "died poisoned on the run (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
             check(ate >= 0 && ate <= 60, "poisoned at 10 HP, hunger 16, running from a witch 10 off: " + (ate < 0 ? "no meal in 5 s" : "the meal only " + ate / 20.0 + " s in") + " (health " + (int) hp + ", at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
             pass(stage, t, "a meal " + ate / 20.0 + " s into the run, " + String.format("%.1f", moved) + " blocks out, health " + (int) hp);
+        }
+        return true;
+    }
+    /** Stage 1729 (D2D death-728, live 06:35:14 11-14 at the fortress: "heard a Wither Skeleton ... (about 292, 62, 524)", the same tick blaze cover picked "a corner at 292, 65, 519 out of sight of 3 blaze(s)", 5 off it; three skeletons were there, 8 and 8 in the corner, 14 -> 4, dead 8 s later): a blaze behind a wall with a doorway, the corners beside the doorway out of its sight, a wither skeleton he sees 4-5 off them. No cover within 8 of the skeleton. */
+    private static boolean st1729(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -12; x <= 16; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            for (int z = -10; z <= 10; z++) for (int y = 0; y <= 4; y++) if (!(z == 0 && y <= 1)) level.setBlock(o.offset(6, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall, a 2-high doorway at z 0
+            for (int y = 0; y <= 1; y++) level.setBlock(o.offset(5, y, 2), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a post: the corner at 5, 0, 1 a nook
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(14); c.removeAllEffects(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); b.moveTo(o.getX() + 11.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setPersistenceRequired(); level.addFreshEntity(b);
+            var w = EntityType.WITHER_SKELETON.create(level); w.moveTo(o.getX() + 4.5, o.getY(), o.getZ() + 5.5, 180, 0); w.setNoAi(true); w.setPersistenceRequired(); level.addFreshEntity(w);
+            c.getLookControl().setLookAt(w);
+        }
+        if (t[0] > 10 && t[0] < 50) { var ws = level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new net.minecraft.world.phys.AABB(o).inflate(16)); if (!ws.isEmpty()) { c.getLookControl().setLookAt(ws.get(0)); c.setYRot((float) Math.toDegrees(Math.atan2(-(ws.get(0).getX() - c.getX()), ws.get(0).getZ() - c.getZ()))); c.setYHeadRot(c.getYRot()); } }
+        if (t[0] == 50) {
+            var ws = level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new net.minecraft.world.phys.AABB(o).inflate(16));
+            var bs = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(24));
+            check(!ws.isEmpty() && !bs.isEmpty(), "no wither skeleton or blaze");
+            var w = ws.get(0); boolean knows = com.claudemod.entity.life.Perception.aware(c, w);
+            var cov = com.claudemod.entity.life.FortressFight.coverFor(c, level, bs.get(0));
+            double dw = cov == null ? 99 : Math.sqrt(cov.cover().distToCenterSqr(w.position()));
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard(); com.claudemod.entity.life.FortressFight.reset(c);
+            for (int x = -12; x <= 16; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(knows, "he doesn't know of the wither skeleton 5 off him in plain view (the stage tests nothing)");
+            check(dw > 8, "blaze cover picked " + String.format("%.1f", dw) + " off a wither skeleton he knows of: " + (cov == null ? "-" : cov.how()));
+            pass(stage, t, "no blaze cover by the wither skeleton: " + (cov == null ? "none here" : cov.how() + String.format(", %.1f off it", dw)));
         }
         return true;
     }

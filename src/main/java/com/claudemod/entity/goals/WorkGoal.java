@@ -6221,7 +6221,15 @@ public class WorkGoal extends Goal {
                 && (g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) || mobs.stream().noneMatch(m -> farShooter(m) && m.hasLineOfSight(g))) // (a shooter with a line on him: out of its sight at full pace first, unless the poison is eating him meanwhile)
                 && mobs.stream().noneMatch(m -> m instanceof net.minecraft.world.entity.monster.Creeper cr && cr.getSwellDir() > 0)) {
             var food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); ItemStack fs = food == null ? ItemStack.EMPTY : g.inventory.find(s0 -> s0.is(food));
-            if (!fs.isEmpty() && g.hold(fs) && g.useHeld()) { g.setSprinting(false); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] eating {} on the run: health {}, hunger {}{}, nothing on him in reach before it's down (WorkGoal.doFlee)", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(food).getPath(), (int) g.getHealth(), g.getFoodData().getFoodLevel(), g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) ? ", poisoned" : ""); }
+            if (!fs.isEmpty() && g.hold(fs) && g.useHeld()) { mealHeldWhy = null; g.setSprinting(false); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] eating {} on the run: health {}, hunger {}{}, nothing on him in reach before it's down (WorkGoal.doFlee)", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(food).getPath(), (int) g.getHealth(), g.getFoodData().getFoodLevel(), g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) ? ", poisoned" : ""); }
+        }
+        else if (!g.isUsingItem() && g.getFoodData().getFoodLevel() < 20 && g.getHealth() < g.getMaxHealth()) { // the meal held: why, said when it changes or every 3 s (D2D death-728, live 06:35:19-26 11-14: 3-5 HP, 8 meals on him, wither skeletons 6-9 off, no meal and no line saying why)
+            var near = meleeByMeal(false); var seer = mobs.stream().filter(m -> farShooter(m) && m.hasLineOfSight(g)).findFirst().orElse(null);
+            String why = near != null ? String.format("the %s %.1f off (after him) is in reach before it's down (%.1f b/s for %.1f s, reach %.1f)", near.getType().getDescription().getString(), near.distanceTo(g), mobPace(near, 1.2), w("food.eat_s", 1.6), w("fight.reach_blocks", 3.5))
+                : seer != null && !g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) ? String.format("the %s %.1f off has a line on him: out of its sight first", seer.getType().getDescription().getString(), seer.distanceTo(g))
+                : mobs.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.Creeper cr && cr.getSwellDir() > 0) ? "a creeper swelling" : "nothing to eat that he'd eat now";
+            String key = why.replaceAll("[0-9.]+", "#");
+            if (!key.equals(mealHeldWhy) || g.tickCount - mealHeldTick >= 60) { mealHeldWhy = key; mealHeldTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no meal on the run: health {}, hunger {}{}: {} (WorkGoal.doFlee)", (int) g.getHealth(), g.getFoodData().getFoodLevel(), g.hasEffect(net.minecraft.world.effect.MobEffects.POISON) ? ", poisoned" : g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER) ? ", withering" : "", why); }
         }
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
@@ -7917,6 +7925,7 @@ public class WorkGoal extends Goal {
     private boolean meleeInByMeal() { return meleeByMeal() != null; }
     /** The nearest of those (meleeInByMeal), or null. */
     private net.minecraft.world.entity.Mob meleeByMeal() { return meleeByMeal(true); }
+    private String mealHeldWhy; private int mealHeldTick; // (the last "no meal on the run" reason said, and when)
     private net.minecraft.world.entity.Mob meleeByMeal(boolean witches) {
         return level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.Blaze) && (witches || !(m instanceof net.minecraft.world.entity.monster.Witch)) /* (a witch throws, never swings: on the run one 7 off read as walking in, no meal, D2D death 496; in a fight it still counts, the kill before the meal) */ /* (a blaze hangs back and shoots; its touch inside 2 is blazeInReach's: 1321 read one 6 off as walking in) */
             && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < mobPace(m, 1.2) * w("food.eat_s", 1.6)).stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).orElse(null);

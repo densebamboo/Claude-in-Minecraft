@@ -141,6 +141,12 @@ public final class FortressFight {
     private static java.util.Map<java.util.UUID, java.util.Map<Long, Integer>> swordCells; // cells a wither skeleton's sword reached him in, and when (static: fields added live start null)
     static boolean swordReached(ClaudeEntity g, BlockPos cell) { var m = swordCells == null ? null : swordCells.get(g.getUUID()); Integer at = m == null ? null : m.get(cell.asLong()); return at != null && g.tickCount - at < 20 * 60 && g.tickCount >= at; }
     static boolean swordIn(ClaudeEntity g, BlockPos cell) { return g.getLastHurtByMob() instanceof net.minecraft.world.entity.monster.WitherSkeleton && g.tickCount - g.getLastHurtByMobTimestamp() <= 20 && feet(g).equals(cell); }
+    /** Where he believes the melee mobs he knows of (seen or heard) are: a wither skeleton, a magma cube, a hoglin, a neutral one only when angry at him. */
+    static List<Vec3> meleeSpots(ClaudeEntity g, ServerLevel level, BlockPos at) { List<Vec3> out = new ArrayList<>();
+        for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, new AABB(at).inflate(24), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.WitherSkeleton || m instanceof net.minecraft.world.entity.monster.Enemy && !(m instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m instanceof Blaze) && !(m instanceof net.minecraft.world.entity.monster.Ghast) && !(m instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g))))) { Vec3 v = Perception.believedAt(g, m); if (v != null) out.add(v); }
+        return out; }
+    /** A melee mob he knows of within cover.melee_clear_blocks of the cell: a corner out of the blazes' sight is no cover with one of those beside it, it walks in while he waits (D2D death-728, live 06:35:14 11-14: a corner picked 5 off a wither skeleton he'd just heard, two 8s in it, 14 -> 4; stage 1729). */
+    static boolean meleeBy(List<Vec3> spots, BlockPos c) { double r = Weights.w("cover.melee_clear_blocks", 8); Vec3 v = Vec3.atBottomCenterOf(c); for (Vec3 m : spots) if (m.distanceTo(v) <= r) return true; return false; }
     static boolean witherSafe(ServerLevel level, BlockPos c) {
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = -2; dy <= 1; dy++) { /* (two down too: 2.4 tall, one standing two down beside the gap reaches his feet; D2D death 01:51:49 11-13, stage 1706) */ if (dx == 0 && dz == 0) continue; if (tall(level, c.offset(dx, dy, dz))) return false; }
         return true;
@@ -193,7 +199,7 @@ public final class FortressFight {
 
     static boolean stillGood(ClaudeEntity g, ServerLevel level, Cover c, LivingEntity foe) {
         if (!stand(level, c.cover())) return false;
-        if (c.kind().equals("blaze") && burntCell(g, c.cover())) return false;
+        if (c.kind().equals("blaze") && (burntCell(g, c.cover()) || meleeBy(meleeSpots(g, level, c.cover()), c.cover()))) return false;
         if (c.kind().equals("wither")) { if (swordIn(g, c.cover())) { if (swordCells == null) swordCells = new java.util.HashMap<>(); swordCells.computeIfAbsent(g.getUUID(), k -> new java.util.HashMap<>()).put(c.cover().asLong(), g.tickCount); if (lastGap != null && c.cover().equals(lastGap.get(g.getUUID()))) lastGap.remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude fight] the gap at {} is no cover: the wither skeleton's sword reached him in it (FortressFight.stillGood)", c.cover().toShortString()); return false; } return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null; }
         List<BlockPos> put = builds().get(g.getUUID()); if (put != null && !c.cover().equals(buildFor().get(g.getUUID()))) put = null;
         for (Blaze b : blazesNear(g, level, c.cover(), SHOT_RANGE)) if (sees(level, b, c.cover()) && (put == null || seenPast(level, b.getEyePosition(), c.cover(), put, g))) return false;
@@ -331,12 +337,12 @@ public final class FortressFight {
     static Cover buildBlaze(ClaudeEntity g, ServerLevel level, List<Vec3> eyes, Vec3 anchor, int seen, BlockPos spawner, LivingEntity foe) {
         var item = wallItem(g); if (item == null || eyes.isEmpty()) { buildWhy = item == null ? "; no blocks to build with" : ""; return null; }
         int max = (int) Math.min(g.inventory.count(x -> x.is(item)), Weights.w("blaze.cover_build_max", 8));
-        BlockPos me = feet(g);
+        BlockPos me = feet(g); List<Vec3> melee = meleeSpots(g, level, me);
         record Cand(BlockPos c, BlockPos peek, List<BlockPos> put, double score) {}
         Cand best = null; int[] no = new int[6]; // why the cells were passed over: {can't stand / near the anchor, a line's first cell can't take a block, too many blocks, a block with no face, no peek, no walk}
         for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) for (int dy = -1; dy <= 1; dy++) {
             BlockPos c = me.offset(dx, dy, dz);
-            if (!stand(level, c) || Math.sqrt(c.distToCenterSqr(anchor)) < 3.0 || burntCell(g, c)) { no[0]++; continue; }
+            if (!stand(level, c) || Math.sqrt(c.distToCenterSqr(anchor)) < 3.0 || burntCell(g, c) || meleeBy(melee, c)) { no[0]++; continue; }
             List<BlockPos> put = new ArrayList<>(); boolean ok = true;
             for (Vec3 e : eyes) {
                 for (Vec3 p : body(c)) { // (every line a shot can take to him: a block in each)
@@ -370,7 +376,7 @@ public final class FortressFight {
             if (!c.equals(me) && !reachNoLavaPut(g, level, me, c, 400)) { no[5]++; continue; }
             best = new Cand(c.immutable(), peek, up, score);
         }
-        if (best == null) { buildWhy = "; none to build with " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath() + ": " + no[0] + " no standing/by the anchor, " + no[1] + " a line's cell can't take a block, " + no[2] + " over " + max + " blocks, " + no[3] + " a block with no face, " + no[4] + " no peek, " + no[5] + " no walk"; return null; }
+        if (best == null) { buildWhy = "; none to build with " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath() + ": " + no[0] + " no standing/by the anchor/by a melee mob, " + no[1] + " a line's cell can't take a block, " + no[2] + " over " + max + " blocks, " + no[3] + " a block with no face, " + no[4] + " no peek, " + no[5] + " no walk"; return null; }
         builds().put(g.getUUID(), best.put()); buildFor().put(g.getUUID(), best.c());
         return new Cover(best.c(), best.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",
                 "to build: " + best.put().size() + " " /* (a plan, its puts when he's there: "built" read as cover in place, D2D death 04:54:09 11-13, 8 claims in 18 s, none put) */ + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath() + " at " + best.c().toShortString() + " cutting the sight of " + seen + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + " (no cover to find here), stepping out to " + best.peek().toShortString(), g.tickCount);
@@ -393,7 +399,7 @@ public final class FortressFight {
         for (Blaze b : bl) eyes.add(b.getEyePosition());
         if (spawner != null && open(level, spawner.above())) eyes.add(Vec3.atCenterOf(spawner.above()));
         Vec3 anchor = spawner != null ? Vec3.atCenterOf(spawner.above()) : foe.getEyePosition();
-        BlockPos me = feet(g);
+        BlockPos me = feet(g); List<Vec3> melee = meleeSpots(g, level, me); int byMelee = 0;
         record Cand(BlockPos c, BlockPos peek, double score, int walls, double da) {}
         List<Cand> cands = new ArrayList<>();
         for (int dx = -10; dx <= 10; dx++) for (int dz = -10; dz <= 10; dz++) for (int dy = -3; dy <= 3; dy++) {
@@ -406,6 +412,7 @@ public final class FortressFight {
             BlockPos peek = null; double pd = Double.MAX_VALUE;
             for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos q = c.relative(d); if (!stand(level, q) || !clear(level, eyeOf(q), anchor, g)) continue; double qd = q.distToCenterSqr(anchor); if (qd < pd) { pd = qd; peek = q; } }
             if (peek == null) continue;
+            if (meleeBy(melee, c)) { byMelee++; continue; }
             int walls = 0; for (Direction d : Direction.Plane.HORIZONTAL) if (!open(level, c.relative(d).above())) walls++;
             cands.add(new Cand(c.immutable(), peek.immutable(), Math.sqrt(c.distSqr(me)) * 0.6 + Math.abs(da - 7) * 0.5 - walls * 1.5, walls, da));
         }
@@ -420,7 +427,7 @@ public final class FortressFight {
                     shape + " at " + k.c().toShortString() + " out of sight of " + bl.size() + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + ", stepping out to " + k.peek().toShortString() + " (" + (int) k.da() + " off, " + cands.size() + " spots looked at)", g.tickCount);
         }
         { Cover built = buildBlaze(g, level, eyes, anchor, bl.size(), spawner, foe); if (built != null) return built; }
-        com.claudemod.director.ClaudeLife.nookSay(g, "blazeNoCover", "[Claude fight] no cover from the blazes within 10 of " + g.blockPosition().toShortString() + " (" + cands.size() + " spots out of sight, none walkable or with a step that sees them" + buildWhy + ") (FortressFight.pickBlaze)"); /* once per spot (the backlog: every few seconds at the fortress, 03:54) */ // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
+        com.claudemod.director.ClaudeLife.nookSay(g, "blazeNoCover", "[Claude fight] no cover from the blazes within 10 of " + g.blockPosition().toShortString() + " (" + cands.size() + " spots out of sight, none walkable or with a step that sees them" + (byMelee > 0 ? ", " + byMelee + " more by a melee mob he knows of" : "") + buildWhy + ") (FortressFight.pickBlaze)"); /* once per spot (the backlog: every few seconds at the fortress, 03:54) */ // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
         return null;
     }
 

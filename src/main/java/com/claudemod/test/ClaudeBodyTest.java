@@ -10589,6 +10589,7 @@ public final class ClaudeBodyTest {
             case 1752: return st1752(stage, t, c, h, level, mock);
             case 1753: return st1753(stage, t, c, h, level, mock);
             case 1754: return st1754(stage, t, c, h, level, mock);
+            case 1755: return st1755(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23514,6 +23515,36 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1755 (D2D, live 14:06:35-14:39 11-14 in his mine at -118, 16, -693: "his own furnace set down here (~330 s) beats the mine's at -115, 16, -680 (76 by his rows)", then "failed: nowhere to put a furnace within 8 blocks", 264 times in 33 min: the own-here price never heard that the spot failed). His sealed 2-wide tunnel, glass walls (no notch), rock above, 32 raw iron and a furnace on him, his furnace 25 along the row: after the failure he walks to his. */
+    private static boolean st1755(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 7850);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 40; x++) for (int z = -4; z <= 16; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 32)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.FURNACE, 1)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance; c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            var rs = b.rows(); BlockPos me = rs.get(1).first(), near = rs.get(26).first();
+            for (int x = -6; x <= 42; x++) for (int z = -6; z <= 18; z++) for (int y = -1; y <= 12; y++) { BlockPos p = new BlockPos(o.getX() + x, me.getY() + y, o.getZ() + z); level.setBlock(p, (y >= 3 || y == -1 ? Blocks.STONE : c.mineCells.contains(p) ? Blocks.AIR : Blocks.GLASS).defaultBlockState(), 2); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0;
+            check(com.claudemod.director.ClaudeLife.inHisMine(c, c.blockPosition()), "setup: not in his mine at " + c.blockPosition().toShortString());
+            level.setBlock(near, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(near.immutable());
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 32);
+            boolean w1 = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(near)); c.tasks.clear(); c.skillQueue.clear();
+            String r2 = w1 ? "" : com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 32);
+            boolean went = w1 || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(near));
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.blueprint = null; c.prefs.remove("mine_model"); c.stairStart = null; c.myStations.clear(); c.mineShape = null; c.mineCells.clear();
+            for (int x = -6; x <= 42; x++) for (int z = -6; z <= 18; z++) for (int y = -1; y <= 12; y++) level.setBlock(new BlockPos(o.getX() + x, me.getY() + y, o.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+            check(went, "no spot for his own furnace here, his 25 along the row: never walked to it (1: " + r1 + "; 2: " + r2 + ")");
+            pass(stage, t, "after the failed spot, to his furnace: " + (w1 ? r1 : r2));
         }
         return true;
     }

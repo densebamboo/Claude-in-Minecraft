@@ -3572,7 +3572,7 @@ public final class ClaudeLife {
                         return "crafted a furnace";
                     }
                     furnace = placeNextTo(g, level, Items.FURNACE);
-                    if (furnace == null) { String moved = toOpenGround(g, level, st, "a furnace"); return moved != null ? moved : "failed: nowhere to put a furnace within 8 blocks (water, his mine or no flat ground all round)"; }
+                    if (furnace == null) { String moved = toOpenGround(g, level, st, "a furnace"); if (moved == null) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STATION, g.blockPosition(), g.tickCount); /* goToStation's own-here price hears it (live 14:06-14:39 11-14: 264 fails in a row; stage 1755) */ return moved != null ? moved : "failed: nowhere to put a furnace within 8 blocks (water, his mine or no flat ground all round)"; }
                 }
                 return smeltInParallel(g, player, level, st, furnace);
             }
@@ -9274,6 +9274,12 @@ public final class ClaudeLife {
     }
     /** The furnace goToStation just passed over for one of his own set down here, and when: smelt's nearby pick obeys it (D2D review 110602-37, live 11:02:48 11-12: "set down here beats his at -49, 8, -501", then the smelt took that one; stage 1662). */
     private static final java.util.Map<java.util.UUID, Object[]> ownHereOver = new java.util.HashMap<>();
+    /** His own furnace had no spot where he stands a moment ago: setting one down here is out, not priced again (stage 1755). */
+    private static boolean ownFurnaceNoSpot(ClaudeEntity g) {
+        boolean no = g.attempts.within(com.claudemod.entity.life.Attempts.Kind.STATION, g.blockPosition(), g.tickCount, 20 * 120);
+        if (no) ClaudeMod.LOGGER.info("[Claude life] his own furnace here is out: no spot for one at {} a moment ago, his own furnace it is (ClaudeLife.goToStation)", g.blockPosition().toShortString());
+        return no;
+    }
     private static String goToStation(ClaudeEntity g, ServerLevel level, net.minecraft.world.level.block.Block block, Skills.Step st) {
         if (findNear(level, g.blockPosition(), 4, b -> b.is(block)) != null) return null;
         { BlockPos r6 = findNear(level, g.blockPosition(), 6, b -> b.is(block)); if (r6 != null && g.work.inReachOf(r6)) return null; } // in his reach is at it, as his walk there ends (WorkGoal.walkTo): "4 round his feet" sent him again from 5 off, that walk ended at once, the gate refused the next and the smelt failed (live 23:55 11-09, review 157, stage 1288)
@@ -9307,6 +9313,7 @@ public final class ClaudeLife {
                 Item in0 = smeltInput(level, g, item(st.target())); int n0 = in0 == null ? st.count() : Math.min(st.count(), g.getInventory().countItem(in0)); final BlockPos ms0 = mineStation;
                 int k0 = 0; for (BlockPos f : g.myStations) if (f.distSqr(ms0) <= 9 && level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) k0++;
                 int r0 = routeDist(g, g.blockPosition(), ms0); double his0 = 2.0 * r0 / 5.6 + n0 * 10.0 / Math.max(1, k0), own0 = (g.getInventory().countItem(Items.FURNACE) > 0 ? 4 : 10) + n0 * 10.0;
+                if (ownFurnaceNoSpot(g)) own0 = Double.MAX_VALUE / 4;
                 if (own0 < his0) { ClaudeMod.LOGGER.info("[Claude life] {} {} x{}: his own furnace set down here (~{} s) beats the mine's at {} ({} by his rows, {} furnace(s) there, ~{} s) (ClaudeLife.goToStation)", st.skill(), st.target(), n0, (int) own0, ms0.toShortString(), r0, k0, (int) his0); ownHereOver.put(g.getUUID(), new Object[] {ms0.immutable(), g.tickCount}); return null; }
             }
             Integer failed = mineStation == null ? null : g.attempts.any.get(mineStation);
@@ -9328,6 +9335,7 @@ public final class ClaudeLife {
                 int k0 = 0; for (BlockPos f : g.myStations) if (f.distSqr(mine0) <= 9 && level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) k0++;
                 double his0 = 2.0 * r0 / 5.6 + n0 * 10.0 / Math.max(1, k0) + cave0, own0 = (g.getInventory().countItem(Items.FURNACE) > 0 ? 4 : 10) + n0 * 10.0; // (own: set down and picked back up; 10 if it's crafted first)
                 if (g.isInWater()) { BlockPos dry0 = openGroundSpot(g, level); own0 += dry0 == null ? Double.MAX_VALUE / 4 : routeDist(g, g.blockPosition(), dry0) / 5.6; } // in water his own can't go down here: the swim to open ground is part of it (live 03:54 11-09: priced at 14 s with no walk, swam 8 s for open ground, then back to his own 10 off; review 134, stage 1234)
+                if (ownFurnaceNoSpot(g)) own0 = Double.MAX_VALUE / 4;
                 if (own0 < his0) { ClaudeMod.LOGGER.info("[Claude life] {} {} x{}: his own furnace set down here (~{} s) beats his at {} ({} on foot, {} furnace(s) there{}, ~{} s) (ClaudeLife.goToStation)", st.skill(), st.target(), n0, (int) own0, mine0.toShortString(), r0, k0, caveWhy, (int) his0); ownHereOver.put(g.getUUID(), new Object[] {mine0.immutable(), g.tickCount}); return null; }
             }
             if (mine0 != null && !canPlaceOwn && cave0 > 0) { String stone1 = furnaceStone(g, level); // no furnace or stone on him: 8 dug here and a furnace made (as kit.food prices it) against the walk and its dark

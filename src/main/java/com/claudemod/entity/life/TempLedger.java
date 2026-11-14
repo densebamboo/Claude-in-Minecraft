@@ -297,6 +297,14 @@ public final class TempLedger {
             for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (!n.equals(pos) && level.getBlockState(n).getCollisionShape(level, n).isEmpty() && !g.blueprint.isShell(n) && seen.add(n.immutable())) todo.add(n.immutable()); } }
         return !seen.isEmpty();
     }
+    /** An open cell beside it (at its level or one up, where he'd stand to take it) over a fall that kills him: lava, no bottom in sight, or more HP than he has. Null: none. */
+    static String deadlyEdge(ClaudeEntity g, ServerLevel level, BlockPos pos) {
+        for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = 0; dy <= 1; dy++) { BlockPos c = pos.relative(d).above(dy);
+            if (!level.getBlockState(c).getCollisionShape(level, c).isEmpty() || !level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty() || !level.getFluidState(c).isEmpty()) continue;
+            var f = com.claudemod.entity.nav.Leaps.fall(g, level, c, c.getY(), 0);
+            if (!f.ok() || f.hp() >= g.getHealth()) return "the drop at " + c.toShortString() + " is " + f.down() + " down onto " + f.onto() + (f.ok() ? ", " + Math.round(f.hp()) + " HP" : ""); }
+        return null;
+    }
     static boolean takeable(ClaudeEntity g, ServerLevel level, Entry e) {
         BlockState s = level.getBlockState(e.pos);
         { var m = level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(e.pos).inflate(8), x -> x.isAlive() && x.getTarget() == g); if (!m.isEmpty()) { ClaudeMod.LOGGER.info("[Claude temp] his {} at {} stays up for now: a {} after him {} off (TempLedger.takeable)", e.item, e.pos.toShortString(), m.get(0).getType().getDescription().getString(), (int) Math.sqrt(m.get(0).blockPosition().distSqr(e.pos))); return false; } } // ponytail: live 2026-11-01, off to explore he took his cover and gap plug down with 4 hoglins after him 7 off; a player keeps the wall till they're gone
@@ -315,6 +323,9 @@ public final class TempLedger {
         if (e.blocked.equals("no tool that drops it")) { e.blocked = ""; ClaudeMod.LOGGER.info("[Claude temp] correct tool now on him for {} at {}: the missing-tool hold is cleared (TempLedger.takeable)", e.item, e.pos.toShortString()); } // Live Nov 4 00:19: a previous bare-handed refusal survived a new stone pick forever.
         if (!e.blocked.isEmpty()) return false; // couldn't get it last time: again once he's been away and is back by it (tick clears the hold within 16; a try made from 32+ off read as "been away" at once and the tidy re-queued it every 5 s: live 05:06 11-08, review 109, stage 1030)
         if (Watchdog.off(g, new Task.Break(e.pos))) { if (!"written off".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {}: its take-up is written off by the watchdog (no way to it): left, not queued again (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "written off"; return false; } // (World 15 13:50: a stray table re-queued every few seconds after the write-off, 32+ lines)
+        { String edge = deadlyEdge(g, level, e.pos); // the take-up priced: beside a drop that kills him a slip is his death and his kit, and the block is worth the litter it leaves (live 17:45:59 11-13 in the Nether, death 234: back for his pillar at 321,55,442 over the lava lake by the fortress, the way along its perches, 20 down into the lava, his iron kit lost; stage 1340)
+          if (edge != null) { double risk = Weights.w("temp.deadly_edge_slip_p", 0.02) * Decide.deathS(g), worth = Weights.w("tidy.litter_s", 15);
+            if (risk > worth) { e.blocked = "beside a deadly drop"; ClaudeMod.LOGGER.info("[Claude temp] his {} at {}: beside it {}; a slip there ~{} s (his death and kit) against ~{} s of litter left: left standing (TempLedger.takeable)", e.item, e.pos.toShortString(), edge, Math.round(risk), Math.round(worth)); return false; } } }
         return true;
     }
 

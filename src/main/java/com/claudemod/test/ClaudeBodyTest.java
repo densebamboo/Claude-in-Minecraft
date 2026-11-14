@@ -11190,6 +11190,7 @@ public final class ClaudeBodyTest {
             case 1336: return st1336(stage, t, c, h, level, mock);
             case 1338: return st1338(stage, t, c, h, level, mock);
             case 1339: return st1339(stage, t, c, h, level, mock);
+            case 1340: return st1340(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -27217,6 +27218,41 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.TempLedger.reset(c); c.getInventory().clearContent();
             check(went, "the control: a corridor to the same 2 cobbles, not taken up");
             pass(stage, t, "through rock they stay (the trip's digs priced), down a corridor they are taken up");
+        }
+        return true;
+    }
+    /** Stage 1340 (D2D, death 234 live 17:45:59 11-13 in the Nether by the fortress: setting off for the blaze spawner, TempLedger.leaving queued "back up first" for his cobblestone pillar at 321,55,442 over the lava lake, the way to it along its perches, 20 down into the lava, his iron kit lost). Him on a ledge, setting off 40 off, his pillar block 2 off with the open drop beside it 20 down into lava: left standing. The control: the same block over a 2-drop onto stone, taken up. */
+    private static boolean st1340(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 24, 8)), blk = o.offset(2, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; c.staying = false; com.claudemod.entity.life.TempLedger.reset(c); level.setDayTime(6000); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        java.util.function.IntConsumer pit = floorY -> { // the drop round the ledge: down to lava (floorY < -3) or a stone floor 2 down
+            for (int x = -6; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -22; y <= 4; y++) {
+                boolean ledge = x >= -4 && x <= 1 && z >= -1 && z <= 1 && y == -1 || x == 2 && z == 0 && y <= -1 && y > Math.max(floorY, -21); // (and the pillar's own column under it, as live: his block on top)
+                level.setBlock(o.offset(x, y, z), (ledge ? Blocks.OBSIDIAN : floorY < -3 ? (y == -22 ? Blocks.OBSIDIAN : y == -21 ? Blocks.LAVA : Blocks.AIR) : (y <= floorY ? Blocks.STONE : Blocks.AIR)).defaultBlockState(), 2); } };
+        Runnable put = () -> { com.claudemod.entity.life.TempLedger.reset(c); level.setBlock(blk, Blocks.COBBLESTONE.defaultBlockState(), 2); try { var k = com.claudemod.entity.life.TempLedger.Entry.class.getDeclaredConstructor(BlockPos.class, String.class, String.class, long.class, String.class, String.class); k.setAccessible(true); com.claudemod.entity.life.TempLedger.book(c).put(blk.immutable(), k.newInstance(blk.immutable(), "cobblestone", "pillar", level.getGameTime() - 20 * 600, "", "")); } catch (Exception e) { check(false, "no booking: " + e); } };
+        java.util.function.BooleanSupplier left = () -> { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(o.offset(-40, 0, 0), 0.9));
+            try { var m = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("leaving", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { check(false, "no call: " + e); }
+            boolean went = c.tasks.contains(new Task.Break(blk)); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; return !went; };
+        if (t[0] == 5) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48), m -> !m.getUUID().equals(c.getUUID()))) e.discard();
+            pit.accept(-30);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 30) {
+            check(c.onGround() && c.blockPosition().equals(o), "setup: him not standing on his ledge (" + c.blockPosition().toShortString() + ")");
+            put.run(); boolean stays = left.getAsBoolean();
+            check(stays, "his pillar block beside a 20-block drop into lava: back up first, over the lava for one cobblestone");
+            pit.accept(-3);
+        }
+        if (t[0] == 40) {
+            put.run(); boolean stays = left.getAsBoolean();
+            pit.accept(-30); for (int x = -6; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -22; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.TempLedger.reset(c); c.getInventory().clearContent();
+            check(!stays, "the control: the same block over a 2-drop onto stone, not taken up");
+            pass(stage, t, "beside the lava drop his block stays; over a 2-drop it comes up");
         }
         return true;
     }

@@ -467,19 +467,24 @@ public final class FortressFight {
         for (Blaze b : blazesNear(g, level, g.blockPosition(), 32)) {
             if (!g.hasLineOfSight(b)) continue;
             noteBlaze(g, b.blockPosition()); // (where the blazes are: their spawner or their spawning ground is round there)
-            if (b.isOnFire()) chargedSince().putIfAbsent(b.getUUID(), g.tickCount - 40); // (Blaze.isOnFire is its charged flag: the glow and smoke a player sees)
-            else chargedSince().remove(b.getUUID());
+            if (b.isOnFire()) { Integer un = unlitSeen().get(b.getUUID()); chargedSince().putIfAbsent(b.getUUID(), un == null ? g.tickCount - 40 : Math.max(un + 1, g.tickCount - 40)); } // (Blaze.isOnFire is its charged flag: the glow and smoke a player sees; watched lighting up, its charge starts then: every light-up read as 40 ticks in had his shield up 4 ticks after any glow, 56 before its shots, stage 1714)
+            else { chargedSince().remove(b.getUUID()); unlitSeen().put(b.getUUID(), g.tickCount); }
         }
         if (chargedSince().size() > 64) chargedSince().clear();
+        if (unlitSeen().size() > 64) unlitSeen().clear();
     }
+    private static Map<UUID, Integer> unlitSeen; private static Map<UUID, Integer> unlitSeen() { if (unlitSeen == null) unlitSeen = new HashMap<>(); return unlitSeen; } // (the last tick he saw each blaze unlit)
     /** Ticks since that blaze lit up, or -1 when it isn't glowing. */
     public static int chargeAge(ClaudeEntity g, Blaze b) { if (!b.isOnFire()) return -1; Integer t = chargedSince().get(b.getUUID()); return t == null ? 999 : g.tickCount - t; }
 
     /** The blaze whose volley is due at him now (lit 44+ ticks, in sight of him), or one with a fireball coming his way; null: none. */
-    public static LivingEntity volleyDue(ClaudeEntity g, ServerLevel level) {
+    public static LivingEntity volleyDue(ClaudeEntity g, ServerLevel level) { return volleyDue(g, level, 44); }
+    /** The same, a blaze counted due from the given age of its charge (its shots come at 60, 66, 72; a shield blocks once up 5 ticks). */
+    public static LivingEntity volleyDue(ClaudeEntity g, ServerLevel level, int minAge) {
+        observe(g, level); // (each tick he asks: the glow read as he sees it; read only by the rods planner, every lit blaze in the pocket fight counted 999 ticks charged, his shield up ~90% of the time under 5 blazes, stage 1714)
         for (Blaze b : blazesNear(g, level, g.blockPosition(), 32)) {
             int age = chargeAge(g, b);
-            if (age >= 44 && clear(level, b.getEyePosition(), g.getEyePosition(), b)) return b;
+            if (age >= minAge && clear(level, b.getEyePosition(), g.getEyePosition(), b)) return b;
         }
         for (var f : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.SmallFireball.class, g.getBoundingBox().inflate(12), f -> f.getOwner() != g)) {
             if (f.getDeltaMovement().dot(g.getEyePosition().subtract(f.position())) > 0 && clear(level, g.getEyePosition(), f.position(), g)) return f.getOwner() instanceof LivingEntity l ? l : blazesNear(g, level, g.blockPosition(), 32).stream().findFirst().orElse(null);

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1717: return st1717(stage, t, c, h, level, mock);
             case 1716: return st1716(stage, t, c, h, level, mock);
             case 1715: return st1715(stage, t, c, h, level, mock);
             case 1714: return st1714(stage, t, c, h, level, mock);
@@ -24013,6 +24014,38 @@ public final class ClaudeBodyTest {
                 check(!dead, "died in the lava pool with the low wall a step east (at " + at + ", " + (int) s + " s)");
                 check(out, (int) s + " s in the lava pool and not out onto the low wall a step east (at " + at + ", health " + (int) hp + ")");
                 pass(stage, t, "out of the lava in " + String.format("%.1f", s) + " s, health " + (int) hp);
+            }
+        }
+        return true;
+    }
+    /** Stage 1717 (D2D death 15:49:28 11-13, incident 20261113-154928-death-51, link 1): at the fortress he climbed twisting vines 319,34..43,455 to step off their top onto 318,44,455, one over and one up; the GoTo's climb only held jump for a cell straight above, so that last step "ended at once", he let go, slid down the vines and was walked back to the lava's edge, 46 s of it three times over, the last ending in the lava. A player climbs to the top and steps off onto the ledge. Here: a vine column 10 high against a ledge whose top is one over and one up from the vines' top, no blocks or pick on him. Passes on the ledge top inside 12 s. */
+    private static int s1717T;
+    private static boolean st1717(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 60, 8400), to = o.offset(-1, 10, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; s1717T = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(30), e -> !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -5; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 13; y++) {
+                boolean ledge = x <= -1 && Math.abs(z) <= 2 && y <= 9; // (the ledge: its top floor at y 10, one over and one up from the vines' top cell)
+                nl.setBlock(o.offset(x, y, z), (y == -1 || ledge ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); }
+            for (int y = 0; y <= 9; y++) nl.setBlock(o.offset(0, y, 0), (y < 9 ? Blocks.TWISTING_VINES_PLANT : Blocks.TWISTING_VINES).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(nl, o.getX() + 2.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.clearFire(); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(to, 0.9)); s1717T = t[0]; }
+        if (s1717T > 0 && t[0] > s1717T) {
+            boolean on = c.onGround() && c.getBlockY() == to.getY() && c.getX() < o.getX(); double s = (t[0] - s1717T) / 20.0;
+            if ((t[0] - s1717T) % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1717 {} s: at {} ({}), ground {}, climbable {}, doing {}", (int) s, String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()), c.blockPosition().toShortString(), c.onGround(), c.onClimbable(), c.currentTask);
+            if (on || s > 12) {
+                String at = String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); String q = String.valueOf(c.currentTask);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (int x = -5; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 13; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(on, (int) s + " s and not up the vines onto the ledge top (at " + at + " arena coords, " + q + ")");
+                pass(stage, t, "up the vines and onto the ledge in " + String.format("%.1f", s) + " s");
             }
         }
         return true;

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1737: return st1737(stage, t, c, h, level, mock);
             case 1736: return st1736(stage, t, c, h, level, mock);
             case 1735: return st1735(stage, t, c, h, level, mock);
             case 1734: return st1734(stage, t, c, h, level, mock);
@@ -24653,6 +24654,35 @@ public final class ClaudeBodyTest {
             if (lid && down) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); pass(stage, t, "down his hole under its lid in " + (t[0] - 11) / 20.0 + " s, from 0.36 off its middle"); }
             else if (lid || t[0] >= 20 * 12) { String at = String.format("%.2f %.2f %.2f", c.getX() - top.getX(), c.getY() - top.getY(), c.getZ() - top.getZ()); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); check(false, (lid ? "the lid went in with him not down the hole" : "12 s and no hole with him in it") + ": at " + at + " off the hole's top cell, " + c.lastSkillLine); }
         }
+        return true;
+    }
+
+    /** D2D death-18, live 22:39:51 11-14 World 17: 15 HP, armor 2, iron sword and shield, a skeleton 4 off north-east, a skeleton and a spider 14 off west. fight.flee priced the run "~3 HP getting away" (he outruns their bows at a flat sprint) and ran; the escape it ran priced its own best heading ~11 HP (the one taken ~16) and the run cost 12 HP in 4.7 s at ~3.8 b/s with them in range all the way. One run, one price: the fight-or-run call prices the run's arrows as the escape will run it. Here the same three, held still: the run's arrows in the decision match the escape's own price, and at 15 HP he fights (~4 HP of hits) rather than run for ~11. */
+    private static java.util.List<net.minecraft.world.entity.Mob> st1737M = new java.util.ArrayList<>();
+    private static boolean st1737(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1737M.clear(); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (!st1737M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= (Math.abs(x) <= 3 && Math.abs(z) <= 3 ? 60 : 6); y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } // (open sky over him: the surface, as live)
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(15); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5);
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c);
+            double[][] at = {{3.4, -2.6}, {-13.5, 0.5}, {-13.5, 2.5}};
+            for (int i = 0; i < 3; i++) { net.minecraft.world.entity.Mob m = i < 2 ? EntityType.SKELETON.create(level) : EntityType.SPIDER.create(level); m.moveTo(o.getX() + 0.5 + at[i][0], o.getY(), o.getZ() + 0.5 + at[i][1], 0, 0); m.setPersistenceRequired(); m.setNoAi(true); if (i < 2) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(m); m.setTarget(c); st1737M.add(m); }
+        }
+        if (t[0] > 20 && t[0] < 60) { c.tasks.clear(); c.currentTask = null; c.skillQueue.clear(); c.setDeltaMovement(0, c.getDeltaMovement().y, 0); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); for (var m : st1737M) { m.setTarget(c); c.getLookControl().setLookAt(m); } }
+        if (t[0] == 60) {
+            c.setHealth(15); check(!com.claudemod.entity.goals.WorkGoal.underground(level, c.blockPosition()), "setup: the arena reads as underground");
+            String odds = c.work.fleeOddsForTest(st1737M.get(0)); double[] arrows = c.work.runArrowsForTest(st1737M);
+            for (var m : st1737M) m.discard(); st1737M.clear(); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setHealth(20); level.setDayTime(6000);
+            check(Math.abs(arrows[0] - arrows[1]) < 0.5, String.format("the run's arrows priced two ways: ~%.1f HP in the fight-or-run call, ~%.1f HP on the escape's own best heading (%s)", arrows[0], arrows[1], odds));
+            check(odds.startsWith("fight"), "at 15 HP with the escape's own run ~" + Math.round(arrows[1]) + " HP of arrows, he runs: " + odds);
+            pass(stage, t, String.format("one price for the run (~%.1f HP of arrows) and he fights: %s", arrows[0], odds)); }
         return true;
     }
 

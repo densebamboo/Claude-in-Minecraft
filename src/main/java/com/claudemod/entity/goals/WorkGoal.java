@@ -5787,20 +5787,18 @@ public class WorkGoal extends Goal {
 
     /** The way to run: away from them, with footing (no drop over 3), clear ahead, best where terrain hides him from them by 8 out. */
     /** HP the shooters' arrows cost him running 16 out on this heading: each step in a shooter's sight (its eye to his) at a sprint, flee.shots_per_s at flee.shot_hit_chance; a wall in the way leaves him standing there in view (flee.stuck_exposed_s). Behind rock it's none: the run that breaks their sight (World 17 09:40, 10:19; stage 773). */
-    private double sightHp(Vec3 hd, java.util.List<? extends net.minecraft.world.entity.Entity> mobs) { return sightHp(hd, mobs, false); }
-    /** runsOn: he keeps running (the run's price): no shots out of its weapon's range, and he outruns it at the pace he gains. Off for an escape that holds at its spot: there only breaking its sight helps, it walks back into range (stage 773). */
-    private double sightHp(Vec3 hd, java.util.List<? extends net.minecraft.world.entity.Entity> mobs, boolean runsOn) {
+    private double sightHp(Vec3 hd, java.util.List<? extends net.minecraft.world.entity.Entity> mobs) {
         ServerLevel lv = (ServerLevel) g.level(); double hp = 0, step = 1 / com.claudemod.entity.life.Decide.sprint();
         for (var e : mobs) {
             if (!(e instanceof net.minecraft.world.entity.LivingEntity m) || !m.isAlive() || !shoots(m) || m.distanceTo(g) > 24) continue;
-            double seenS = 0, range = runsOn ? shotRange(m) : Double.MAX_VALUE; java.util.List<Vec3> eyes = new java.util.ArrayList<>(); for (Vec3 off : new Vec3[] {Vec3.ZERO, new Vec3(3, 0, 0), new Vec3(-3, 0, 0), new Vec3(0, 0, 3), new Vec3(0, 0, -3)}) { Vec3 e0 = m.getEyePosition().add(off); BlockPos eb = BlockPos.containing(e0); if (off == Vec3.ZERO || lv.getBlockState(eb).getCollisionShape(lv, eb).isEmpty() && lv.getBlockState(eb.below()).getCollisionShape(lv, eb.below()).isEmpty()) eyes.add(e0); } // (where it stands and a few steps round: it moves; behind one pillar is no cover from a skeleton that steps off it)
+            double seenS = 0, range = Double.MAX_VALUE; java.util.List<Vec3> eyes = new java.util.ArrayList<>(); for (Vec3 off : new Vec3[] {Vec3.ZERO, new Vec3(3, 0, 0), new Vec3(-3, 0, 0), new Vec3(0, 0, 3), new Vec3(0, 0, -3)}) { Vec3 e0 = m.getEyePosition().add(off); BlockPos eb = BlockPos.containing(e0); if (off == Vec3.ZERO || lv.getBlockState(eb).getCollisionShape(lv, eb).isEmpty() && lv.getBlockState(eb.below()).getCollisionShape(lv, eb.below()).isEmpty()) eyes.add(e0); } // (where it stands and a few steps round: it moves; behind one pillar is no cover from a skeleton that steps off it)
             java.util.function.Predicate<Vec3> sees = pt -> eyes.stream().anyMatch(e0 -> com.claudemod.entity.life.Perception.clear(lv, e0, pt));
             for (int i = 1; i <= 16; i++) {
                 Vec3 at = g.position().add(hd.scale(i)); BlockPos f = BlockPos.containing(at);
                 if (!lv.getBlockState(f.above()).getCollisionShape(lv, f.above()).isEmpty() || !lv.getBlockState(f).getCollisionShape(lv, f).isEmpty() && !lv.getBlockState(f.above(2)).getCollisionShape(lv, f.above(2)).isEmpty()) { // (a wall: he stops at the last step in view)
                     Vec3 last = g.position().add(hd.scale(i - 1)); if (last.distanceTo(m.position()) <= range && sees.test(last.add(0, 1.6, 0))) seenS += w("flee.stuck_exposed_s", 4); break; } // (stopped by the wall out of its range: no shots there either)
                 if (at.distanceTo(m.position()) > range) continue; // (out of its bow's range there: it walks after him, never shoots)
-                if (sees.test(at.add(0, 1.6, 0))) { seenS += step; if (i == 16) seenS += runsOn ? Math.max(0, range - at.distanceTo(m.position())) / Math.max(0.5, com.claudemod.entity.life.Decide.sprint() - mobPace(m, 1.0)) : w("flee.open_exposed_s", 6); } // (still in its sight 16 out: open ground, it follows and shoots on; World 17 05:18, arrows of 5 and 3 in his back on the run, 16 -> 1)
+                if (sees.test(at.add(0, 1.6, 0))) { seenS += step; if (i == 16) seenS += w("flee.open_exposed_s", 6); } // (still in its sight 16 out: open ground, it follows and shoots on; World 17 05:18, arrows of 5 and 3 in his back on the run, 16 -> 1)
             }
             hp += seenS * w("flee.shots_per_s", 0.5) * w("flee.shot_hit_chance", 0.7) * mobHit(m);
         }
@@ -5809,7 +5807,7 @@ public class WorkGoal extends Goal {
     /** The least arrow HP of the 12 headings round the way away from them (sightHp). */
     private double bestSightHp(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         Vec3 base = fleeHeading(mobs); double best = Double.MAX_VALUE;
-        for (int r = 0; r < 360; r += 30) { double a = Math.toRadians(r); best = Math.min(best, sightHp(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a)), mobs, true)); }
+        for (int r = 0; r < 360; r += 30) { double a = Math.toRadians(r); best = Math.min(best, sightHp(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a)), mobs)); } // (as the escape prices its own headings: it holds at its spot, so only breaking their sight helps; a flat sprint out of their range priced the run ~3 HP when the escape it ran priced itself ~11 and cost 12, D2D death-18 live 22:39:51 11-14, stage 1737)
         return best == Double.MAX_VALUE ? 0 : best;
     }
     private Vec3 fleeHeading(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
@@ -5913,6 +5911,7 @@ public class WorkGoal extends Goal {
      * The way out, picked once: a portal in sight he reaches with its 4 s to spare; a 1-wide gap in sight he gets to first (through
      * it, plugged or held, one at a time); else a run 16 out on the best heading. Logged with what it saw.
      */
+    public double[] runArrowsForTest(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { Vec3 base = fleeHeading(mobs); double best = Double.MAX_VALUE; for (int r = 0; r < 360; r += 30) { double a = Math.toRadians(r); best = Math.min(best, sightHp(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a)), mobs)); } return new double[] {bestSightHp(mobs), best}; } // (tests: the run's arrows as the fight-or-run call prices them, and as the escape prices its own best heading)
     public BlockPos pickEscapeNow(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { pickEscape(mobs); return escapeAt; } // (tests)
     /** The mob a walk takes him a block nearer than he is and within reach of (a creeper's blast 4, a hit 2.5), or null (stage 668). */
     private net.minecraft.world.entity.Mob walksPast(net.minecraft.world.level.pathfinder.Path path, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {

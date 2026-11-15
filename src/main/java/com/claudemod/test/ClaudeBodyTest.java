@@ -11212,6 +11212,7 @@ public final class ClaudeBodyTest {
             case 1340: return st1340(stage, t, c, h, level, mock);
             case 1341: return st1341(stage, t, c, h, level, mock);
             case 1342: return st1342(stage, t, c, h, level, mock);
+            case 1343: return st1343(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -27858,6 +27859,33 @@ public final class ClaudeBodyTest {
             check(toHay, "at the village's edge, its hay on record 50 off out of sight: no walk to the hay (" + r + ")");
             check(said.contains("the village at " + s1342Hay.toShortString()), "the kit's village bread not priced to its hay at " + s1342Hay.toShortString() + ": " + said);
             pass(stage, t, "village_food walks to the hay 50 off (" + r + "); the kit: " + said); return true;
+        }
+        return true;
+    }
+    /** Stage 1343 (D2D, live 23:40 11-14 - 00:20 11-15 at -129,18,-709, his mine's access notch flooded from a lake: 40 min round the same plugs and walks, 195 "back on: he stands somewhere new" lines, 179 of them at -129,19,-709 and 16 at -129,18,-709: bobbing a block up and down in one water column cleared every failed plug and walk, and each went in again). In water, one level up or down in the same spot is the same standing; a few blocks along is a new one. */
+    private static boolean st1343(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos b = h.absolutePos(new BlockPos(6, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); level.setDayTime(1000); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 12000;
+        if (t[0] == 5) { flatBox(h);
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 5; y++) level.setBlock(b.offset(x, y, z), (Math.abs(x) <= 1 && z == 0 && y >= 0 && y <= 3 ? Blocks.WATER : Blocks.STONE).defaultBlockState(), 2); // a 3-long water channel 4 deep in stone, a roof over it
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20); c.setAirSupply(c.getMaxAirSupply());
+            c.teleportTo(b.getX() + 0.5, b.getY() + 1, b.getZ() + 0.5); c.fallDistance = 0; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; }
+        if (t[0] > 5 && t[0] < 12) c.teleportTo(b.getX() + 0.5, b.getY() + 1, b.getZ() + 0.5);
+        if (t[0] == 12) {
+            check(c.isInWater(), "setup: him not in the water (" + c.blockPosition().toShortString() + ")");
+            var A = com.claudemod.entity.life.Attempts.Kind.PLACE; var R = com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH; BlockPos plug = b.offset(0, 2, 3), me = c.blockPosition();
+            c.attempts.forget(A, plug); c.attempts.fail(A, plug, c.tickCount, me.below(), R, "couldn't get in reach to place it");
+            String bob = c.attempts.changed(A, plug); // (failed from the cell under him: he floated a block up)
+            c.attempts.forget(A, plug); c.attempts.fail(A, plug, c.tickCount, me.above(), R, "couldn't get in reach to place it");
+            String sank = c.attempts.changed(A, plug); // (failed from the cell over him: he sank a block)
+            c.attempts.forget(A, plug); c.attempts.fail(A, plug, c.tickCount, me.offset(-4, 0, 0), R, "couldn't get in reach to place it");
+            String along = c.attempts.changed(A, plug); c.attempts.forget(A, plug);
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 5; y++) level.setBlock(b.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(bob == null, "a block up in the same water column read as a new standing: " + bob);
+            check(sank == null, "a block down in the same water column read as a new standing: " + sank);
+            check(along != null, "the control: 4 along, a new standing, yet the failure still held");
+            pass(stage, t, "bobbing in the water keeps his failures; 4 along: " + along); return true;
         }
         return true;
     }

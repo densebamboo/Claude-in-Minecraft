@@ -4055,10 +4055,10 @@ public final class ClaudeLife {
                   boolean inView = st.skill().equals("village_food") ? villageHayInSight(g, level) > 0 // (what this skill takes, in view here: here it is, whatever he has on record)
                           : st.skill().equals("village_beds") ? !findAll(level, g.blockPosition(), 32, b -> b.is(BlockTags.BEDS), 4).stream().filter(p -> visibleBlock(g, level, p)).toList().isEmpty()
                           : !level.getEntitiesOfClass(net.minecraft.world.entity.animal.IronGolem.class, g.getBoundingBox().inflate(32), e -> e.isAlive() && g.hasLineOfSight(e)).isEmpty();
-                  if (vil != null && !inView) { BlockPos vc = vil.nearestCell(g.position()); double vd = Math.sqrt(vc.distToCenterSqr(g.position()));
-                    if (vd > 20) { // (knownVillage leaves out one whose walk just failed)
+                  if (vil != null && !inView) { boolean food = st.skill().equals("village_food"); BlockPos vc = food ? villageHayCell(level, vil, g.position()) : vil.nearestCell(g.position()); double vd = Math.sqrt(vc.distToCenterSqr(g.position())); // (food: to its hay, not its nearest cell: at the village's edge, hay 60 off behind its houses was never walked to, "no hay in view", fished 25 min instead, live 21:52-22:17 11-14; stage 1342)
+                    if (vd > (food ? 3 : 20)) { // (knownVillage leaves out one whose walk just failed)
                         String night = nightOutsideNo(g, level, vc); if (night != null) return night;
-                        g.tasks.add(new Task.GoTo(vc, 4)); g.skillQueue.addFirst(st);
+                        g.tasks.add(new Task.GoTo(vc, food ? 2 : 4)); g.skillQueue.addFirst(st);
                         String what = st.skill().equals("village_food") ? "hay" : st.skill().equals("village_beds") ? "beds" : "golem";
                         return "walking to the village I saw at " + vc.toShortString() + " (" + (int) vd + " blocks) for its " + what;
                     } } }
@@ -14914,6 +14914,12 @@ public final class ClaudeLife {
     static java.util.Map<BlockPos, Long> villageNoIron() { if (villageNoIron == null) villageNoIron = new java.util.HashMap<>(); return villageNoIron; }
     /** A village with nothing in it for iron just now: its smith house walked with no chest, no golem in sight, within village.no_iron_s (golems come back with time). */
     public static boolean villageNoIron(ServerLevel level, BlockPos cell) { long now = level.getGameTime(), keep = (long) (20 * com.claudemod.entity.life.Weights.w("village.no_iron_s", 1200)); villageNoIron().values().removeIf(t -> now - t > keep || now < t); for (BlockPos p : villageNoIron().keySet()) if (p.distSqr(cell) <= 64 * 64) return true; return false;
+    }
+    /** Where its hay is: the nearest cell of it he saw that is hay (the same test as villageHay), else its nearest cell. */
+    public static BlockPos villageHayCell(ServerLevel level, com.claudemod.entity.life.Perception.Sighting s, net.minecraft.world.phys.Vec3 from) {
+        BlockPos best = null; double bd = Double.MAX_VALUE;
+        for (BlockPos c : s.cells()) { if (!(level.isLoaded(c) ? level.getBlockState(c).is(Blocks.HAY_BLOCK) : s.block().contains("hay"))) continue; double d = c.distToCenterSqr(from); if (d < bd) { bd = d; best = c; } }
+        return best != null ? best : s.nearestCell(from);
     }
     /** Hay he saw in it (still there where it's loaded; out there, his record of it). */
     public static boolean villageHay(ServerLevel level, com.claudemod.entity.life.Perception.Sighting s) {

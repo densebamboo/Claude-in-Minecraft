@@ -11211,6 +11211,7 @@ public final class ClaudeBodyTest {
             case 1339: return st1339(stage, t, c, h, level, mock);
             case 1340: return st1340(stage, t, c, h, level, mock);
             case 1341: return st1341(stage, t, c, h, level, mock);
+            case 1342: return st1342(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -27826,6 +27827,38 @@ public final class ClaudeBodyTest {
             check(!went, "on sight at health " + hp + ": after a witch whose fight doAttack breaks off at once (" + q + ")");
             check(!fightsAt20 || went20, "the control: at 20 the fight is kept, yet not started on sight");
             pass(stage, t, "at health " + hp + " the witch let be on sight (the fight he'd break off), at 20 taken on: " + went20); }
+        return true;
+    }
+    /** Stage 1342 (D2D, live 21:52-22:17 11-14 by the village at -1110,65,1895: kit.food picked "village bread ~96 s (the village at -1110,65,1895, 21 off, hay seen there)", village_food "walking to the village I saw at -1110,65,1895 (21 blocks) for its hay", then "no hay in view ...; its hay on record at -1050,74,1895, 60 off, out of his sight": failed, and he fished 25 min). Both priced and walked to the village's nearest cell, not its hay. Him at a village cell, its hay on record 50 off out of sight: village_food walks to the hay, and the kit prices the hay's distance. */
+    private static BlockPos s1342Hay;
+    private static boolean st1342(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "useful"); c.lastSkillLine = ""; com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village")); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 12000;
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            s1342Hay = h.absolutePos(new BlockPos(9, 2, 8)); level.setBlockAndUpdate(s1342Hay, Blocks.HAY_BLOCK.defaultBlockState()); level.setBlockAndUpdate(s1342Hay.north(), Blocks.HAY_BLOCK.defaultBlockState());
+            c.getInventory().clearContent(); for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] {Items.STONE_AXE, Items.STONE_PICKAXE}) c.getInventory().add(new ItemStack(it)); c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(s1342Hay));
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); }
+        if (t[0] == 14) {
+            var vil = com.claudemod.entity.life.Perception.nearestLandmark(c, "village");
+            if (vil == null) { check(false, "setup: the hay he saw never went on record as a village"); return true; }
+            BlockPos far = s1342Hay.east(50); for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) level.setBlockAndUpdate(far.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+            try { var m = com.claudemod.entity.life.Perception.Sighting.class.getDeclaredMethod("add", BlockPos.class, int.class); m.setAccessible(true); m.invoke(vil, far.offset(1, 0, 0), c.tickCount); // (a house wall of the village beside him: its nearest cell)
+                var f = com.claudemod.director.ClaudeLife.class.getDeclaredField("haySeen"); f.setAccessible(true); ((java.util.Map<?, ?>) f.get(null)).clear(); } catch (Exception e) { check(false, "setup: " + e); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.fallDistance = 0;
+        }
+        if (t[0] == 18) {
+            com.claudemod.director.Kit.foodPickTest(c, null); com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodSaidTest(c);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "village_food", "", 4);
+            boolean toHay = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g0 && g0.pos().distSqr(s1342Hay) <= 4);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setBlockAndUpdate(s1342Hay, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s1342Hay.north(), Blocks.AIR.defaultBlockState());
+            com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village"));
+            check(toHay, "at the village's edge, its hay on record 50 off out of sight: no walk to the hay (" + r + ")");
+            check(said.contains("the village at " + s1342Hay.toShortString()), "the kit's village bread not priced to its hay at " + s1342Hay.toShortString() + ": " + said);
+            pass(stage, t, "village_food walks to the hay 50 off (" + r + "); the kit: " + said); return true;
+        }
         return true;
     }
     private static int s1511At = -1;

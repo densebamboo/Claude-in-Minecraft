@@ -1121,7 +1121,8 @@ public class WorkGoal extends Goal {
         }
         // In water, headed somewhere not down under it: swim like a player. Space held to stay up, facing where he's going,
         // straight at the next point of his route (no spinning on the spot).
-        if (g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) && pos.getY() >= g.getBlockY() - 1 && d > within) {
+        boolean dive = g.isInWater() && pos.getY() < feetCell.getY() && g.level().getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) && d > within; // (a water cell below his feet: he dives for it, and the head-up jump below stands down: bobbing at 13.85-14.06 over a waypoint at 13, both ran and the jump swam him back up, 10 h over a flooded notch, live 02:22-12:10 11-15, stage 1345)
+        if (g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) && pos.getY() >= g.getBlockY() - 1 && d > within && !dive) {
             var path = g.getNavigation().getPath();
             Vec3 next = path != null && !path.isDone() ? Vec3.atBottomCenterOf(path.getNextNodePos()) : Vec3.atBottomCenterOf(pos);
             if (path == null || path.isDone()) g.getNavigation().moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1.0);
@@ -1131,7 +1132,7 @@ public class WorkGoal extends Goal {
             g.setYRot(yaw); g.yBodyRot = yaw; g.yHeadRot = yaw;
             g.getMoveControl().setWantedPosition(next.x, next.y, next.z, 1.0);
         }
-        if (g.isInWater() && pos.getY() < g.getBlockY() && g.level().getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) && d > within) { // under the water (one below his floating feet counts: 10:36 he bobbed over -43,61,132 for minutes, "path none", then swam to shore and jumped back in): dive straight for it like a player (the body comes up for air by itself)
+        if (dive) { // under the water (one below his floating feet counts: 10:36 he bobbed over -43,61,132 for minutes, "path none", then swam to shore and jumped back in): dive straight for it like a player (the body comes up for air by itself)
             Vec3 to = Vec3.atCenterOf(pos);
             g.getNavigation().stop();
             g.getLookControl().setLookAt(to.x, to.y, to.z, 30, 30);

@@ -11218,6 +11218,7 @@ public final class ClaudeBodyTest {
             case 1342: return st1342(stage, t, c, h, level, mock);
             case 1343: return st1343(stage, t, c, h, level, mock);
             case 1344: return st1344(stage, t, c, h, level, mock);
+            case 1345: return st1345(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -28026,6 +28027,21 @@ public final class ClaudeBodyTest {
             check(plugged, "the control: no trail through it, the inflow not plugged: " + q2);
             pass(stage, t, "his way back stays open while he's under; with no trail it's plugged: " + q2); return true;
         }
+        return true;
+    }
+    private static int s1345At = -1; private static Task.GoTo s1345Go;
+    private static boolean st1345(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(0, 0, 0)), me = o.offset(5, 5, 5), to = me.below();
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); s1345At = -1; s1345Go = null; c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            for (int x = 3; x <= 7; x++) for (int z = 3; z <= 7; z++) for (int y = 1; y <= 9; y++) level.setBlock(o.offset(x, y, z), (x >= 4 && x <= 6 && z >= 4 && z <= 6 && y >= 2 && y <= 8 ? Blocks.WATER : Blocks.STONE).defaultBlockState(), 2); // (a flooded shaft, water over his head: the live notch at -135,13,-711)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; }
+        if (t[0] > 1) { c.nextPlanTick = c.tickCount + 20 * 600; c.setAirSupply(c.getMaxAirSupply()); } // (his air kept full: the dive itself, not the trip up for air)
+        if (t[0] == 10) { s1345Go = new Task.GoTo(to, 0.9); c.tasks.add(s1345Go); c.tasks.add(new Task.Wait(20 * 20, false)); }
+        if (t[0] > 10 && s1345At < 0 && s1345Go != null && c.currentTask != s1345Go && !c.tasks.contains(s1345Go)) s1345At = t[0] - 10;
+        if (t[0] == 10 + 120 || s1345At >= 0) { String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ());
+            c.tasks.clear(); c.currentTask = null;
+            check(s1345At >= 0 && s1345At <= 60, "under water, the swim waypoint one straight below him not reached in " + (s1345At < 0 ? "6 s" : s1345At + " ticks") + " (at " + at + ")");
+            pass(stage, t, "dove the one cell down to his swim waypoint in " + s1345At + " ticks (at " + at + ")"); }
         return true;
     }
     private static int s1511At = -1;

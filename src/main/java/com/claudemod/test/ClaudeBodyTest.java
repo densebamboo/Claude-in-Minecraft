@@ -2218,6 +2218,7 @@ public final class ClaudeBodyTest {
         c.work.forgetFight(); // (the last stage's wall-in spot: 1567's box read as his box in 1561)
         com.claudemod.entity.life.CombatLog.closeNow(c); // (the last stage's fight still open: its junk hold kept the next stage's pack full, stage 1504 after 1501)
         com.claudemod.director.Kit.forgetFoodAsk(c); // (the 40-tick food memo answered the next stage with the last one's pack)
+        c.ironSetMade = false; // (a set made in one stage is not the next stage's)
         com.claudemod.entity.life.HuntPatrol.forgetReadied(c); // (the last stage's "get ready first" read as this one's go that brought no armor)
         com.claudemod.entity.life.Gate.reset(c); // (the no-progress gate's record of the last stage's jobs)
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
@@ -10594,6 +10595,7 @@ public final class ClaudeBodyTest {
             case 1754: return st1754(stage, t, c, h, level, mock);
             case 1755: return st1755(stage, t, c, h, level, mock);
             case 1756: return st1756(stage, t, c, h, level, mock);
+            case 1757: return st1757(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23523,6 +23525,29 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1757 (the user 11-15: "once he makes his first set of iron armor he should prioritize diamonds for gearing up"; live 00:57 11-15 he drowned in his iron, and gear_up at 01:41 planned "strip_mine iron_ore x33" for a second iron set). He wore the four iron pieces once; bare again after a death, the kit asks for diamond pieces and a diamond sword, the iron only for what needs iron (pick, bucket, shield). */
+    private static boolean st1757(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent(); c.skillQueue.clear();
+            net.minecraft.world.entity.EquipmentSlot[] sl = {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+            net.minecraft.world.item.Item[] iron = {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
+            for (int i = 0; i < 4; i++) c.setItemSlot(sl[i], new ItemStack(iron[i]));
+            inv.add(new ItemStack(Items.IRON_SWORD)); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.SHIELD)); inv.add(new ItemStack(Items.COOKED_BEEF, 32));
+            var worn = com.claudemod.director.Kit.missing(c, true); // the set on him: the kit sees it
+            for (int i = 0; i < 4; i++) c.setItemSlot(sl[i], ItemStack.EMPTY); inv.clearContent(); // died: everything gone
+            inv.add(new ItemStack(Items.STONE_PICKAXE)); inv.add(new ItemStack(Items.WOODEN_SWORD)); inv.add(new ItemStack(Items.COOKED_BEEF, 32));
+            var bare = com.claudemod.director.Kit.missing(c, true);
+            inv.clearContent();
+            check(java.util.Arrays.stream(iron).noneMatch(worn::containsKey), "setup: the kit asked for iron armor while he wore the set: " + worn);
+            check(java.util.Arrays.stream(iron).noneMatch(bare::containsKey), "a second iron set asked for after his first: " + bare);
+            check(bare.containsKey(Items.DIAMOND_CHESTPLATE) && bare.containsKey(Items.DIAMOND_HELMET) && bare.containsKey(Items.DIAMOND_LEGGINGS) && bare.containsKey(Items.DIAMOND_BOOTS), "bare after his first iron set: no diamond pieces asked: " + bare);
+            check(bare.containsKey(Items.DIAMOND_SWORD) && !bare.containsKey(Items.IRON_SWORD), "the sword after his first iron set is iron: " + bare);
+            check(bare.containsKey(Items.IRON_PICKAXE), "no iron pick asked (the diamonds need it): " + bare);
+            pass(stage, t, "after his first iron set, bare again: " + bare.keySet());
         }
         return true;
     }

@@ -156,14 +156,15 @@ public final class Kit {
             if (g.inventory.count(st -> st.is(Items.DIAMOND_PICKAXE)) == 0) diamonds -= 3;
             Item[] ironBy = {Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_HELMET, Items.IRON_BOOTS}, diaBy = {Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_HELMET, Items.DIAMOND_BOOTS};
             int[] cost = {8, 7, 5, 4};
+            if (!g.ironSetMade && has(g, ironBy[0]) && has(g, ironBy[1]) && has(g, ironBy[2]) && has(g, ironBy[3])) g.ironSetMade = true;
             boolean dragonKit = netherDone(g);
             boolean deep = diamondStage(g) && dragonKit; // (iron on a slot waits for its diamond piece only for the dragon kit: the Nether trip goes in iron, the user) // (the diamond stage: a slot with iron on it waits for its diamond piece; a bare slot never does, it gets iron unless the diamonds cover it: a diamond pick and nothing else had him at y -58 with no armor, every slot "waiting for diamonds")
             for (int i = 0; i < 4; i++) {
                 if (has(g, diaBy[i])) continue;
                 if (diamonds >= cost[i] || deep && has(g, ironBy[i])) { m.put(diaBy[i], 1); diamonds -= cost[i]; }
-                else if (!has(g, ironBy[i])) m.put(ironBy[i], 1);
+                else if (!has(g, ironBy[i])) m.put(g.ironSetMade ? diaBy[i] : ironBy[i], 1); // the user 11-15: once he has made an iron set, a bare slot is a diamond piece, no second iron set
             }
-            if (!sword(g, true)) m.put(diamonds >= 2 ? Items.DIAMOND_SWORD : Items.IRON_SWORD, 1); // a water bucket: the one thing that undoes a fall, a lava pocket or a burning (3 ingots, after the sword)
+            if (!sword(g, true)) m.put(diamonds >= 2 || g.ironSetMade ? Items.DIAMOND_SWORD : Items.IRON_SWORD, 1); // a water bucket: the one thing that undoes a fall, a lava pocket or a burning (3 ingots, after the sword)
             if (!shield(g)) m.put(Items.SHIELD, 1);
             for (Item t : dragonKit ? java.util.List.of(Items.DIAMOND_PICKAXE) /* (no diamond axe or shovel: full diamond is the dragon's armor, not tools; asking for them sent him 350 blocks from the stronghold's bricks for 4 diamonds, live 00:36) */ : com.claudemod.entity.life.PortalMap.litPortal(g) ? java.util.List.<Item>of() : java.util.List.of(Items.DIAMOND_PICKAXE)) if (g.inventory.count(st -> st.is(t)) == 0) m.put(t, 1); // (the Nether trip: a diamond pick for the obsidian; the axe and shovel for the dragon kit) // then the diamond tools: the same trip as the iron, just deeper (y -58)
             // the bow and its quiver are a want, not this kit's gate (the user: wanted for the Nether, a must only before the End): in the kit when they're cheap, the string on him or in a chest a short walk off, the flint and feathers on him; never a spider hunt for the kit (live 13:05: gear_up's "fight spider 2" with none about, then a daylight explore for spiders while the portal waited)

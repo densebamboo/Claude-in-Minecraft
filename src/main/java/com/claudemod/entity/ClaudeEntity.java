@@ -216,6 +216,7 @@ public class ClaudeEntity extends ServerPlayer {
     public final java.util.List<BlockPos> mineSpine = new java.util.ArrayList<>(); // his walking line through it, entrance to end
     public int lightCheckTick = -100000; // last look for dark stretches of his stairs
     public boolean recoverPending; // his things are where he died but mobs are still there
+    public boolean ironSetMade; // he has made a full iron armor set once: bare slots go diamond from then on (the user 11-15)
     public int stationWalkTick = -100000; // last time he walked to an existing station (no trekking back and forth)
     /** The action he's doing right now (WorkGoal keeps it; it's no longer in `tasks`). */
     @Nullable public Task currentTask;
@@ -717,6 +718,7 @@ public class ClaudeEntity extends ServerPlayer {
     private void loadMine(ServerPlayer owner) {
         var mine = PlayerProfile.mine(owner);
         if (mine != null) recoverPending = mine.getBoolean("recoverPending"); // (a restart while he waited out the mobs on his drops forgot them: a diamond chestplate despawned; read with no mine too)
+        ironSetMade = mine != null && mine.contains("ironSetMade") ? mine.getBoolean("ironSetMade") : com.claudemod.entity.life.DeathLog.of(this).stream().anyMatch(d -> d.what.contains("iron_chestplate")); // (a save from before the flag: an iron chestplate lost in a death says the set was made)
         if (!recoverPending) for (var d : com.claudemod.entity.life.DeathLog.of(this)) if (d.pending() && d.worth(this)) { recoverPending = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude deaths] a pile still pending on his checklist at {} {} ({}): the run to it is back on after the restart", d.dim, d.at.toShortString(), d.what); break; } // his checklist, not his queue, says what's left lying (live 11:22 11-07: a restart mid-run forgot his Nether pile, gear_up from nothing instead, stage 899)
         if (mine != null && mine.contains("house")) {
             try { house = com.claudemod.entity.life.HouseBlueprint.fromNbt(mine.getCompound("house")); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] house on file: {}", house); }
@@ -790,6 +792,7 @@ public class ClaudeEntity extends ServerPlayer {
         if (isAlive() && onGround()) { mine.putLong("lastPos", blockPosition().asLong()); mine.putString("lastDim", level().dimension().location().toString()); } // (where he is, every 10 s: a restart puts him back here, like any player logging in where he logged off)
         if (blueprint != null) mine.put("blueprint", blueprint.toNbt());
         mine.putBoolean("recoverPending", recoverPending); // (mine or no mine: it sat under the mine face's block)
+        mine.putBoolean("ironSetMade", ironSetMade);
         com.claudemod.entity.life.BaseNook.saveAll(mine, nooks, nook); // (every nook of his; the current one under "nook" too)
         if (nookOld != null) mine.put("nookOld", nookOld.toNbt());
         if (farm != null) mine.put("farm", farm.toNbt());

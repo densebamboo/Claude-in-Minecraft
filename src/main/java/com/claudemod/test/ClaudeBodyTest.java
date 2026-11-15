@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1736: return st1736(stage, t, c, h, level, mock);
+            case 1735: return st1735(stage, t, c, h, level, mock);
             case 1734: return st1734(stage, t, c, h, level, mock);
             case 1733: return st1733(stage, t, c, h, level, mock);
             case 1732: return st1732(stage, t, c, h, level, mock);
@@ -24604,6 +24606,56 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** D2D death-18, live 22:37:25 11-14 World 17: night in a mangrove swamp, standing on the canopy's leaves with more leaves over his head, 25+ logs and an iron pick on him. No head room for a tower, leaves no hole goes into: "no cover: no tower to be had ... and no hole here", the shelter step failed, and he walked 1800 blocks home through the night and was shot dead. A player boxes in where he stands: walls round his feet and head and a lid, from the logs. Here: the same spot, no dirt within 24, no bed, no one to run to: walled in by the shelter step. */
+    private static boolean st1735(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 10) {
+            var leaf = Blocks.MANGROVE_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true);
+            for (int x = -27; x <= 27; x++) for (int z = -27; z <= 27; z++) { BlockPos b = new BlockPos(4 + x, 0, 8 + z);
+                level.setBlock(h.absolutePos(b.below(4)), Blocks.STONE.defaultBlockState(), 2); for (int yy = -3; yy <= 0; yy++) level.setBlock(h.absolutePos(b.above(yy)), Blocks.AIR.defaultBlockState(), 2);
+                level.setBlock(h.absolutePos(b.above(1)), leaf, 2); for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(b.above(yy)), Blocks.AIR.defaultBlockState(), 2);
+                level.setBlock(h.absolutePos(b.above(6)), leaf, 2); for (int yy = 7; yy <= 40; yy++) level.setBlock(h.absolutePos(b.above(yy)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.MANGROVE_LOG, 29)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            if (mock[0] != null) mock[0].teleportTo(me.getX() + 400, me.getY() + 40, me.getZ());
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(14000);
+        }
+        if (t[0] == 14) { BlockPos f0 = h.absolutePos(new BlockPos(4, 2, 8)); check(!com.claudemod.entity.goals.WorkGoal.underground(level, f0), "the canopy reads as underground: heightmap " + level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, f0.getX(), f0.getZ()) + " over feet " + f0.getY()); c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("shelter", "", 1)); }
+        if (t[0] > 14) {
+            BlockPos feet = h.absolutePos(new BlockPos(4, 2, 8)); boolean boxed = c.blockPosition().equals(feet);
+            for (int k = 0; k <= 1; k++) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) boxed &= !level.getBlockState(feet.above(k).relative(d)).getCollisionShape(level, feet.above(k).relative(d)).isEmpty();
+            boxed &= !level.getBlockState(feet.above(2)).getCollisionShape(level, feet.above(2)).isEmpty(); // (the canopy 4 over his feet: no tower, and the lid has nothing over it to go against)
+            String line = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            if (boxed) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); pass(stage, t, "on the canopy at night, no tower, no hole: boxed in where he stood in " + (t[0] - 14) / 20.0 + " s (" + line + ")"); }
+            else if (t[0] >= 400 || line.contains("shelter -> failed") || line.contains("failed: can't make cover")) { String tq = c.blockPosition().toShortString() + " " + c.currentTask + " " + c.tasks + " / " + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); check(false, "on the canopy at night with logs on him: not boxed in: " + line + " | " + tq); }
+        }
+        return true;
+    }
+
+    /** D2D death-18, live 22:39:57 11-14 World 17: dug in from a skeleton 13 off, starting 0.36 off the middle of the cell (z 956.14) and drifting north on the run's momentum after he picked the cell: his body stayed on the next block, the hole went down beside his feet, he never dropped in, and the lid went over an empty hole with him outside it, shot 9 -> 2. A player stands square over the hole he digs. Here: night on flat dirt, nothing about, his shelter digs in from 0.36 off the middle: down in the hole under its lid. */
+    private static boolean st1736Pushed; private static int st1736Open;
+    private static boolean st1736(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -10; x <= 18; x++) for (int z = -6; z <= 22; z++) { for (int yy = -6; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), yy == 1 ? Blocks.GRASS_BLOCK : Blocks.DIRT); for (int yy = 2; yy <= 12; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.14); c.setDeltaMovement(0, 0, 0); st1736Pushed = false; st1736Open = -1;
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(14000);
+        }
+        if (t[0] == 11) { c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("shelter", "", 1)); }
+        if (t[0] > 11 && !st1736Pushed && c.tasks.stream().anyMatch(x -> x instanceof Task.Break)) { st1736Pushed = true; c.setDeltaMovement(0, 0, -0.12); } // the run's momentum carrying on as the dig starts: live he drifted 956.14 -> 955.89 after picking the cell
+        if (t[0] > 11) {
+            BlockPos top = h.absolutePos(new BlockPos(4, 2, 8));
+            boolean lid = !level.getBlockState(top.below()).getCollisionShape(level, top.below()).isEmpty() && level.getBlockState(top.below(2)).isAir();
+            boolean down = c.getY() <= top.getY() - 1.9 && c.getBlockX() == top.getX() && c.getBlockZ() == top.getZ();
+            if (st1736Open < 0 && level.getBlockState(top.below()).isAir()) st1736Open = t[0];
+            if (st1736Open >= 0 && t[0] - st1736Open > 10 && c.getY() > top.getY() - 0.5 && !lid) { String at = String.format("%.2f %.2f %.2f", c.getX() - top.getX(), c.getY() - top.getY(), c.getZ() - top.getZ()); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); check(false, "the hole open under him half a second and him still up on its rim (a skeleton's arrows on him all the while, live): at " + at + " off the hole's top cell"); return true; }
+            if (lid && down) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); pass(stage, t, "down his hole under its lid in " + (t[0] - 11) / 20.0 + " s, from 0.36 off its middle"); }
+            else if (lid || t[0] >= 20 * 12) { String at = String.format("%.2f %.2f %.2f", c.getX() - top.getX(), c.getY() - top.getY(), c.getZ() - top.getZ()); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); check(false, (lid ? "the lid went in with him not down the hole" : "12 s and no hole with him in it") + ": at " + at + " off the hole's top cell, " + c.lastSkillLine); }
+        }
+        return true;
+    }
+
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

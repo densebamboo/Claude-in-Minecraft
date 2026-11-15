@@ -641,6 +641,7 @@ public final class Watchdog {
         if (t != null && now(g) - t <= 2400) fileOnce(g, "THROW_LOOP", "THROW_LOOP|" + what.getHoverName().getString(), "picked back up the " + what.getHoverName().getString() + " he threw out " + (now(g) - t) / 20 + " s ago");
     }
     public static boolean valuable(net.minecraft.world.item.ItemStack it) {
+        if (it.is(net.minecraft.world.item.Items.ENDER_EYE) || it.is(net.minecraft.world.item.Items.BLAZE_ROD) || it.is(net.minecraft.world.item.Items.BLAZE_POWDER) || it.is(net.minecraft.world.item.Items.ENDER_PEARL)) return true; // the dragon run's Nether work: never thrown for room (live 21:32:31 11-14: 10 eyes dropped for a mangrove propagule; stage 1756)
         if (it.getItem() instanceof net.minecraft.world.item.ArmorItem || it.is(net.neoforged.neoforge.common.Tags.Items.INGOTS) || it.is(net.minecraft.world.item.Items.DIAMOND) || it.is(net.minecraft.world.item.Items.EMERALD)) return true; // (of the gems, diamonds and emeralds (his trading) only: quartz, lapis and amethyst are a dragon run's junk; 6 quartz tossed in the Nether filed THREW_VALUABLE, D2D 02:12 11-11)
         return it.getItem() instanceof net.minecraft.world.item.TieredItem t && t.getTier() != net.minecraft.world.item.Tiers.WOOD && t.getTier() != net.minecraft.world.item.Tiers.STONE; // (spent wood/stone tools are a player's junk too)
     }

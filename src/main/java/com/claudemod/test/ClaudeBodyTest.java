@@ -10593,6 +10593,7 @@ public final class ClaudeBodyTest {
             case 1753: return st1753(stage, t, c, h, level, mock);
             case 1754: return st1754(stage, t, c, h, level, mock);
             case 1755: return st1755(stage, t, c, h, level, mock);
+            case 1756: return st1756(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23521,6 +23522,30 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1756 (D2D, live 21:32:31 11-14 at -1181,63,1893: his pack full to the last slot after a mangrove propagule, "pack full and nothing junk in it: dropping the 10 ender_eye to make room": the eyes (5 rods and 10 pearls of Nether work) scored as odds and ends, under his moss carpet and mud). The 21:32 pack as live: the eyes stay, something of no use to the dragon run goes. */
+    private static boolean st1756(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            ItemStack[] pack = { new ItemStack(Items.OAK_LOG, 18), new ItemStack(Items.BAMBOO, 4), new ItemStack(Items.BIRCH_LOG, 9), new ItemStack(Items.BIRCH_PLANKS, 3), new ItemStack(Items.BOW), new ItemStack(Items.CHEST), new ItemStack(Items.COBBLESTONE, 2), new ItemStack(Items.COCOA_BEANS, 6),
+                new ItemStack(Items.COOKED_COD, 4), new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.ENDER_EYE, 10), new ItemStack(Items.FISHING_ROD), new ItemStack(Items.FLINT_AND_STEEL), new ItemStack(Items.FURNACE, 2), new ItemStack(Items.GRAY_WOOL), new ItemStack(Items.IRON_BOOTS),
+                new ItemStack(Items.IRON_PICKAXE), new ItemStack(Items.LILY_PAD, 2), new ItemStack(Items.MANGROVE_LOG, 12), new ItemStack(Items.MANGROVE_ROOTS, 3), new ItemStack(Items.MOSS_CARPET, 6), new ItemStack(Items.MUD), new ItemStack(Items.NETHERRACK, 6), new ItemStack(Items.OAK_SAPLING, 3),
+                new ItemStack(Items.SAND, 19), new ItemStack(Items.STONE_AXE), new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.STRING, 13), new ItemStack(Items.TORCH, 37), new ItemStack(Items.WARPED_STEM, 14),
+                new ItemStack(Items.WATER_BUCKET), new ItemStack(Items.WHEAT_SEEDS, 8), new ItemStack(Items.WHITE_WOOL, 6), new ItemStack(Items.MANGROVE_PROPAGULE) };
+            for (int i = 0; i < pack.length && i < inv.items.size(); i++) inv.items.set(i, pack[i]); inv.selected = 0; c.skillQueue.clear();
+            String err = null; int full0 = 0; for (var st : inv.items) if (!st.isEmpty()) full0++;
+            try { com.claudemod.director.ClaudeLife.dumpJunkTest(c); } catch (Exception e) { err = "dumpJunk threw " + e; }
+            int eyes = 0, free = 0; for (var st : inv.items) { if (st.isEmpty()) free++; else if (st.is(Items.ENDER_EYE)) eyes += st.getCount(); }
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent();
+            check(err == null, err == null ? "" : err);
+            check(full0 == inv.items.size(), "the pack wasn't full to start: " + full0 + " of " + inv.items.size());
+            check(eyes == 10, "his eyes of ender thrown to make room: " + eyes + " of 10 left");
+            check(free >= 1, "no room made: " + free + " free");
+            pass(stage, t, "room made, the 10 eyes of ender kept");
         }
         return true;
     }

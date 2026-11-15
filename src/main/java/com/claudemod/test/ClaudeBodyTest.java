@@ -11216,6 +11216,7 @@ public final class ClaudeBodyTest {
             case 1341: return st1341(stage, t, c, h, level, mock);
             case 1342: return st1342(stage, t, c, h, level, mock);
             case 1343: return st1343(stage, t, c, h, level, mock);
+            case 1344: return st1344(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -27968,6 +27969,37 @@ public final class ClaudeBodyTest {
             check(sank == null, "a block down in the same water column read as a new standing: " + sank);
             check(along != null, "the control: 4 along, a new standing, yet the failure still held");
             pass(stage, t, "bobbing in the water keeps his failures; 4 along: " + along); return true;
+        }
+        return true;
+    }
+    /** Stage 1344 (D2D, death 34 live 00:56:46-00:57:07 11-15 at his flooded notch -133,17,-709: he swam down through -133,17,-710 at 00:56:46, and at 00:56:49 blockWaterInflow plugged that cell and -134,17,-710 beside it, his only open water back to the air; a second on "low on air (119)", "water over the roof", a dug way through rock, drowned). Under water, a cell he swam through on his way in is his way back out: never plugged while he's under; with no such trail, the same spot is plugged. */
+    private static BlockPos s1344R, s1344Q;
+    private static boolean st1344(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 12000;
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos r = lnRow(b, 5, 4).immutable(); s1344R = r;
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
+            check(side != null, "setup: no rock beside the row cell"); s1344Q = r.relative(side).immutable();
+            for (BlockPos q : new BlockPos[] {r, r.above(), s1344Q, s1344Q.above()}) level.setBlock(q, Blocks.WATER.defaultBlockState(), 2); // (still water over him and where it comes in through the wall: the way he swam in)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            lnStand(c, mock, r, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.setAirSupply(c.getMaxAirSupply());
+        }
+        if (t[0] == 11) { com.claudemod.entity.nav.Route.forgetTrail(c); c.teleportTo(s1344Q.getX() + 0.5, s1344Q.getY(), s1344Q.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // (he swam in through it)
+        if (t[0] >= 12 && t[0] < 16) { c.teleportTo(s1344R.getX() + 0.5, s1344R.getY(), s1344R.getZ() + 0.5); c.tasks.clear(); c.currentTask = null; c.setAirSupply(c.getMaxAirSupply()); }
+        if (t[0] == 16) {
+            check(c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.blockPosition().equals(s1344R), "setup: him not under water at " + s1344R.toShortString() + " (" + c.blockPosition().toShortString() + ")");
+            check(com.claudemod.entity.nav.Route.walked(c, s1344Q), "setup: the cell he swam through not on his trail");
+            boolean trailOpen, plugged; String q1, q2;
+            try { var m = c.work.getClass().getDeclaredMethod("blockWaterInflow"); m.setAccessible(true);
+                c.tasks.clear(); m.invoke(c.work); trailOpen = c.tasks.stream().noneMatch(x -> x instanceof Task.Place pl && (pl.pos().equals(s1344Q) || pl.pos().equals(s1344Q.above()))); q1 = String.valueOf(c.tasks);
+                c.tasks.clear(); com.claudemod.entity.nav.Route.forgetTrail(c); m.invoke(c.work); plugged = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.pos().equals(s1344Q)); q2 = String.valueOf(c.tasks); c.tasks.clear();
+            } catch (Exception e) { check(false, "no call: " + e); return true; }
+            for (BlockPos q : new BlockPos[] {s1344R, s1344R.above(), s1344Q, s1344Q.above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1344Q, Blocks.STONE.defaultBlockState(), 2); level.setBlock(s1344Q.above(), Blocks.STONE.defaultBlockState(), 2);
+            c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(trailOpen, "under water, the cell he swam in through plugged behind him: " + q1);
+            check(plugged, "the control: no trail through it, the inflow not plugged: " + q2);
+            pass(stage, t, "his way back stays open while he's under; with no trail it's plugged: " + q2); return true;
         }
         return true;
     }

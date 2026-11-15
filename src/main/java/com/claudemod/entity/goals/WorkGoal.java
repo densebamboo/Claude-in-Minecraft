@@ -3886,10 +3886,12 @@ public class WorkGoal extends Goal {
         ServerLevel level = level();
         ItemStack plug = solidScaffold();
         int n = 0, skipped = 0;
+        java.util.Set<BlockPos> swamIn = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? new java.util.HashSet<>(com.claudemod.entity.nav.Route.wayBack(g, 20 * 30)) : java.util.Set.of(); // under water: the cells he swam in through are his way back to the air (death 34, live 00:56:46-49 11-15: down through -133,17,-710, then plugged it and the cell beside it, and drowned 18 s on; stage 1344)
         if (!plug.isEmpty()) for (BlockPos q0 : BlockPos.betweenClosed(g.blockPosition().offset(-6, -3, -6), g.blockPosition().offset(6, 4, 6))) {
             if (n >= 12 || !level.getFluidState(q0).is(net.minecraft.tags.FluidTags.WATER)) continue;
             BlockPos q = q0.immutable();
             if (q.equals(g.blockPosition()) || q.equals(g.blockPosition().above())) continue; // not where he stands
+            if (swamIn.contains(q) || swamIn.contains(q.below())) continue; // (his way back out while he's under: plugged from the dry side once he's out)
             boolean inMine = com.claudemod.director.ClaudeLife.isMineCell(g, q);
             boolean entry = false; // outside his mine, right next to it: where it pours in
             if (!inMine) for (Direction d : Direction.values()) if (com.claudemod.director.ClaudeLife.isMineCell(g, q.relative(d))) { entry = true; break; }

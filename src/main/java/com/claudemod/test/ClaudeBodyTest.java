@@ -11221,6 +11221,7 @@ public final class ClaudeBodyTest {
             case 1343: return st1343(stage, t, c, h, level, mock);
             case 1344: return st1344(stage, t, c, h, level, mock);
             case 1345: return st1345(stage, t, c, h, level, mock);
+            case 1346: return st1346(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -28051,6 +28052,37 @@ public final class ClaudeBodyTest {
             check(trailOpen, "under water, the cell he swam in through plugged behind him: " + q1);
             check(plugged, "the control: no trail through it, the inflow not plugged: " + q2);
             pass(stage, t, "his way back stays open while he's under; with no trail it's plugged: " + q2); return true;
+        }
+        return true;
+    }
+    private static boolean st1346(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 15:34:59-15:35:01 11-15: strip_mine diamond_ore found one branch at its lava end per round ("done, the next one") and returned; the next round found the next: 21 rounds in 3 s, the watchdog skipped the skill and he went for iron armor instead. Here: 874's mine, three branches off the face, the two first down the tunnel ending at lava he hasn't listed, the one by the face open: one round gets past both to the open one.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 14, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            BlockPos face = b.rows().get(b.rows().size() - 1).first();
+            for (int w : new int[] {10, 6, 2}) b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, face.west(w).north(), N, 20, null));
+            b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            for (int w : new int[] {10, 6, 2}) { BlockPos end = face.west(w).north().relative(N, 20); level.setBlock(end, Blocks.DEEPSLATE.defaultBlockState(), 2); level.setBlock(end.above(), Blocks.DEEPSLATE.defaultBlockState(), 2);
+                if (w != 2) level.setBlock(end.north().above(), Blocks.LAVA.defaultBlockState(), 2); } // (behind the rock at their ends, not on his list: found by the push, as live)
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.teleportTo(face.getX() + 0.5, face.getY(), face.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "cobbled_deepslate", 384);
+            String q = c.tasks.stream().limit(5).toList().toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; com.claudemod.director.ClaudeLife.lavaSeen(c).clear();
+            check(r != null && !r.contains("branch is done"), "one round stopped at a branch ending at lava instead of going on to the next: " + r + " (" + q + ")");
+            pass(stage, t, "one round past both lava-ended branches: " + r);
         }
         return true;
     }

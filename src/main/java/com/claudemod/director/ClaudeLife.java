@@ -12718,7 +12718,7 @@ public final class ClaudeLife {
                 return "a missing pair of branches at " + r0.first().toShortString() + " first";
             }
         }
-        { // the user: at the ore's level his branches go on (till they hit water, lava, his plugs or 32) before the tunnel gets any longer
+        for (int pass1 = 0; pass1 < 64; pass1++) { // (a branch found done goes on to the next in the same round: one a round was 21 rounds in 3 s and the watchdog's skip, live 15:35 11-15, stage 1346) the user: at the ore's level his branches go on (till they hit water, lava, his plugs or 32) before the tunnel gets any longer
             MineBlueprint.Segment grow = null; int half = Math.max(2, b.branchLength / 2);
             for (MineBlueprint.Segment s0 : b.segments) {
                 if (g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != face.getY() || s0.n >= BRANCH_MAX || s0.n < half) continue; // (the user: each branch to its checkpoint, 32, or till it hits something to block off; then the next one)
@@ -12733,18 +12733,19 @@ public final class ClaudeLife {
             }
             if (grow != null) {
                 int oldN = grow.n; grow.n = branchRoom(b, grow, BRANCH_MAX); b.invalidate(); /* the whole branch in one push (the user 11-05 23:45: "he should go the full 64 before switching to the next branch"; 16 at a time had him cap each piece and switch, stage 688) */
-                bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
+                bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); continue; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
                 if (first >= 0) {
                     int tasks0 = g.tasks.size(); bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end (via its mouth only when he's out in the tunnel: from its end, 54 blocks back to the mouth and out again, 00:49 11-05)
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
-                    if (grow.n <= oldN) { while (g.tasks.size() > tasks0) g.tasks.removeLast(); /* (the walk out to it was queued before the cut-back: 89 blocks for nothing, branch after branch, live 19:23 11-06, stage 874) */ g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} before the tunnel ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
+                    if (grow.n <= oldN) { while (g.tasks.size() > tasks0) g.tasks.removeLast(); /* (the walk out to it was queued before the cut-back: 89 blocks for nothing, branch after branch, live 19:23 11-06, stage 874) */ g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); continue; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} before the tunnel ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
                     { Item want7 = oreDrop(target); int have7 = want7 == null ? 0 : haveFor(g, level, want7); return (have7 > 0 ? have7 + " of " + count + " " + ore + " so far" : "no " + ore + " yet") + ": pushing my branch at " + grow.start.toShortString() + " on to " + grow.n + " long"; } // (review 117: "no iron yet" with 6 of 9 on him)
                 }
                 grow.n = oldN; b.invalidate();
             }
+            break;
         }
         // (the walk to the face only now, when the tunnel itself is what gets dug: every round walked 120 blocks to the face first and then back to a branch, the user)
         Integer walkedAt = g.attempts.any.get(face.above(1000)); // (a walk to this face asked for a moment ago and he's no nearer: its rows are blocked by his own patches, so the dig clears them from here, never "down to the face" 25 times a second)
@@ -12829,10 +12830,10 @@ public final class ClaudeLife {
                 return "finishing my branch at " + s0.start.toShortString() + " (never dug out)";
             }
         }
-        { // no room for a new pair: his branches at that level go further, shortest first, a branch length at a time, till the ore turns up (the user: "if he can't find iron, he extends his iron branches until he can"); each branch to 32 at most, then the next level down
+        for (int pass2 = 0; pass2 < 64; pass2++) { // (a branch found done: on to the next in the same round, stage 1346) no room for a new pair: his branches at that level go further, shortest first, a branch length at a time, till the ore turns up (the user: "if he can't find iron, he extends his iron branches until he can"); each branch to 32 at most, then the next level down
             MineBlueprint.Segment grow = null;
             for (MineBlueprint.Segment s0 : b.segments) {
-                if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= BRANCH_MAX) continue;
+                if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= BRANCH_MAX || g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; // (found done: the next one, stage 1346)
                 if (s0.n < (b.branchLength > 0 ? b.branchLength : 8) / 2) continue; // a stub cut short (water, a cave): not one to push on
                 if (!branchWalkable(level, s0)) continue; // a plug or a cave-in part-way along it: no way to its end, so nothing past it can be dug from the tunnel
                 { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || lavaListedAt(g, past) || dryPlug(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
@@ -12840,17 +12841,18 @@ public final class ClaudeLife {
             }
             if (grow != null) {
                 int oldN = grow.n; grow.n = branchRoom(b, grow, BRANCH_MAX); b.invalidate(); /* the whole branch in one push, as above (stage 688) */
-                bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
+                bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); continue; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
                 if (first >= 0) {
                     int tasks0 = g.tasks.size(); bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end: down his tunnel and into the branch from out there, straight on from its end (never back to its mouth first: 00:49 11-05, stage 707)
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
-                    if (grow.n <= oldN) { while (g.tasks.size() > tasks0) g.tasks.removeLast(); /* (the walk out to it was queued before the cut-back: 89 blocks for nothing, branch after branch, live 19:23 11-06, stage 874) */ g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
+                    if (grow.n <= oldN) { while (g.tasks.size() > tasks0) g.tasks.removeLast(); /* (the walk out to it was queued before the cut-back: 89 blocks for nothing, branch after branch, live 19:23 11-06, stage 874) */ g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); continue; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
                     return "no " + ore + " yet: pushing my branch at " + grow.start.toShortString() + " on to " + grow.n + " long";
                 }
             }
+            break;
         }
         return bpOpenRun(g, level, b, levelY, ore);
     }

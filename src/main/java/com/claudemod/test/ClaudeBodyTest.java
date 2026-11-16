@@ -11227,6 +11227,7 @@ public final class ClaudeBodyTest {
             case 1347: return st1347(stage, t, c, h, level, mock);
             case 1348: return st1348(stage, t, c, h, level, mock);
             case 1349: return st1349(stage, t, c, h, level, mock);
+            case 1145: return st1145(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -28129,6 +28130,39 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; com.claudemod.director.ClaudeLife.lavaSeen(c).clear();
             check(r != null && !r.contains("branch is done"), "one round stopped at a branch ending at lava instead of going on to the next: " + r + " (" + q + ")");
             pass(stage, t, "one round past both lava-ended branches: " + r);
+        }
+        return true;
+    }
+    /** Stage 1145 (D2D, live 21:28:54-21:30:48 11-15 at his Nether death pile 317,70,488: a full pack's toss "off to the side of his way, north (4 clear)" landed 1-3 off in the pile he was still sweeping and his body took it back 2 s on, 11 THROW_LOOPs; "west (4 clear)" put a spare iron sword and stone axe into lava 4 off). A full pack, two spares to drop, his pile's drops 3 north, lava 3 south, his way west: the toss lands clear of both, the spares still there. */
+    private static boolean st1145(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(23700, 90, 23700);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.storageChests.clear(); c.myStations.clear();
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), y >= 0 ? Blocks.AIR.defaultBlockState() : y == -1 && z >= 2 && z <= 5 && Math.abs(x) <= 2 ? Blocks.LAVA.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 12) {
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16))) ie.discard();
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.IRON_CHESTPLATE));
+            while (c.getInventory().getFreeSlot() >= 0) c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.getInventory().selected = 0;
+            for (int dx = -1; dx <= 1; dx++) { var ie = new net.minecraft.world.entity.item.ItemEntity(level, o.getX() + 0.5 + dx, o.getY(), o.getZ() - 2.5, new ItemStack(Items.COOKED_PORKCHOP, 3)); ie.setDeltaMovement(0, 0, 0); level.addFreshEntity(ie); } // (his pile, 3 north)
+            c.tasks.clear(); c.tasks.add(new Task.GoTo(o.west(4), 1)); // (his way west: the sides are north and south)
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            c.tasks.clear();
+            long left0 = c.getInventory().items.stream().filter(s -> s.is(Items.BOW) || s.is(Items.IRON_CHESTPLATE)).count(); check(left0 < 3, "set up: no spare thrown (" + left0 + " of 3 bows and chestplates still in his pack)");
+        }
+        if (t[0] == 70) {
+            var pile = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 8, 16), ie -> ie.getItem().is(Items.COOKED_PORKCHOP));
+            var spares = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 8, 16), ie -> ie.getItem().is(Items.BOW) || ie.getItem().is(Items.IRON_CHESTPLATE));
+            long inv = c.getInventory().items.stream().filter(s -> s.is(Items.BOW) || s.is(Items.IRON_CHESTPLATE)).count();
+            String at = spares.stream().map(ie -> String.format("%s %.1f %.1f %.1f", ie.getItem().getItem(), ie.getX() - o.getX(), ie.getY() - o.getY(), ie.getZ() - o.getZ())).toList().toString();
+            boolean inPile = spares.stream().anyMatch(s -> pile.stream().anyMatch(p -> Math.hypot(p.getX() - s.getX(), p.getZ() - s.getZ()) < 2.0));
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 8, 16))) ie.discard();
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            check(spares.size() + inv == 3, "a spare burned: " + spares.size() + " on the ground + " + inv + " on him of 3 (" + at + ")");
+            check(!inPile, "the toss landed in his pile, where he walks it back up: " + at);
+            pass(stage, t, "the spares clear of his pile and the lava: " + at);
         }
         return true;
     }

@@ -5840,7 +5840,7 @@ public class WorkGoal extends Goal {
     public int escapePicks; // (test) escapes picked so far
     public String escapeKind() { return escapeKind; }
     private void clearEscape() { escapeAt = null; escapeGap = null; escapeKind = null; escapeHeld = false; escapePlugged = false; }
-    /** A shooter out of his sword's reach (flee.shooter_melee_blocks): hidden from; one closer is in reach, hit like any other. */
+    /** A shooter out of his sword's reach (3 from his eye to its body): hidden from; one closer is in reach, hit like any other. */
     private int hideHitSaid = -100000;
     /** A hit at his held hide: who did it, and why the hold's sight check let it be (death 26: no repro yet). */
     private void logHitAtHide(ServerLevel lv, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
@@ -5850,7 +5850,7 @@ public class WorkGoal extends Goal {
         String who = by == null ? src.getMsgId() : String.format("%s %.1f off at %s, in his list %s, line to the spot %s, to him %s", by.getType().getDescription().getString(), by.distanceTo(g), by.blockPosition().toShortString(), mobs.contains(by), com.claudemod.entity.life.Perception.clear(lv, by.getEyePosition(), head), com.claudemod.entity.life.Perception.clear(lv, by.getEyePosition(), g.getEyePosition()));
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit at his hide {} ({} off it, he's at {}), health {}: by {}; his list: {}(WorkGoal.atEscape)", escapeAt.toShortString(), String.format("%.1f", g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt))), g.blockPosition().toShortString(), (int) g.getHealth(), who, sb.length() == 0 ? "none " : sb);
     }
-    private boolean farShooter(net.minecraft.world.entity.Entity m) { return (shoots(m) || m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Witch) && m.distanceTo(g) > w("flee.shooter_melee_blocks", 4); } // (a blaze's fireballs and a witch's potions are hidden from the same way: a hide in a witch's line, 4.5 off it, was where its harming killed him, D2D death 03:29:07 11-14)
+    private boolean farShooter(net.minecraft.world.entity.Entity m) { return (shoots(m) || m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Witch) && m.getBoundingBox().distanceToSqr(g.getEyePosition()) > 9.0; } // (out of his sword's reach, as canHitNow measures it: a blaze 3-4 off counted "in reach" by a flat 4 and was never hidden from, 18 s of its fireballs at a held hide, D2D death 220 live 18:27:41 11-15; stage 1758) // (a blaze's fireballs and a witch's potions are hidden from the same way: a hide in a witch's line, 4.5 off it, was where its harming killed him, D2D death 03:29:07 11-14)
     /** The nearest cell on foot (flood out to flee.hide_blocks) that no shooter about sees, his head there out of each one's eye line and no melee mob within 3 of it. Null: none. */
     private BlockPos hideSpot(ServerLevel lv, BlockPos feet, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         java.util.List<net.minecraft.world.entity.Mob> sh = new java.util.ArrayList<>(); for (var m : mobs) if (m.isAlive() && farShooter(m) && m.distanceTo(g) < 32) sh.add(m);

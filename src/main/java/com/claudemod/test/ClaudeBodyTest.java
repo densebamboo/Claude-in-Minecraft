@@ -11224,6 +11224,7 @@ public final class ClaudeBodyTest {
             case 1346: return st1346(stage, t, c, h, level, mock);
             case 1347: return st1347(stage, t, c, h, level, mock);
             case 1348: return st1348(stage, t, c, h, level, mock);
+            case 1349: return st1349(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -28085,6 +28086,35 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; com.claudemod.director.ClaudeLife.lavaSeen(c).clear();
             check(r != null && !r.contains("branch is done"), "one round stopped at a branch ending at lava instead of going on to the next: " + r + " (" + q + ")");
             pass(stage, t, "one round past both lava-ended branches: " + r);
+        }
+        return true;
+    }
+    /** Stage 1349 (D2D death-220, live 18:27:45-18:27:59 11-15 at the_nether 317,70,488: "eating cooked_porkchop on the run: health 14, hunger 19, nothing on him in reach before it's down" 311 times, one a tick, no bite ever finished, 14 -> 1 at his hide with a blaze 3 off): a meal on the run, once started, is eaten through. Health 14, hunger 19, a blaze 3 off, porkchop on him, sword in hand, fleeing: hunger up within 3 s. */
+    private static net.minecraft.world.entity.monster.Blaze s1349B; private static int s1349T, s1349Use, s1349Run, s1349Best; private static String s1349Hand;
+    private static boolean st1349(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1349T = -1; s1349Use = 0; s1349Run = 0; s1349Best = 0; s1349Hand = ""; if (s1349B != null) s1349B.discard(); s1349B = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.COBBLESTONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.removeAllEffects(); c.fallDistance = 0; c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var m = EntityType.BLAZE.create(level); m.moveTo(o.getX() + 3.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); m.setNoAi(true); m.setPersistenceRequired(); level.addFreshEntity(m); s1349B = m;
+        }
+        if (t[0] == 14) { s1349B.setTarget(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Wait(40, false)); c.getLookControl().setLookAt(s1349B); }
+        if (t[0] == 34) { s1349B.setTarget(c); c.stopUsingItem(); c.getFoodData().setFoodLevel(19); c.getFoodData().setSaturation(0); c.setHealth(14); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Flee(400)); s1349T = t[0]; }
+        if (s1349T > 0 && t[0] <= s1349T + 2) { try { var w0 = c.work; Class<?> k = w0.getClass(); var fa = k.getDeclaredField("escapeAt"); fa.setAccessible(true); fa.set(w0, c.blockPosition().immutable()); var fk = k.getDeclaredField("escapeKind"); fk.setAccessible(true); fk.set(w0, "hide"); var fh = k.getDeclaredField("escapeHeld"); fh.setAccessible(true); fh.set(w0, true); var fs = k.getDeclaredField("escapeSince"); fs.setAccessible(true); fs.set(w0, c.tickCount); } catch (Exception e) { throw new RuntimeException(e); } } // (held at his hide, as live: out of the far blazes' sight, this one 3 off)
+        if (s1349T > 0) {
+            if (c.isUsingItem() && c.getUseItem().is(Items.COOKED_PORKCHOP)) { s1349Use++; s1349Run++; s1349Best = Math.max(s1349Best, s1349Run); } else { if (s1349Run > 0 && s1349Hand.length() < 300) s1349Hand += " " + c.getMainHandItem().getItem() + "/" + (c.isUsingItem() ? c.getUseItem().getItem() : "-") + "@" + (t[0] - s1349T); s1349Run = 0; }
+            boolean ate = c.getFoodData().getFoodLevel() > 19;
+            if (ate || t[0] == s1349T + 60 || !c.isAlive()) {
+                String q = c.currentTask + " " + c.tasks;
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard(); s1349B = null;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.stopUsingItem(); c.clearFire(); c.removeAllEffects(); c.setHealth(20); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+                for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+                check(ate, "health 14, hunger 19, a blaze 3 off: no bite finished in 3 s (" + s1349Use + " ticks eating, longest " + s1349Best + "; broken off: hand/using@tick" + s1349Hand + "): " + (q.length() > 120 ? q.substring(0, 120) : q));
+                pass(stage, t, "a meal on the run eaten through by tick " + (t[0] - s1349T) + " (longest bite " + s1349Best + " ticks)");
+            }
         }
         return true;
     }

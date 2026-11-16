@@ -11222,6 +11222,7 @@ public final class ClaudeBodyTest {
             case 1344: return st1344(stage, t, c, h, level, mock);
             case 1345: return st1345(stage, t, c, h, level, mock);
             case 1346: return st1346(stage, t, c, h, level, mock);
+            case 1347: return st1347(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -28083,6 +28084,24 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; com.claudemod.director.ClaudeLife.lavaSeen(c).clear();
             check(r != null && !r.contains("branch is done"), "one round stopped at a branch ending at lava instead of going on to the next: " + r + " (" + q + ")");
             pass(stage, t, "one round past both lava-ended branches: " + r);
+        }
+        return true;
+    }
+    /** Stage 1347 (D2D, live 16:43-17:17 11-15 at -126,17,-713, 392 rounds in 33 min): his own plug sits in his tunnel floor, so the way over it cuts two of his roof cells and steps up onto the plug; the way's end put the roof back into his own head cell, he stepped out to make room and the next walk cut it again. A cut he ends the way standing in is never put back on him. */
+    private static boolean st1347(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos me = h.absolutePos(new BlockPos(8, 3, 8)), dest = me.west().above(), jump = me.above(2), head = dest.above();
+            level.setBlock(jump, Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(head, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            java.util.Map<BlockPos, Long> cut;
+            try { var f = com.claudemod.entity.nav.ActionPath.class.getDeclaredField("SHELL_CUT"); f.setAccessible(true); @SuppressWarnings("unchecked") var m0 = (java.util.Map<BlockPos, Long>) f.get(null); cut = m0; } catch (Exception e) { throw new RuntimeException(e); }
+            cut.put(jump.immutable(), level.getGameTime()); cut.put(head.immutable(), level.getGameTime()); // (his mine's roof, cut for the way)
+            var plan = new com.claudemod.entity.nav.ActionPath.Plan(java.util.List.of(new com.claudemod.entity.nav.ActionPath.Act.Dig(jump), new com.claudemod.entity.nav.ActionPath.Act.Dig(head), new com.claudemod.entity.nav.ActionPath.Act.Walk(dest)), 2, 0, 1);
+            var tl = com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, dest, 0.9, level);
+            cut.remove(jump); cut.remove(head); flatBox(h);
+            for (var x : tl) check(!(x instanceof Task.Place p && (p.pos().equals(dest) || p.pos().equals(head))), "the way ends with the roof put back into his own head cell at " + head.toShortString() + ": " + tl);
+            check(tl.stream().anyMatch(x -> x instanceof Task.Place p && p.pos().equals(jump)), "the other roof cut not put back: " + tl);
+            pass(stage, t, "the cut he ends the way standing in stays open, the other goes back (" + tl.size() + " tasks)");
         }
         return true;
     }

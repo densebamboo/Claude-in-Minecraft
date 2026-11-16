@@ -10597,6 +10597,7 @@ public final class ClaudeBodyTest {
             case 1755: return st1755(stage, t, c, h, level, mock);
             case 1756: return st1756(stage, t, c, h, level, mock);
             case 1757: return st1757(stage, t, c, h, level, mock);
+            case 1759: return st1759(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23530,6 +23531,18 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1759 (D2D, live 18:36 11-15: he died at 18:27 in his first iron set and gear_up asked "iron_chestplate, iron_leggings, iron_boots" again: the respawned body's copyBrainFrom never carried ironSetMade, and its save wrote false). A death keeps the first-iron-set mark. */
+    private static boolean st1759(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 5) {
+            boolean was = c.ironSetMade; c.ironSetMade = true;
+            ClaudeEntity body = new ClaudeEntity(level.getServer(), level, c.getGameProfile());
+            body.copyBrainFrom(c); c.ironSetMade = was;
+            check(body.ironSetMade, "the respawned body forgot his first iron set: gear_up goes back to iron after every death");
+            pass(stage, t, "a death keeps the first-iron-set mark");
         }
         return true;
     }

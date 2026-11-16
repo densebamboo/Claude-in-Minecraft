@@ -852,6 +852,7 @@ public class ClaudeEntity extends ServerPlayer {
         tickCount = old.tickCount; // (his clock goes on: the static stamps keyed by his UUID read a fresh 0 as "just now" for a whole life's length, planners and guards off)
         prefs.clear(); prefs.putAll(old.prefs);
         playerGoal = old.playerGoal;
+        ironSetMade = old.ironSetMade; // (never carried: the 18:27 11-15 death sent him back for a second iron set; stage 1759)
         ownerId = old.ownerId;
         mineFace = old.mineFace; mineDir = old.mineDir; mineIsTunnel = old.mineIsTunnel; tunnelDir = old.tunnelDir;
         blueprint = old.blueprint; house = old.house; nook = old.nook; if (old.nooks != null) { nooks = new java.util.ArrayList<>(old.nooks); } farm = old.farm;

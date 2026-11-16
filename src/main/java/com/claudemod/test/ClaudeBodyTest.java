@@ -11223,6 +11223,7 @@ public final class ClaudeBodyTest {
             case 1345: return st1345(stage, t, c, h, level, mock);
             case 1346: return st1346(stage, t, c, h, level, mock);
             case 1347: return st1347(stage, t, c, h, level, mock);
+            case 1348: return st1348(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -28084,6 +28085,29 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; com.claudemod.director.ClaudeLife.lavaSeen(c).clear();
             check(r != null && !r.contains("branch is done"), "one round stopped at a branch ending at lava instead of going on to the next: " + r + " (" + q + ")");
             pass(stage, t, "one round past both lava-ended branches: " + r);
+        }
+        return true;
+    }
+    /** Stage 1348 (D2D, live 15:56:38 11-15 at -425,-58,-20: his diamond face boxed in by lava; the lava's plug at -428,-57,-20 refused, "ore behind the hole: left open, never sealed in" (lapis past it he couldn't dig from there), the deepslate before the lava refused for the lava behind it: 0 progress, the planner gave diamonds up): a plug in a lava cell comes first, as water's does; the ore behind waits for the way the plug opens. */
+    private static int s1348At = -1; private static BlockPos s1348L;
+    private static boolean st1348(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s1348At = -1; }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside the row");
+            BlockPos hole = d.relative(side).above(), up = d.relative(side, 2).above(), lava = d.relative(side, 2), ore = d.relative(side, 3).above();
+            level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); level.setBlock(up, Blocks.AIR.defaultBlockState(), 2); level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(lava, Blocks.LAVA.defaultBlockState(), 2); // (the lava under the open cells, so it holds still; the ore past them, his pick too weak for it, as live his dig at the lapis was refused)
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.currentTask = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            com.claudemod.entity.life.Perception.sawCell(c, level, lava); s1348L = lava;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s1348L, Items.COBBLESTONE)); s1348At = t[0]; }
+        if (s1348At > 0) {
+            boolean plugged = level.getFluidState(s1348L).isEmpty() && !level.getBlockState(s1348L).getCollisionShape(level, s1348L).isEmpty();
+            if (plugged || t[0] - s1348At > 200) { c.blueprint = null; c.prefs.put("mine_model", "legacy"); level.setBlock(s1348L, Blocks.STONE.defaultBlockState(), 2);
+                check(plugged, "the lava's plug held back for the ore behind it, 10 s: " + c.currentTask + " " + c.tasks);
+                pass(stage, t, "the lava plugged first in " + (t[0] - s1348At) + " ticks, the ore behind it left for after"); }
         }
         return true;
     }

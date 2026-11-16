@@ -4366,9 +4366,9 @@ public class WorkGoal extends Goal {
                 }
             }
             int refusedBehind = 0; java.util.List<BlockPos> behind0 = veinBehind(g, level, pos); // (live 12:14: the vein went on past the hole's own faces, the patch sealed 3 diamond ore and a drop in)
-            BlockPos wetAt = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) ? pos : null; for (Direction d : Direction.values()) if (wetAt == null && level.getFluidState(pos.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) wetAt = pos.relative(d);
+            BlockPos wetAt = !level.getFluidState(pos).isEmpty() ? pos : null; for (Direction d : Direction.values()) if (wetAt == null && !level.getFluidState(pos.relative(d)).isEmpty()) wetAt = pos.relative(d); // (lava too: its plug held for lapis past it while the dig to the lapis was held for the lava, 0 progress, live 15:56 11-15, stage 1348)
             if (wetAt != null && !behind0.isEmpty()) { // water in or by the hole: the patch first, the vein behind it waits (live 00:55 11-05: "mined first, then the patch" had him after the coal into a flooded pocket, mining from its bottom, up for air, back down; the user: plug the water, never dive for it)
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] water at {} by the hole at {}: patched first, the {} ore cell(s) behind it left for a dry way (WorkGoal.doPlace)", wetAt.toShortString(), pos.toShortString(), behind0.size());
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} by the hole at {}: patched first, the {} ore cell(s) behind it left for a dry way (WorkGoal.doPlace)", level.getFluidState(wetAt).is(net.minecraft.tags.FluidTags.LAVA) ? "lava" : "water", wetAt.toShortString(), pos.toShortString(), behind0.size());
                 behind0 = java.util.List.of();
             }
             for (BlockPos q : behind0) { // faces into the hole and its pocket only: a block touching the hole by a corner shows no face into it (03:31 a corner iron "through the hole" had him breaking the torch's wall over and over to aim at it)

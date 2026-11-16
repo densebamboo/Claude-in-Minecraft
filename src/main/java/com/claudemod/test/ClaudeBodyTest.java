@@ -28143,16 +28143,17 @@ public final class ClaudeBodyTest {
         if (t[0] == 12) {
             for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16))) ie.discard();
             c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
-            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.IRON_CHESTPLATE));
-            while (c.getInventory().getFreeSlot() >= 0) c.getInventory().add(new ItemStack(Items.TORCH, 64));
-            c.getInventory().selected = 0;
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.BOW)); { ItemStack cp = new ItemStack(Items.IRON_CHESTPLATE); cp.setDamageValue(cp.getMaxDamage() - 5); c.getInventory().add(cp); } // (the spare under a tenth of its wear, as live: thrown, not "worn out")
+            c.getInventory().selected = 0; com.claudemod.entity.life.Watchdog.recentKinds.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; // (his gear count on: the spare read under a tenth before it goes)
+        }
+        if (t[0] == 52) { while (c.getInventory().getFreeSlot() >= 0) c.getInventory().add(new ItemStack(Items.TORCH, 64)); // (full only now: a full pack before the throw would dump on his own tick)
             for (int dx = -1; dx <= 1; dx++) { var ie = new net.minecraft.world.entity.item.ItemEntity(level, o.getX() + 0.5 + dx, o.getY(), o.getZ() - 2.5, new ItemStack(Items.COOKED_PORKCHOP, 3)); ie.setDeltaMovement(0, 0, 0); level.addFreshEntity(ie); } // (his pile, 3 north)
             c.tasks.clear(); c.tasks.add(new Task.GoTo(o.west(4), 1)); // (his way west: the sides are north and south)
             com.claudemod.director.ClaudeLife.dumpJunkTest(c);
             c.tasks.clear();
-            long left0 = c.getInventory().items.stream().filter(s -> s.is(Items.BOW) || s.is(Items.IRON_CHESTPLATE)).count(); check(left0 < 3, "set up: no spare thrown (" + left0 + " of 3 bows and chestplates still in his pack)");
+            long left0 = c.getInventory().items.stream().filter(s -> s.is(Items.BOW) || s.is(Items.IRON_CHESTPLATE)).count(); if (left0 >= 3) com.claudemod.entity.life.Watchdog.linesInTests = false; check(left0 < 3, "set up: no spare thrown (" + left0 + " of 3 bows and chestplates still in his pack)");
         }
-        if (t[0] == 70) {
+        if (t[0] == 110) { com.claudemod.entity.life.Watchdog.linesInTests = false;
             var pile = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 8, 16), ie -> ie.getItem().is(Items.COOKED_PORKCHOP));
             var spares = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 8, 16), ie -> ie.getItem().is(Items.BOW) || ie.getItem().is(Items.IRON_CHESTPLATE));
             long inv = c.getInventory().items.stream().filter(s -> s.is(Items.BOW) || s.is(Items.IRON_CHESTPLATE)).count();
@@ -28162,6 +28163,7 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
             check(spares.size() + inv == 3, "a spare burned: " + spares.size() + " on the ground + " + inv + " on him of 3 (" + at + ")");
             check(!inPile, "the toss landed in his pile, where he walks it back up: " + at);
+            check(!com.claudemod.entity.life.Watchdog.recentKinds.contains("GEAR GONE"), "his thrown spares read as gear gone: " + com.claudemod.entity.life.Watchdog.recentKinds + ", " + com.claudemod.entity.life.Watchdog.lastIncident);
             pass(stage, t, "the spares clear of his pile and the lava: " + at);
         }
         return true;

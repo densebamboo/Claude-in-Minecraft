@@ -10598,6 +10598,7 @@ public final class ClaudeBodyTest {
             case 1756: return st1756(stage, t, c, h, level, mock);
             case 1757: return st1757(stage, t, c, h, level, mock);
             case 1759: return st1759(stage, t, c, h, level, mock);
+            case 1760: return st1760(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23532,6 +23533,36 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1760 (D2D, live 17:40-17:44 11-16 at the_nether -97,49,38: an angry enderman 19 off with no way to him and not moving; holdHighway kept him on his highway "for it to come", FIGHT NO EFFECT every 15 s and the hunt picked it again, 7 times in 3.5 min). The hold is for a mob that is coming: one that can't, he goes after. */
+    private static double s1760MaxX = -1e9; private static int s1760T = -1;
+    private static boolean st1760(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12900, 70, 8720);
+        if (t[0] == 1) { scenarioReset(c); s1760MaxX = -1e9; s1760T = -1; }
+        if (t[0] < 20) nsTick(nl, c, o, t); else if (t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 10) {
+            for (int x = -8; x <= 14; x++) for (int z = -8; z <= 20; z++) for (int y = -3; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y < -1 ? Blocks.NETHERRACK : y == -1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // flat ground
+            for (int x = 0; x <= 1; x++) for (int z = -5; z <= 15; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); // his highway
+            for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(8, y, 5), Blocks.NETHERRACK.defaultBlockState(), 2); // a 4-high pillar: no way down for it
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, -5), o.offset(0, -1, 15), net.minecraft.core.Direction.Axis.Z, 2);
+            c.teleportTo(nl, o.getX() + 1.5, o.getY(), o.getZ() + 5.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { var e = net.minecraft.world.entity.EntityType.ENDERMAN.create(nl); e.moveTo(o.getX() + 8.5, o.getY() + 4, o.getZ() + 5.5, 90f, 0f); e.setNoAi(true); nl.addFreshEntity(e); e.setTarget(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Attack(e.getUUID(), 20 * 30)); s1760T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); s1760MaxX = Math.max(s1760MaxX, c.getX()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.setTarget(c); }
+        if (s1760T > 0 && t[0] % 20 == 0) {
+            boolean left = s1760MaxX >= o.getX() + 3.5;
+            if (left || t[0] >= s1760T + 20 * 12) {
+                double mx = s1760MaxX - o.getX(); c.tasks.clear(); c.dropCurrent = true;
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                for (int x = -8; x <= 14; x++) for (int z = -8; z <= 20; z++) for (int y = -3; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(left, "an angry enderman on a pillar with no way to him: he held his highway for it to come (furthest out " + String.format("%.1f", mx) + " of 3.5)");
+                nsHome(c, h, level); pass(stage, t, "off the highway after it in " + (t[0] - s1760T) / 20 + " s");
+            }
         }
         return true;
     }

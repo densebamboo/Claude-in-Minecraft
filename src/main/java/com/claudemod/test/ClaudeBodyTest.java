@@ -10601,6 +10601,7 @@ public final class ClaudeBodyTest {
             case 1760: return st1760(stage, t, c, h, level, mock);
             case 1762: return st1762(stage, t, c, h, level, mock);
             case 1763: return st1763(stage, t, c, h, level, mock);
+            case 1764: return st1764(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23535,6 +23536,39 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1764 (D2D, death 35, live 09:29 11-17 at -39,21,-731: a flooded cave, air 16 cells back along his trail; bobbing between a cell off his trail and the one under it, "no air in sight: back the way he came" aimed west at the nearest trail cell, then east from the cell under him, every bob: 16 s pinned, drowned). A flooded tunnel, his trail with a corner cut, him over the cut: he swims the way out. */
+    private static String st1764Aim = "-";
+    private static boolean st1764(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 6; y++) { BlockPos q = at.offset(x, y, z);
+                boolean tunnel = x >= 0 && x <= 12 && Math.abs(z) <= 1 && y >= 0 && y <= 2, pocket = x == 12 && z == 0 && y == 3; // (the air: a pocket in the roof at the far end, 10+ off)
+                level.setBlock(q, (tunnel ? Blocks.WATER : pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 17));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] >= 12 && t[0] < 12 + 14) { int k = t[0] - 12, x = k < 2 ? 12 : k == 12 ? 1 : k == 13 ? 0 : 12 - (k - 2), y = k == 0 ? 2 : k == 1 ? 1 : 0; // his swim in from the air: down from under the pocket, x 12 .. 3, then 1, 0 (the corner cut at 2)
+            c.teleportTo(at.getX() + x + 0.5, at.getY() + y, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.step(c); }
+        if (t[0] == 26) { c.teleportTo(at.getX() + 2.2, at.getY() + 1.0, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(119); }
+        if (t[0] == 26) try { // floated a cell over the cut corner: the aim is on along the way out, never back to the trail cell behind him (the flip that pinned him: the aim turned with every bob)
+            var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("breathingSpot"); m.setAccessible(true);
+            BlockPos aim = (BlockPos) m.invoke(c.work); st1764Aim = (aim == null ? "none" : (aim.getX() - at.getX()) + "," + (aim.getY() - at.getY())) + " from " + String.format("%.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY()) + (com.claudemod.entity.nav.Route.walked(c, c.blockPosition()) ? " (on his trail)" : "");
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1764 first aim {}", st1764Aim);
+            check(aim != null && aim.getX() >= at.getX() + 2, "from over the cut corner (block 2,1 of the tunnel) the aim was back at " + st1764Aim + ", behind him: the way out is on at x 3");
+        } catch (ReflectiveOperationException e) { check(false, "no WorkGoal.breathingSpot: " + e); }
+        boolean breathing = t[0] > 30 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 26 + 20 * 12) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " (from the tunnel's start) air " + c.getAirSupply() + " health " + c.getHealth() + ", first aim " + st1764Aim;
+            float hp = c.getHealth();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -1; x <= 14; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && hp >= 14, "the air 10 back along his trail not reached in 12 s with health to spare: " + got);
+            pass(stage, t, "air back along his trail in " + (t[0] - 26) + " ticks, health " + hp);
         }
         return true;
     }

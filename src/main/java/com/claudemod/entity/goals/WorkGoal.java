@@ -151,7 +151,7 @@ public class WorkGoal extends Goal {
             java.util.Set<BlockPos> cells = new java.util.HashSet<>(); // his trail and any open cell beside it (a corner he cut leaves no trail cell between two of its own)
             for (BlockPos q : back) { if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) continue; /* (filled in since) */ cells.add(q); for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty()) cells.add(n.immutable()); } }
             BlockPos start = cells.contains(g.blockPosition()) ? g.blockPosition() : null; double sd = Double.MAX_VALUE;
-            if (start == null) for (BlockPos q : back) { double d0 = q.distToCenterSqr(g.position()); if (d0 < sd) { sd = d0; start = q; } }
+            if (start == null) for (BlockPos q : cells) { double d0 = q.distToCenterSqr(g.position()); if (d0 < sd) { sd = d0; start = q; } } // (the nearest cell of the way, beside-trail cells too: the nearest trail cell alone was one behind him when he bobbed up off a cut corner, so the aim turned west then east with every bob, 16 s pinned, death 35 live 09:29 11-17, stage 1764)
             java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> frontier = new java.util.ArrayDeque<>(); BlockPos goal = null;
             if (start != null) { came.put(start, start); frontier.add(start); }
             while (!frontier.isEmpty() && goal == null) {

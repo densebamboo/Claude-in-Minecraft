@@ -10600,6 +10600,7 @@ public final class ClaudeBodyTest {
             case 1759: return st1759(stage, t, c, h, level, mock);
             case 1760: return st1760(stage, t, c, h, level, mock);
             case 1762: return st1762(stage, t, c, h, level, mock);
+            case 1763: return st1763(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23534,6 +23535,26 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1763 (D2D, live 00:08 11-17 in his mine at -427,-58,-4: the diamond chestplate and leggings made, the iron ones spare, 0 free slots, his stash 21 off with room; the full-pack path counted no gear as storable, so "a chest here" (no spot) or drop: both iron pieces thrown out). Spare gear goes to his storage close by, as the deposit takes it. */
+    private static boolean st1763(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos chest = h.absolutePos(new BlockPos(12, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.remove("storage_at"); c.blueprint = null; c.mineFace = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 3); c.myStations.add(chest); c.storageChests.add(chest);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.IRON_CHESTPLATE));
+            while (c.getInventory().getFreeSlot() >= 0) c.getInventory().add(new ItemStack(Items.TORCH, 64)); // kit: nothing else he'd store or throw
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; var roll0 = c.currentRoll();
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("dumpJunk", ClaudeEntity.class); m.setAccessible(true); m.invoke(null, c); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            boolean kept = c.inventory.count(s -> s.is(Items.IRON_CHESTPLATE)) == 1; boolean trip = c.tasks.stream().anyMatch(q -> q instanceof Task.Deposit d && d.pos().equals(chest));
+            String q = c.tasks.toString();
+            c.tasks.clear(); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); level.setBlock(chest, Blocks.AIR.defaultBlockState(), 3); c.myStations.remove(chest); c.storageChests.remove(chest); c.setRoll(roll0); c.stashedTasks.clear();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(me).inflate(16))) e.discard();
+            check(kept && trip, "a spare iron chestplate, 0 free, his storage 9 off with room: " + (kept ? "kept" : "thrown out") + ", deposit queued " + trip + ", queue " + q);
+            pass(stage, t, "the spare chestplate to his storage, not the floor");
         }
         return true;
     }

@@ -10602,6 +10602,7 @@ public final class ClaudeBodyTest {
             case 1762: return st1762(stage, t, c, h, level, mock);
             case 1763: return st1763(stage, t, c, h, level, mock);
             case 1764: return st1764(stage, t, c, h, level, mock);
+            case 1765: return st1765(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23569,6 +23570,35 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && hp >= 14, "the air 10 back along his trail not reached in 12 s with health to spare: " + got);
             pass(stage, t, "air back along his trail in " + (t[0] - 26) + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1765 (D2D, deaths 37/38, live 10:40 and 11:49 11-17 at -38,21,-728: a tall flooded cave with a rock roof, low on air, the way back to air behind rock from him: the line to it blocked, the pathfinder no path, so nothing to steer at and the swim's "going nowhere: hold space" floated him y22 -> y38 and he drowned). The air is round a rock shelf: he swims round it, never up the sealed shaft. */
+    private static double st1765Top = 0;
+    private static boolean st1765(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 13; y++) { BlockPos q = at.offset(x, y, z);
+                boolean tunnel = x >= 0 && x <= 12 && Math.abs(z) <= 1 && y >= 0 && y <= 2, pocket = x == 12 && z == 0 && y == 3; // (the air: a pocket in the tunnel roof at the far end)
+                boolean shaft = x >= 4 && x <= 6 && Math.abs(z) <= 1 && y >= 4 && y <= 12, gap = x == 6 && z == 1 && y == 3; // (a sealed water shaft over the tunnel, a rock shelf between with one gap at a corner)
+                level.setBlock(q, (tunnel || shaft || gap ? Blocks.WATER : pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 17));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] >= 12 && t[0] < 12 + 14) { int k = t[0] - 12, x = k < 2 ? 12 : k == 12 ? 1 : k == 13 ? 0 : 12 - (k - 2), y = k == 0 ? 2 : k == 1 ? 1 : 0; // his swim in along the tunnel (as 1764)
+            c.teleportTo(at.getX() + x + 0.5, at.getY() + y, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.step(c); }
+        if (t[0] == 26) { c.teleportTo(at.getX() + 4.5, at.getY() + 6.0, at.getZ() - 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(119); st1765Top = 6; }
+        if (t[0] > 26) st1765Top = Math.max(st1765Top, c.getY() - at.getY());
+        boolean breathing = t[0] > 30 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 26 + 20 * 15) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + ", highest y " + String.format("%.2f", st1765Top) + " (started at 6, the shaft's rock roof at 13)";
+            float hp = c.getHealth();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -1; x <= 14; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 13; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && hp >= 8, "the air round the shelf not reached in 15 s with health to spare: " + got);
+            pass(stage, t, "air round the shelf in " + (t[0] - 26) + " ticks, health " + hp + ", highest y " + String.format("%.2f", st1765Top));
         }
         return true;
     }

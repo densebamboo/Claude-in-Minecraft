@@ -101,6 +101,7 @@ public class WorkGoal extends Goal {
         }
         return Double.MAX_VALUE;
     }
+    private static boolean swimCell(net.minecraft.world.level.Level l, BlockPos p) { return l.getFluidState(p).is(net.minecraft.tags.FluidTags.WATER) && l.getBlockState(p).getCollisionShape(l, p).isEmpty(); } // open water he can swim through
     private BlockPos breathingSpot() {
         var level = g.level(); noOpenAir = false;
         BlockPos eye = BlockPos.containing(g.getEyePosition());
@@ -150,14 +151,14 @@ public class WorkGoal extends Goal {
             // the shortest way through the cells he swam, to the nearest with air over it (by recency, a cell he'd poked into after coming down read as "on the way back": live 22:14 11-04 his aim flipped between the shaft and a dead end below as he bobbed a cell up and down, and he drowned 19 cells from air)
             java.util.Set<BlockPos> cells = new java.util.HashSet<>(); // his trail and any open cell beside it (a corner he cut leaves no trail cell between two of its own)
             for (BlockPos q : back) { if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) continue; /* (filled in since) */ cells.add(q); for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty()) cells.add(n.immutable()); } }
-            BlockPos start = cells.contains(g.blockPosition()) ? g.blockPosition() : null; double sd = Double.MAX_VALUE;
+            BlockPos start = cells.contains(g.blockPosition()) || swimCell(level, g.blockPosition()) ? g.blockPosition().immutable() : null; double sd = Double.MAX_VALUE; // (from his own cell through any open water too: floated off his trail behind rock, the nearest trail cell was past a shelf, no line, no path, and with nothing to steer at the swim held space, y22 -> y38, deaths 37/38 live 11-17, stage 1765)
             if (start == null) for (BlockPos q : cells) { double d0 = q.distToCenterSqr(g.position()); if (d0 < sd) { sd = d0; start = q; } } // (the nearest cell of the way, beside-trail cells too: the nearest trail cell alone was one behind him when he bobbed up off a cut corner, so the aim turned west then east with every bob, 16 s pinned, death 35 live 09:29 11-17, stage 1764)
             java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> frontier = new java.util.ArrayDeque<>(); BlockPos goal = null;
             if (start != null) { came.put(start, start); frontier.add(start); }
-            while (!frontier.isEmpty() && goal == null) {
+            while (!frontier.isEmpty() && goal == null && came.size() < 4000) {
                 BlockPos q = frontier.poll(), qa = q.above();
                 if (q != start && (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.BUBBLE_COLUMN) || !level.getFluidState(q).isEmpty() && level.getFluidState(qa).isEmpty() && level.getBlockState(qa).getCollisionShape(level, qa).isEmpty())) { goal = q; break; } /* (bubbles count: air comes back in them) */
-                for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (cells.contains(n) && !came.containsKey(n) && (d != Direction.UP || !dragDown(level, n) && level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty())) { came.put(n, q); frontier.add(n); } } // (up only with room over the cell for his head: live 00:56 11-05 the first step was up into his own head cell under rock, he jumped into it 10 s, health 20 -> 0.5) // (face to face: a diagonal past two rock corners is in sight but his body doesn't fit, 22:14 stage 650)
+                for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if ((cells.contains(n) || swimCell(level, n)) && !came.containsKey(n) && (d != Direction.UP || !dragDown(level, n) && level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty())) { came.put(n, q); frontier.add(n); } } // (up only with room over the cell for his head: live 00:56 11-05 the first step was up into his own head cell under rock, he jumped into it 10 s, health 20 -> 0.5) // (face to face: a diagonal past two rock corners is in sight but his body doesn't fit, 22:14 stage 650)
             }
             if (goal != null) {
                 java.util.List<BlockPos> way = new java.util.ArrayList<>(); for (BlockPos q = goal; ; q = came.get(q)) { way.add(0, q); if (q.equals(start)) break; } // start .. goal

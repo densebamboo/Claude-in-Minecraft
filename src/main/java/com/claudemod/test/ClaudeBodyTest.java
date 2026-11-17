@@ -10599,6 +10599,7 @@ public final class ClaudeBodyTest {
             case 1757: return st1757(stage, t, c, h, level, mock);
             case 1759: return st1759(stage, t, c, h, level, mock);
             case 1760: return st1760(stage, t, c, h, level, mock);
+            case 1762: return st1762(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23533,6 +23534,26 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             check(err == null, "a full pack in his mine, no chest or table on him: the junk dump called itself round the table and the chest till the stack ran out (" + err + ")");
             pass(stage, t, "a full pack in his mine with no chest: the junk dump ran once, no recursion");
+        }
+        return true;
+    }
+    /** Stage 1762 (D2D, live 22:49-23:09 11-16 at his mine stash -431,-58,-25: 2 free slots, 5 flint on him the dragon run's flint and steel needs; stashAtLevel counted the flint as loot, the deposit kept it for the plan, "stored 0", the trip again every second for 20 min). The stash trip is only for what the deposit takes. */
+    private static boolean st1762(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos chest = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.remove("storage_at"); c.blueprint = null; c.mineFace = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 3); c.myStations.add(chest); c.storageChests.add(chest);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.FLINT, 5));
+            int free = 0; for (var it : c.getInventory().items) if (it.isEmpty()) free++;
+            for (int k = 0; k < free - 2; k++) c.getInventory().add(new ItemStack(Items.TORCH, 64)); // kit: the deposit keeps it
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "flint_and_steel", 1, "near_you"));
+            String r;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("stashAtLevel", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); r = (String) m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            boolean trip = c.tasks.stream().anyMatch(q -> q instanceof Task.Deposit);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); level.setBlock(chest, Blocks.AIR.defaultBlockState(), 3); c.myStations.remove(chest); c.storageChests.remove(chest);
+            check(!trip, "only flint on him a queued step needs, 2 free slots: a stash trip queued (\"" + r + "\"); the deposit keeps the flint, so it stores 0 and loops");
+            pass(stage, t, "no stash trip for what the plan keeps: " + r);
         }
         return true;
     }

@@ -102,6 +102,7 @@ public class WorkGoal extends Goal {
         return Double.MAX_VALUE;
     }
     private static boolean swimCell(net.minecraft.world.level.Level l, BlockPos p) { return l.getFluidState(p).is(net.minecraft.tags.FluidTags.WATER) && l.getBlockState(p).getCollisionShape(l, p).isEmpty(); } // open water he can swim through
+    private boolean rockOver() { for (int dy = 1; dy <= 16; dy++) { BlockPos q = g.blockPosition().above(dy); if (!g.level().getFluidState(q).isEmpty()) continue; return !g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty(); } return false; } // rock over the water he is in: no surface up there
     private BlockPos breathingSpot() {
         var level = g.level(); noOpenAir = false;
         BlockPos eye = BlockPos.containing(g.getEyePosition());
@@ -160,6 +161,7 @@ public class WorkGoal extends Goal {
                 if (q != start && (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.BUBBLE_COLUMN) || !level.getFluidState(q).isEmpty() && level.getFluidState(qa).isEmpty() && level.getBlockState(qa).getCollisionShape(level, qa).isEmpty())) { goal = q; break; } /* (bubbles count: air comes back in them) */
                 for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if ((cells.contains(n) || swimCell(level, n)) && !came.containsKey(n) && (d != Direction.UP || !dragDown(level, n) && level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty())) { came.put(n, q); frontier.add(n); } } // (up only with room over the cell for his head: live 00:56 11-05 the first step was up into his own head cell under rock, he jumped into it 10 s, health 20 -> 0.5) // (face to face: a diagonal past two rock corners is in sight but his body doesn't fit, 22:14 stage 650)
             }
+            if (goal == null && g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way back to air at {} (y {}): {} trail cells, {} cells round them, started from {}, searched {} cells; his cell {} (WorkGoal.breathingSpot)", g.blockPosition().toShortString(), String.format("%.2f", g.getY()), back.size(), cells.size(), start == null ? "none" : start.toShortString(), came.size(), level.getBlockState(g.blockPosition()).getBlock().getName().getString()); // (deaths 39/40 live 11-17: nothing found, the roof dug instead, and no line said why)
             if (goal != null) {
                 java.util.List<BlockPos> way = new java.util.ArrayList<>(); for (BlockPos q = goal; ; q = came.get(q)) { way.add(0, q); if (q.equals(start)) break; } // start .. goal
                 BlockPos here0 = g.blockPosition();
@@ -1130,7 +1132,7 @@ public class WorkGoal extends Goal {
             var path = g.getNavigation().getPath();
             Vec3 next = path != null && !path.isDone() ? Vec3.atBottomCenterOf(path.getNextNodePos()) : Vec3.atBottomCenterOf(pos);
             if (path == null || path.isDone()) g.getNavigation().moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1.0);
-            g.getJumpControl().jump(); // keep his head up
+            if (next.y > g.getY() + 0.5 || !rockOver()) g.getJumpControl().jump(); // keep his head up (only where it can come up: under rock with the way on level, space held floated him y19 -> y31 into a sealed flooded cave on full air, past his way back, death 39 live 13:35 11-17, stage 1766)
             g.getLookControl().setLookAt(next.x, g.getEyeY(), next.z, 30, 30);
             float yaw = (float) (Math.toDegrees(Math.atan2(next.z - g.getZ(), next.x - g.getX())) - 90);
             g.setYRot(yaw); g.yBodyRot = yaw; g.yHeadRot = yaw;

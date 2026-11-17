@@ -10603,6 +10603,8 @@ public final class ClaudeBodyTest {
             case 1763: return st1763(stage, t, c, h, level, mock);
             case 1764: return st1764(stage, t, c, h, level, mock);
             case 1765: return st1765(stage, t, c, h, level, mock);
+            case 1766: return st1766(stage, t, c, h, level, mock);
+            case 1767: return st1767(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -23570,6 +23572,57 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && hp >= 14, "the air 10 back along his trail not reached in 12 s with health to spare: " + got);
             pass(stage, t, "air back along his trail in " + (t[0] - 26) + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1767 (D2D, deaths 39/40, live 13:36 and 14:05 11-17 at -34,30,-737: up a big flooded cave under its rock roof, air 12 down and 13 across where he came in; the way back found nothing, "nothing better in reach", and he dug at the roof 25x slow till he drowned; why it found nothing is unproven, logged now). A big cave, the air at the far corner along his trail: he swims back to it (green on main too: the 4000-cell search is not the cause). */
+    private static boolean st1767(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 16; x++) for (int z = -1; z <= 14; z++) for (int y = -1; y <= 21; y++) { BlockPos q = at.offset(x, y, z);
+                boolean cave = x >= 0 && x <= 15 && z >= 0 && z <= 13 && y >= 0 && y <= 19, pocket = x == 15 && z == 13 && y == 20; // (16 x 14 x 20 of water under a rock roof; the air a pocket in the roof at the far corner)
+                level.setBlock(q, (cave ? Blocks.WATER : pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] >= 12 && t[0] < 12 + 64) { int k = t[0] - 12; int[] q = k < 19 ? new int[]{15, 19 - k, 13} : k < 34 ? new int[]{14 - (k - 19), 1, 13} : k < 47 ? new int[]{0, 1, 12 - (k - 34)} : new int[]{0, 2 + (k - 47), 0}; // his swim in: down from under the pocket, across the floor, then up the near corner (floated up it)
+            c.teleportTo(at.getX() + q[0] + 0.5, at.getY() + q[1], at.getZ() + q[2] + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.step(c); }
+        if (t[0] == 76) { c.teleportTo(at.getX() + 0.5, at.getY() + 18.0, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(119); }
+        boolean breathing = t[0] > 80 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 76 + 20 * 15) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + ", task " + c.currentTask;
+            float hp = c.getHealth();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -1; x <= 16; x++) for (int z = -1; z <= 14; z++) for (int y = -1; y <= 21; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && hp >= 8, "the air at the big cave's far corner (his way in) not reached in 15 s with health to spare: " + got);
+            pass(stage, t, "air across the big cave in " + (t[0] - 76) + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1766 (D2D, death 39, live 13:35 11-17 at -34,19,-724: a walk to iron 21 off across a flooded cave, no path in the water, and the swim's "going nowhere: hold space" floated him y19 -> y31 under its rock roof on full air; air ran out up there, past his way back, and the roof dig couldn't finish). Under rock with nowhere to swim, he doesn't rise. */
+    private static double st1766Top = 0;
+    private static boolean st1766(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 30; z++) for (int y = -1; y <= 13; y++) { BlockPos q = at.offset(x, y, z);
+                boolean cave = x >= 0 && x <= 4 && z >= 0 && z <= 24 && y >= 0 && y <= 12; // (a flooded cave, rock all round and over it)
+                level.setBlock(q, (cave ? Blocks.WATER : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) { c.teleportTo(at.getX() + 2.5, at.getY() + 1.0, at.getZ() + 2.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.setAirSupply(300); st1766Top = 1;
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(at.offset(2, 1, 28), 1.0)); } // (the ore past the cave's far rock wall: no swim reaches it; the cave long enough that he isn't at the wall in 4 s, where pressing on into rock lifts him by itself)
+        if (t[0] > 12) st1766Top = Math.max(st1766Top, c.getY() - at.getY());
+        if (t[0] == 12 + 20 * 4) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + ", highest y " + String.format("%.2f", st1766Top) + " (started at 1, the cave's rock roof at 13), task " + c.currentTask;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 30; z++) for (int y = -1; y <= 13; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20);
+            check(st1766Top < 3.5, "with no swim to his walk's end he rose up the roofed cave: " + got);
+            pass(stage, t, "stayed low with nowhere to swim, highest y " + String.format("%.2f", st1766Top));
         }
         return true;
     }

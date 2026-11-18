@@ -23581,24 +23581,24 @@ public final class ClaudeBodyTest {
         BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
         if (t[0] == 10) {
-            for (int x = -1; x <= 16; x++) for (int z = -1; z <= 14; z++) for (int y = -1; y <= 21; y++) { BlockPos q = at.offset(x, y, z);
-                boolean cave = x >= 0 && x <= 15 && z >= 0 && z <= 13 && y >= 0 && y <= 19, pocket = x == 15 && z == 13 && y == 20; // (16 x 14 x 20 of water under a rock roof; the air a pocket in the roof at the far corner)
+            for (int x = -1; x <= 24; x++) for (int z = -1; z <= 20; z++) for (int y = -1; y <= 24; y++) { BlockPos q = at.offset(x, y, z);
+                boolean cave = x >= 0 && x <= 23 && z >= 0 && z <= 19 && y >= 0 && y <= 19, pocket = x == 23 && z == 19 && y == 20; // (24 x 20 x 20 of water under 4 of rock: 9600 cells, past the 4000 the search had (death 41 live 17:52 11-17: "searched 4000 cells"); the air a pocket in the roof at the far corner)
                 level.setBlock(q, (cave ? Blocks.WATER : pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
         }
-        if (t[0] >= 12 && t[0] < 12 + 64) { int k = t[0] - 12; int[] q = k < 19 ? new int[]{15, 19 - k, 13} : k < 34 ? new int[]{14 - (k - 19), 1, 13} : k < 47 ? new int[]{0, 1, 12 - (k - 34)} : new int[]{0, 2 + (k - 47), 0}; // his swim in: down from under the pocket, across the floor, then up the near corner (floated up it)
+        if (t[0] >= 12 && t[0] < 12 + 76) { int k = t[0] - 12; int[] q = k < 19 ? new int[]{23, 19 - k, 19} : k < 42 ? new int[]{22 - (k - 19), 1, 19} : k < 61 ? new int[]{0, 1, 18 - (k - 42)} : new int[]{0, 2 + (k - 61), 0}; // his swim in: down from under the pocket, across the floor, then up the near corner (floated up it)
             c.teleportTo(at.getX() + q[0] + 0.5, at.getY() + q[1], at.getZ() + q[2] + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.step(c); }
-        if (t[0] == 76) { c.teleportTo(at.getX() + 0.5, at.getY() + 18.0, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(119); }
-        boolean breathing = t[0] > 80 && c.getAirSupply() >= 280;
-        if (breathing || t[0] == 76 + 20 * 15) {
+        if (t[0] == 88) { c.teleportTo(at.getX() + 0.5, at.getY() + 18.0, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(200); }
+        boolean breathing = t[0] > 92 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 88 + 20 * 20) {
             String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + ", task " + c.currentTask;
             float hp = c.getHealth();
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
-            for (int x = -1; x <= 16; x++) for (int z = -1; z <= 14; z++) for (int y = -1; y <= 21; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 24; x++) for (int z = -1; z <= 20; z++) for (int y = -1; y <= 24; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
-            check(breathing && hp >= 8, "the air at the big cave's far corner (his way in) not reached in 15 s with health to spare: " + got);
-            pass(stage, t, "air across the big cave in " + (t[0] - 76) + " ticks, health " + hp);
+            check(breathing && hp >= 8, "the air at the big cave's far corner (his way in) not reached in 20 s with health to spare: " + got);
+            pass(stage, t, "air across the big cave in " + (t[0] - 88) + " ticks, health " + hp);
         }
         return true;
     }

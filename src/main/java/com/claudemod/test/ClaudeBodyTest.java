@@ -10608,6 +10608,7 @@ public final class ClaudeBodyTest {
             case 1768: return st1768(stage, t, c, h, level, mock);
             case 1769: return st1769(stage, t, c, h, level, mock);
             case 1770: return st1770(stage, t, c, h, level, mock);
+            case 1771: return st1771(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34480,6 +34481,33 @@ public final class ClaudeBodyTest {
             check(wallBack, "his wall at " + s1271Wall.toShortString() + " not put back behind him");
             check(s <= 6, "back through one cut of his wall: " + s + " s (a player ~3)");
             pass(stage, t, "back through his own cut and patched in " + s + " s"); }
+        return true;
+    }
+    /** Stage 1771 (D2D, death 44, live 14:58 11-18 at -33,20,-726: low on air in the flooded cave, food 20, air two cells off round a rock corner (west under a ledge, then south); his way back took his trail first and ran it 33 cells to the far air, the near air never reached, and he drowned between the two). A flooded tunnel he swam in along, its air 20 back; two cells off round a corner, air: he takes the near air. */
+    private static int out1771; // the tick his eyes first came out of the water
+    private static boolean st1771(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = 7; x <= 31; x++) for (int z = 0; z <= 5; z++) for (int y = 0; y <= 6; y++) { BlockPos q = at.offset(x, y, z);
+                boolean water = x == 10 && z == 2 && y >= 2 && y <= 4 || x == 9 && (z == 2 || z == 3) && y == 2 || x >= 11 && x <= 30 && z == 2 && (y == 2 || y == 3), air = x == 9 && z == 3 && y == 3 || x == 30 && z == 2 && y == 4; // (his cell 3 deep; west of its foot a cell under a ledge, south of that water with air over it; east the tunnel he swam in, its air at the far end)
+                level.setBlock(q, (water ? Blocks.WATER : air ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] >= 12 && t[0] <= 32) { c.teleportTo(at.getX() + 30 - (t[0] - 12) + 0.5, at.getY() + 2, at.getZ() + 2.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.step(c); } // his swim in along the tunnel
+        if (t[0] == 34) { c.teleportTo(at.getX() + 10.3, at.getY() + 3.0, at.getZ() + 2.6); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(119); c.getFoodData().setFoodLevel(20); }
+        if (t[0] == 34) out1771 = 0; if (t[0] > 34 && out1771 == 0 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) out1771 = t[0] - 34;
+        boolean breathing = t[0] > 38 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 34 + 20 * 8) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + " pose " + c.getPose() + ", task " + c.currentTask;
+            float hp = c.getHealth(); boolean near = c.getX() - at.getX() < 11;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = 7; x <= 31; x++) for (int z = 0; z <= 5; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
+            pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
         return true;
     }
     /** Stage 1770 (D2D, death 43, live 04:11 11-18 at -33,17,-729: low on air in the flooded cave, food 5 (no sprint, so no swim pose), the way back to air west along a 2-high tunnel; his way-back search stepped him across at his own height, the tunnel's top cell with rock over it, and he pressed his head into the rock 10 s and drowned). A water chamber, its air past a 2-high tunnel: he sinks into the tunnel and swims through to it. */

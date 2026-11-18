@@ -10609,6 +10609,7 @@ public final class ClaudeBodyTest {
             case 1769: return st1769(stage, t, c, h, level, mock);
             case 1770: return st1770(stage, t, c, h, level, mock);
             case 1771: return st1771(stage, t, c, h, level, mock);
+            case 1772: return st1772(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34484,6 +34485,18 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1771 (D2D, death 44, live 14:58 11-18 at -33,20,-726: low on air in the flooded cave, food 20, air two cells off round a rock corner (west under a ledge, then south); his way back took his trail first and ran it 33 cells to the far air, the near air never reached, and he drowned between the two). A flooded tunnel he swam in along, its air 20 back; two cells off round a corner, air: he takes the near air. */
+    /** Stage 1772 (D2D, after death 44, live 14:58 11-18: respawned with an empty pack at dusk (day time 11317), his full diamond kit in a pile ~795 off; the run priced as one ending in the dark, ~3485 s here (18035 live with the mobs he knew), over the pile's ~2868 s, and the kit left "not worth the run" and made again from nothing). The far pile's run is priced as a day run, as it is at night: under what the kit is worth. */
+    private static boolean st1772(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 5) { c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            BlockPos far = c.blockPosition().offset(119, -50, -784); String what = "birch_planks 7, bone 5, bow, cobbled_deepslate 34, cobblestone 9, cooked_cod 5, cooked_porkchop 15, cooked_salmon 4, crafting_table, crimson_fungus, diamond_boots, diamond_chestplate, diamond_helmet, diamond_leggings, diamond_pickaxe, diamond_sword, dirt 2, fishing_rod, flint_and_steel, furnace 2, iron_shovel, leather 3, netherrack 3, oak_log 48, raw_iron, rotten_flesh 6, shield, stick 3, stone_axe, stone_pickaxe 2, torch 9, tropical_fish 2, water_bucket, weeping_vines";
+            long day0 = level.getDayTime(); level.setDayTime(day0 / 24000 * 24000 + 11317);
+            double trip = com.claudemod.entity.life.DeathLog.tripS(c, "overworld", far), worth = com.claudemod.entity.life.DeathLog.worthS(what); String said = com.claudemod.entity.life.DeathLog.lastTripSaid;
+            level.setDayTime(day0);
+            check(trip < worth, "his diamond kit 795 off at dusk, empty pack: the run ~" + Math.round(trip) + " s (" + said + ") over the kit's ~" + Math.round(worth) + " s");
+            pass(stage, t, "the run to his kit at dusk ~" + Math.round(trip) + " s (" + said + "), under its ~" + Math.round(worth) + " s"); }
+        return true;
+    }
     private static int out1771; // the tick his eyes first came out of the water
     private static boolean st1771(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));

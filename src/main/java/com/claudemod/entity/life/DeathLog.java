@@ -182,17 +182,19 @@ public final class DeathLog {
     /** The time on the pile picking it up with the hostiles he knows were round it (what killed him there, until he's seen it since), as his time: through his armor and health now, so better gear makes the run worth it again. */
     static double pileS(ClaudeEntity g, String dim, BlockPos at) {
         int th = 0, cr = 0; double hit = 0; for (Death d : of(g)) if (d.at.equals(at) && d.dim.equals(dim)) { th = d.threat; cr = Math.min(d.creepers, d.threat); hit = d.hit; } if (th == 0) return 0;
-        ServerLevel level = (ServerLevel) g.level(); long tod = runTod(level, at); double on = Weights.w("recovery.on_pile_s", 15);
+        ServerLevel level = (ServerLevel) g.level(); long tod = runTod(level, at, 2 * Math.sqrt(g.blockPosition().distSqr(at)) / Decide.sprint()); double on = Weights.w("recovery.on_pile_s", 15);
         // a creeper is its blast, not a 3 HP hit: the chance one gets to him in his time on the pile (D2D 04:12 11-10: 3-4 creepers at the pile priced as hitters, armor 0, a run back into them)
         double lamC = cr * (1 - Math.exp(-Weights.w("recovery.creeper_blast_per_s", 0.05) * on));
         double per = Decide.throughArmor(g, hit > 0 ? hit : Decide.hitHp()), hp = (Decide.danger(g, level, tod, on, th - cr) - Decide.danger(g, level, tod, on, 0)) / Decide.throughArmor(g, Decide.hitHp()) * per; /* (their own hits: a wither skeleton's 8, a blaze's fireball, through his armor as vanilla takes it; a fortress pile priced as zombies sent him back into 7 of them, D2D death 22:46:06 11-12, stage 1700) */
         return Decide.hpS(g, 0, hp, per) + Decide.blastS(g, lamC);
     }
     /** The time of day his run to a pile is priced at: now, while its chunk is loaded (its 5-min clock runs); by day when it's frozen unloaded in the overworld, since waiting for morning costs nothing (death 25, live 20:39 11-10: a pile with no threat priced ~2299 s at dusk against ~264 s of iron, ~139 s by day: never the run's target, then lost; stage 1398). */
-    static long runTod(ServerLevel level, BlockPos at) {
+    static long runTod(ServerLevel level, BlockPos at, double runS) {
         long tod = level.getDayTime() % 24000;
-        return level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !level.isPositionEntityTicking(at) && (tod < 1000 || tod > 12000) ? 6000 : tod;
+        return level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !level.isPositionEntityTicking(at) && (tod < 1000 || tod + (long) (runS * 20) > 12000) ? 6000 : tod; // (a far pile keeps: he goes by day, and that holds for a run that would end in the dark too: begun at dusk, 11317, it was priced as a night run, 3485 s against 284 by day, and his full diamond kit left as "not worth the run", death 44 live 14:58 11-18, stage 1772)
     }
+    /** What the last tripS was made of, for the line that uses it. */
+    public static String lastTripSaid = "";
     public static double tripS(ClaudeEntity g, String dim, BlockPos at) {
         if (!dim.equals(g.level().dimension().location().getPath())) { // through a portal of his: the walk to it, the crossing, the far side's way as it's priced there (Nether: his highways, the rest as Nether ground), and back the same (Loops' sink 3, D2D 11-09: the same price on both sides of the portal; stage 1315)
             double best = Double.MAX_VALUE, cross = Weights.w("recovery.portal_cross_s", 4);
@@ -200,12 +202,14 @@ public final class DeathLog {
                 double here = Math.sqrt(g.blockPosition().distSqr(p.at)) / Decide.sprint(), far = PortalMap.NETHER.equals(dim) ? com.claudemod.entity.nav.NetherRoute.priceS(g, q.at, at) + Math.sqrt(q.at.distSqr(at)) / Decide.sprint() : 2 * Math.sqrt(q.at.distSqr(at)) / Decide.sprint();
                 if (PortalMap.NETHER.equals(p.dim)) { here = com.claudemod.entity.nav.NetherRoute.priceS(g, g.blockPosition(), p.at) + Math.sqrt(g.blockPosition().distSqr(p.at)) / Decide.sprint(); far = 2 * Math.sqrt(q.at.distSqr(at)) / Decide.sprint(); } else here *= 2;
                 best = Math.min(best, here + 2 * cross + far); }
-            return (best == Double.MAX_VALUE ? Weights.w("recovery.other_dim_trip_s", 180) : best) + pileS(g, dim, at); } // (no portal of his that leads there: a flat price)
+            lastTripSaid = best == Double.MAX_VALUE ? "no portal of his leads there: a flat price" : "through his portal"; return (best == Double.MAX_VALUE ? Weights.w("recovery.other_dim_trip_s", 180) : best) + pileS(g, dim, at); } // (no portal of his that leads there: a flat price)
         ServerLevel level = (ServerLevel) g.level();
         double s = 2 * Math.sqrt(g.blockPosition().distSqr(at)) / Decide.sprint(); // shortcut: straight there and back, not the walker's route
-        long tod = runTod(level, at); int n = Decide.hostilesAlong(g, g.blockPosition(), at); double pass = Math.min(s, Weights.w("recovery.hostile_pass_s", 10)); // (a mob he knows of is passed or shaken off, not at his heels the whole 300 blocks: one zombie by him priced a run for his iron at certain death)
+        long tod = runTod(level, at, s); int n = Decide.hostilesAlong(g, g.blockPosition(), at); double pass = Math.min(s, Weights.w("recovery.hostile_pass_s", 10)); // (a mob he knows of is passed or shaken off, not at his heels the whole 300 blocks: one zombie by him priced a run for his iron at certain death)
         double cave = 0; if (level.isLoaded(at) && !level.canSeeSky(at)) { int light = 0; for (var d : net.minecraft.core.Direction.values()) { var q = at.relative(d); if (level.getBlockState(q).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(q)); } if (light < 8) cave = Decide.caveS(g, at, s, s / 2); } // a pile in a dark cave: Decide.caveS (D2D 2250death)
-        return s + Decide.hpS(g, Decide.danger(g, level, tod, s, 0) + Decide.danger(g, level, tod, pass, n) - Decide.danger(g, level, tod, pass, 0)) + pileS(g, dim, at) + cave;
+        double hp = Decide.hpS(g, Decide.danger(g, level, tod, s, 0) + Decide.danger(g, level, tod, pass, n) - Decide.danger(g, level, tod, pass, 0)), pile = pileS(g, dim, at);
+        lastTripSaid = String.format("walk %.0f s, hits on the way %.0f s (%d hostiles known along it, at day time %d), at the pile %.0f s, dark cave %.0f s", s, hp, n, tod, pile, cave);
+        return s + hp + pile + cave;
     }
 
     /** A step in his plan that takes him to the pile's place anyway (the rods job to a blaze spawner he knows within 32 of it, in its dimension): the pile goes with that trip. Null: none. shortcut: blaze_rods only, the one job with its site on record; others once theirs are. */

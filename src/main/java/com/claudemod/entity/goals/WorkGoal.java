@@ -109,7 +109,8 @@ public class WorkGoal extends Goal {
         var level = g.level(); BlockPos end = way.get(way.size() - 1);
         if (!level.getBlockState(end).is(net.minecraft.world.level.block.Blocks.BUBBLE_COLUMN) && (level.getFluidState(end).isEmpty() || !level.getFluidState(end.above()).isEmpty() || !level.getBlockState(end.above()).getCollisionShape(level, end.above()).isEmpty())) return null; // (its air gone: dug, filled, flooded or drained since)
         Vec3 a = g.getBoundingBox().getCenter();
-        for (int i = way.size() - 1; i > 1; i--) { Vec3 b = Vec3.atCenterOf(way.get(i)); double d = a.distanceTo(b); if (d > 32) continue;
+        int h = 0; for (int j = 1; j < way.size(); j++) if (way.get(j).distToCenterSqr(g.position()) < way.get(h).distToCenterSqr(g.position())) h = j; // only cells past where he is on it: with none ahead fitting, the farthest that fit was his own cell, and he held in it jumping till he drowned (death 42 live 19:13 11-17, stage 1769)
+        for (int i = way.size() - 1; i > Math.max(1, h); i--) { Vec3 b = Vec3.atCenterOf(way.get(i)); double d = a.distanceTo(b); if (d > 32) continue;
             boolean fits = true; int n = (int) Math.ceil(d / 0.25); // his swimming body, a 0.6 box, swept along the line: a ray slips between two rock corners his body doesn't (stage 606)
             for (int k = 0; k <= n && fits; k++) { Vec3 p = a.lerp(b, (double) k / Math.max(1, n)); fits = level.noCollision(g, new net.minecraft.world.phys.AABB(p.x - 0.3, p.y - 0.3, p.z - 0.3, p.x + 0.3, p.y + 0.3, p.z + 0.3)); }
             if (fits) return way.get(i); }

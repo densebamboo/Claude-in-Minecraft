@@ -10606,6 +10606,7 @@ public final class ClaudeBodyTest {
             case 1766: return st1766(stage, t, c, h, level, mock);
             case 1767: return st1767(stage, t, c, h, level, mock);
             case 1768: return st1768(stage, t, c, h, level, mock);
+            case 1769: return st1769(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34478,6 +34479,30 @@ public final class ClaudeBodyTest {
             check(wallBack, "his wall at " + s1271Wall.toShortString() + " not put back behind him");
             check(s <= 6, "back through one cut of his wall: " + s + " s (a player ~3)");
             pass(stage, t, "back through his own cut and patched in " + s + " s"); }
+        return true;
+    }
+    /** Stage 1769 (D2D, death 42, live 19:13 11-17 at -34,20,-727: low on air in the flooded cave, the way to an air pocket ran down under a rock lip from the cell he'd swum to; the straight swim found no cell past him that fit and gave back his own cell, so he held there jumping 10 s and drowned). Down a sealed shaft, the air a pocket past a lip at its foot: he goes under the lip to it. */
+    private static boolean st1769(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 7; z++) for (int y = -1; y <= 9; y++) { BlockPos q = at.offset(x, y, z);
+                boolean shaft = x == 2 && z == 2 && y >= 1 && y <= 7, under = x == 2 && (z == 3 && (y == 2 || y == 3) || (z == 4 || z == 5) && y == 3), pocket = x == 2 && (z == 4 || z == 5) && y == 4; // (a sealed water shaft; at its foot a 2-high way under a rock lip to water with a 1-high air pocket over it)
+                level.setBlock(q, (shaft || under ? Blocks.WATER : pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) { c.teleportTo(at.getX() + 2.5, at.getY() + 6.0, at.getZ() + 2.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(110); }
+        boolean breathing = t[0] > 16 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 12 + 20 * 8) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + ", task " + c.currentTask;
+            float hp = c.getHealth();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 7; z++) for (int y = -1; y <= 9; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && hp >= 20, "the air pocket past the lip at the shaft's foot not reached in 8 s on full health: " + got);
+            pass(stage, t, "under the lip to the air in " + (t[0] - 12) + " ticks, health " + hp);
+        }
         return true;
     }
     /** Dusk, ungeared, at the rod on a bank near his mine, the catch's Pickup queued behind it (live 17:37:43-17:40:57 11-17 World 17: "dusk ... his lit mine", "dropping 1 queued tasks (first: Pickup)", the Fish kept on 3 min into the dark, 8 caught and left on the bank; STUCK 306, review 17:41:00). The rod comes in and the catch is picked up on the way in. */

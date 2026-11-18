@@ -10610,6 +10610,7 @@ public final class ClaudeBodyTest {
             case 1770: return st1770(stage, t, c, h, level, mock);
             case 1771: return st1771(stage, t, c, h, level, mock);
             case 1772: return st1772(stage, t, c, h, level, mock);
+            case 1773: return st1773(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34520,6 +34521,34 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1773 (D2D, death 45, live 15:37 11-18 at -33,20,-726: back for his pile, he reached the same corner out of air (59); the reflex aimed right, west under the ledge, but the watchdog's drowning way pressed jump and the dive kept it held: pinned at y 20.6 under the ledge, hcoll, 10 s, drowned). As 1771 with open water over his cell, arriving out of air: he dives under the ledge and out. */
+    private static int out1773; // the tick his eyes first came out of the water
+    private static boolean st1773(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = 7; x <= 31; x++) for (int z = 0; z <= 5; z++) for (int y = 0; y <= 6; y++) { BlockPos q = at.offset(x, y, z);
+                boolean water = x == 10 && z == 2 && y >= 2 && y <= 6 || x == 9 && (z == 2 || z == 3) && y == 2 || x >= 11 && x <= 30 && z == 2 && (y == 2 || y == 3), air = x == 9 && z == 3 && y == 3 || x == 30 && z == 2 && y == 4; // (his cell 3 deep; west of its foot a cell under a ledge, south of that water with air over it; east the tunnel he swam in, its air at the far end)
+                level.setBlock(q, (water ? Blocks.WATER : air ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] >= 12 && t[0] <= 32) { c.teleportTo(at.getX() + 30 - (t[0] - 12) + 0.5, at.getY() + 2, at.getZ() + 2.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.step(c); } // his swim in along the tunnel
+        if (t[0] == 34) { c.teleportTo(at.getX() + 10.3, at.getY() + 2.6, at.getZ() + 2.7); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(0); c.getFoodData().setFoodLevel(20); }
+        if (t[0] == 36) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1773: the watchdog's drowning way: {}", com.claudemod.entity.life.Watchdog.drowningOutForTest(c)); // (live: it fired as he came up empty, and its walk pressed jump against the reflex's dive)
+        if (t[0] == 34) out1773 = 0; if (t[0] > 34 && out1773 == 0 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) out1773 = t[0] - 34;
+        boolean breathing = t[0] > 38 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 34 + 20 * 8) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + " pose " + c.getPose() + ", task " + c.currentTask;
+            float hp = c.getHealth(); boolean near = c.getX() - at.getX() < 11;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = 7; x <= 31; x++) for (int z = 0; z <= 5; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && near && hp >= 14 && out1773 > 0 && out1773 <= 60, "the air two cells off round the corner, arriving out of air, not reached in 3 s with health to spare (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1773);
+            pass(stage, t, "out of air, round the corner, eyes out of the water in " + out1773 + " ticks, health " + hp);
         }
         return true;
     }

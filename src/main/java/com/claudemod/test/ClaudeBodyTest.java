@@ -10607,6 +10607,7 @@ public final class ClaudeBodyTest {
             case 1767: return st1767(stage, t, c, h, level, mock);
             case 1768: return st1768(stage, t, c, h, level, mock);
             case 1769: return st1769(stage, t, c, h, level, mock);
+            case 1770: return st1770(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34479,6 +34480,30 @@ public final class ClaudeBodyTest {
             check(wallBack, "his wall at " + s1271Wall.toShortString() + " not put back behind him");
             check(s <= 6, "back through one cut of his wall: " + s + " s (a player ~3)");
             pass(stage, t, "back through his own cut and patched in " + s + " s"); }
+        return true;
+    }
+    /** Stage 1770 (D2D, death 43, live 04:11 11-18 at -33,17,-729: low on air in the flooded cave, food 5 (no sprint, so no swim pose), the way back to air west along a 2-high tunnel; his way-back search stepped him across at his own height, the tunnel's top cell with rock over it, and he pressed his head into the rock 10 s and drowned). A water chamber, its air past a 2-high tunnel: he sinks into the tunnel and swims through to it. */
+    private static boolean st1770(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 7; x++) for (int z = -1; z <= 5; z++) for (int y = -1; y <= 7; y++) { BlockPos q = at.offset(x, y, z);
+                boolean chamber = x >= 4 && x <= 6 && z >= 2 && z <= 4 && y >= 1 && y <= 4, tunnel = x >= 0 && x <= 3 && z == 3 && (y == 1 || y == 2), pocket = x == 0 && z == 3 && y == 3; // (a chamber 4 deep; west of it a 2-high tunnel, rock over it; at its end a 1-high air pocket up over the water)
+                level.setBlock(q, (chamber || tunnel ? Blocks.WATER : pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) { c.teleportTo(at.getX() + 4.3, at.getY() + 2.3, at.getZ() + 3.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(110); c.getFoodData().setFoodLevel(5); }
+        boolean breathing = t[0] > 16 && c.getAirSupply() >= 280;
+        if (breathing || t[0] == 12 + 20 * 8) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + " air " + c.getAirSupply() + " health " + c.getHealth() + " pose " + c.getPose() + ", task " + c.currentTask;
+            float hp = c.getHealth();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -1; x <= 7; x++) for (int z = -1; z <= 5; z++) for (int y = -1; y <= 7; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); c.getFoodData().setFoodLevel(20); com.claudemod.entity.nav.Route.forgetTrail(c);
+            check(breathing && hp >= 20, "the air pocket past the 2-high tunnel not reached in 8 s on full health: " + got);
+            pass(stage, t, "down into the tunnel and through to the air in " + (t[0] - 12) + " ticks, health " + hp);
+        }
         return true;
     }
     /** Stage 1769 (D2D, death 42, live 19:13 11-17 at -34,20,-727: low on air in the flooded cave, the way to an air pocket ran down under a rock lip from the cell he'd swum to; the straight swim found no cell past him that fit and gave back his own cell, so he held there jumping 10 s and drowned). Down a sealed shaft, the air a pocket past a lip at its foot: he goes under the lip to it. */

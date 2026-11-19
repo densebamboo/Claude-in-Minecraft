@@ -10611,6 +10611,7 @@ public final class ClaudeBodyTest {
             case 1771: return st1771(stage, t, c, h, level, mock);
             case 1772: return st1772(stage, t, c, h, level, mock);
             case 1773: return st1773(stage, t, c, h, level, mock);
+            case 1775: return st1775(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34521,6 +34522,29 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1775 (D2D, live 15:47-16:30 11-18 at -41,16,-725: a walk out of his wet mine row failed once, read as BLOCKED_FLUID, and that failure, and the same for every walk out after it, was skipped "nothing changed since" for as long as he stood where they failed, which, every way out skipped, was for good: 45 min in one spot). A walk on record failed from where he stands, the way open, his plan sending him there again and again: he tries it again and gets there. */
+    private static boolean st1775(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8)), to = at.offset(7, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 5) {
+            for (int x = -1; x <= 9; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 3; y++) level.setBlock(at.offset(x, y, z), (z == 0 && x >= 0 && x <= 8 && (y == 1 || y == 2) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(at.getX() + 0.5, at.getY() + 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        }
+        if (t[0] == 10) { c.attempts.forget(com.claudemod.entity.life.Attempts.Kind.WALK, to); c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, to, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_FLUID, "water at " + at.offset(1, 1, 0).toShortString()); } // (the live record: a walk failed from where he stands, its water since gone or never in the way)
+        if (t[0] > 10 && t[0] % 20 == 0 && !(c.currentTask instanceof Task.GoTo) && c.tasks.stream().noneMatch(q -> q instanceof Task.GoTo)) c.tasks.addFirst(new Task.GoTo(to, 0.9)); // (his plan, sending him there again)
+        boolean there = t[0] > 12 && c.blockPosition().distSqr(to) <= 1;
+        if (there || t[0] == 10 + 20 * 300) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + ", task " + c.currentTask;
+            int took = t[0] - 10;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.forget(com.claudemod.entity.life.Attempts.Kind.WALK, to);
+            for (int x = -1; x <= 9; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5);
+            check(there, "the walk his plan keeps sending him on, on record failed from where he stands, never tried again in 5 min: " + got);
+            pass(stage, t, "tried again and there in " + took + " ticks");
         }
         return true;
     }

@@ -10612,6 +10612,7 @@ public final class ClaudeBodyTest {
             case 1772: return st1772(stage, t, c, h, level, mock);
             case 1773: return st1773(stage, t, c, h, level, mock);
             case 1775: return st1775(stage, t, c, h, level, mock);
+            case 1776: return st1776(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34522,6 +34523,28 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1776 (D2D, live 15:49-16:30 and 23:31-23:40 11-18 at -41,16,-725: his 1-wide mine row, water dripping in at its west end and running along the floor, an open pocket in the wall beside him; the flow (0.89, -0.45) pushed him sideways 0.0063 a tick while he aimed at the node alone, onto the pocket's far corner; the corner rule steered him back to the middle, west again, drifted again: 300 deg spins, no headway in 10 min, at food 20 too). The row as it was, him where he stood: he walks out west. */
+    private static boolean st1776(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8)), to = at.offset(0, 1, 2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.noteFoodTrip(c); }
+        if (t[0] == 5) {
+            for (int x = -1; x <= 10; x++) for (int z = 0; z <= 4; z++) for (int y = 0; y <= 4; y++) { BlockPos q = at.offset(x, y, z);
+                boolean row = z == 2 && x >= 0 && x <= 9 && (y == 1 || y == 2), pocket = z == 1 && (x == 4 || x == 5) && (y == 1 || y == 2), drip = z == 2 && x == 2 && y == 3; // (x -45.., z -727..: the row is z -725, the pocket -41..-40 at z -726, the drip over -43)
+                level.setBlock(q, (drip ? Blocks.WATER : row || pocket ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 3); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 80) { c.teleportTo(at.getX() + 4.44, at.getY() + 1, at.getZ() + 2.17); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.getFoodData().setFoodLevel(5); com.claudemod.director.ClaudeLife.noteFoodTrip(c); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(to, 0.9)); } // (where he stood live: -40.56, -724.83; food 5)
+        boolean there = t[0] > 82 && c.blockPosition().distSqr(to) <= 1;
+        if (there || t[0] == 80 + 20 * 30) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + ", task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - 80;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getFoodData().setFoodLevel(20);
+            for (int x = -1; x <= 10; x++) for (int z = 0; z <= 4; z++) for (int y = 0; y <= 4; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5);
+            check(there && took <= 20 * 15, "out of the wet row west past the drip, 4 cells, not in 15 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "out of the wet row past the drip in " + took + " ticks");
         }
         return true;
     }

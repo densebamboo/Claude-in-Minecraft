@@ -358,6 +358,11 @@ public final class Controls {
             float scale = (float) Mth.clamp(speed, 0.2, 1.0);
             if (p.isShiftKeyDown() || p.isVisuallyCrawling()) scale *= 0.3f;        // sneaking (and crawling under a low ceiling) is slow, the same as the vanilla client
             if (p.isUsingItem()) scale *= 0.2f;           // using something (a shield up, eating) is slower still, the same as the vanilla client
+            if (p.isInWater() && !p.isSwimming()) { // a current: aim into it, so his way over the ground (his push plus the water's) points where he's going, as a player steers across one (aimed at the node alone the drip's flow carried him sideways onto a wall pocket's corner in his wet mine row, food 5, stage 1776)
+                Vec3 push = currentPush(p), w = new Vec3(walk.x, 0, walk.z).normalize(); double a = 0.0196 * Math.min(1.0, walk.length() * scale); // (vanilla's water walk: 0.02 a tick per unit of input, input x0.98)
+                Vec3 perp = push.subtract(w.scale(push.dot(w))); double s = Math.min(0.95, perp.length() / a);
+                if (s > 1e-3) walk = w.scale(Math.sqrt(1 - s * s)).subtract(perp.normalize().scale(s)).scale(walk.length());
+            }
             p.zza = (float) (walk.x * fx + walk.z * fz) * scale;
             p.xxa = (float) (walk.x * rx + walk.z * rz) * scale;
             // a player sprints wherever he's going (the user: sprinting and sprint-jumping are the default), walks only for the last couple of blocks, sneaking, eating, a shield up, or an empty stomach
@@ -395,6 +400,17 @@ public final class Controls {
         }
         p.setJumping(jumpNow);
         if (jump.pressed() && !jumpNow && jumpOff != null) { if (jumpTaken == null) jumpTaken = new java.util.HashMap<>(); jumpTaken.put(p.getUUID(), p.tickCount + "|" + jumpOff); }
+    }
+
+    /** The water's push on him this tick, flat, as vanilla works it out for a player (Entity.updateFluidHeightAndDoFluidPushing): the flows of the water cells his box is in, averaged, x0.014. */
+    static Vec3 currentPush(Player p) {
+        var b = p.getBoundingBox().deflate(0.001); Vec3 sum = Vec3.ZERO; int k = 0;
+        for (var q : net.minecraft.core.BlockPos.betweenClosed(Mth.floor(b.minX), Mth.floor(b.minY), Mth.floor(b.minZ), Mth.ceil(b.maxX) - 1, Mth.ceil(b.maxY) - 1, Mth.ceil(b.maxZ) - 1)) {
+            var fs = p.level().getFluidState(q); if (!fs.is(net.minecraft.tags.FluidTags.WATER)) continue;
+            double d = q.getY() + fs.getHeight(p.level(), q) - b.minY; if (d < 0) continue;
+            Vec3 f = fs.getFlow(p.level(), q); sum = sum.add(d < 0.4 ? f.scale(d) : f); k++;
+        }
+        return k == 0 ? Vec3.ZERO : new Vec3(sum.x, 0, sum.z).scale(0.014 / k);
     }
 
     /** In shallow water, head out and the bottom right under him: a player just stands and walks there (full mining speed). */

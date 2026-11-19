@@ -10617,6 +10617,7 @@ public final class ClaudeBodyTest {
             case 1778: return st1778(stage, t, c, h, level, mock);
             case 1779: return st1779(stage, t, c, h, level, mock);
             case 1780: return st1780(stage, t, c, h, level, mock);
+            case 1781: return st1781(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34527,6 +34528,39 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    private static int c1781Built = -1, c1781Go = -1; private static float c1781Low = 20f;
+    private static boolean st1781(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        W15 w = w15(level, "w17_cave1420");
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1781Built = -1; c1781Go = -1; c1781Low = 20f; }
+        if (t[0] >= 5 && c1781Built < 0 && w15Slice(level, w, t[0] - 5)) c1781Built = t[0];
+        if (c1781Built < 0) return true;
+        for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(w.x0(), w.y0(), w.z0(), w.x1() + 1, w.y1() + 1, w.z1() + 1))) m.discard(); // (his cave alone: nothing spawned in its dark)
+        int t0 = c1781Built + 10;
+        if (t[0] == t0) {
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 8));
+            for (int z : new int[] {-733, -729, -725, -721, -717}) for (int x = -46; x <= (z == -721 ? -27 : -20); x++) for (int y = 16; y <= 17; y++) c.mineCells.add(new BlockPos(x, y, z)); // (his mine's cells in the box, from the live save: the y 16 branches)
+            for (int[] q : new int[][] {{-41, -726}, {-41, -718}, {-40, -726}, {-40, -718}, {-39, -722}, {-38, -726}, {-38, -722}, {-37, -726}, {-34, -722}, {-33, -722}}) for (int y = 16; y <= 17; y++) c.landingCells.add(new BlockPos(q[0], y, q[1]));
+            c.teleportTo(level, -34.5, 12.1, -730.5, -90, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.setAirSupply(300);
+            for (BlockPos q : new BlockPos[] {new BlockPos(-32, 14, -729), new BlockPos(-30, 15, -730), new BlockPos(-29, 17, -731), new BlockPos(-25, 20, -730), new BlockPos(-21, 20, -729)}) c.tasks.add(new Task.GoTo(q, 1.0)); // (his live way up and out east, 12:27:21-31: his trail)
+        }
+        if (t[0] <= t0) return true;
+        if (c1781Go < 0 && (c.blockPosition().distSqr(new BlockPos(-21, 20, -729)) <= 2 || t[0] == t0 + 600)) { c1781Go = t[0]; c.setAirSupply(60); c.setHealth(20f);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(new BlockPos(-15, 20, -727), 4.0)); c.tasks.add(new Task.Break(new BlockPos(-16, 20, -727)));
+            c.teleportTo(level, -30.85, 19.80, -728.24, 152, 25); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setSprinting(false); c.setSwimming(false); c.setPose(net.minecraft.world.entity.Pose.STANDING); } // (where he was pinned live, 14 s before the end, air 30 there: his trail in from below, the iron 15 on)
+        if (c1781Go < 0) return true;
+        c1781Low = Math.min(c1781Low, c.getHealth());
+        boolean breathed = c.getAirSupply() >= 280 && t[0] > c1781Go + 20;
+        if (breathed || !c.isAlive() || c1781Low < 14 || t[0] == c1781Go + 20 * 15) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", air " + c.getAirSupply() + ", alive " + c.isAlive() + ", lowest health " + c1781Low + ", task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - c1781Go;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20f); c.setAirSupply(300); c.mineCells.clear(); c.landingCells.clear();
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(breathed && c1781Low >= 14, "air low out in his flooded mine (death 1420): his breath back at the air close by, health 14+, in 15 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "his breath back in " + took + " ticks, lowest health " + c1781Low);
         }
         return true;
     }

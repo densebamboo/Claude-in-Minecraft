@@ -1012,7 +1012,7 @@ public class WorkGoal extends Goal {
         if (plan == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude blockage] no way to {} from {} even with his own rules bent: the world or a hard rule blocks it (WorkGoal.bendWay)", pos.toShortString(), feet.toShortString()); return false; }
         var bent = com.claudemod.entity.nav.ActionPath.lastBent;
         java.util.List<BlockPos> back = new java.util.ArrayList<>();
-        for (var e : bent.entrySet()) if (!e.getValue().startsWith("the tree rule")) back.add(e.getKey()); // (a log isn't his work to put back)
+        for (var e : bent.entrySet()) { if (e.getValue().startsWith(com.claudemod.entity.nav.ActionPath.BY_HAND)) punchThrough().add(e.getKey().immutable()); else if (!e.getValue().startsWith("the tree rule")) back.add(e.getKey()); } // (a log isn't his work to put back; nor rock he punched his way out through, and the dig goes by hand: doBreak re-tools a pick block otherwise)
         var tasks = new java.util.ArrayList<>(com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, within, (ServerLevel) g.level()));
         net.minecraft.world.item.Item patch = scaff.isEmpty() || scaff.is(net.minecraft.world.item.Items.DIRT) ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(); // shortcut: patched with his scaffold block, not the block's own kind; match it when a patch's look matters
         java.util.List<Task.Place> patches = new java.util.ArrayList<>();

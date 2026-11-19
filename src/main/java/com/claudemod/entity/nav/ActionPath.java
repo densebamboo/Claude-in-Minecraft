@@ -503,6 +503,8 @@ public final class ActionPath {
     private record Move(BlockPos feet, double cost, List<Act> acts) {}
 
     /** What each move costs here, with what he has and what he is allowed. */
+    /** The bend a dig with no tool for the block makes (MAY_BEND only): the walker digs those by hand. */
+    public static final String BY_HAND = "stone by hand (no tool for it, nothing drops)";
     private static final class Costs {
         // the world as this plan reads it, each cell once (it doesn't change while he plans): block lookups were most of a plan's time (JFR on stage 637: chunk and palette reads under passable/door/water/solid), the 500 ms cap hit at 512-1024 nodes live (reviews 536, 689)
         private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockState> stateMemo = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(4096);
@@ -666,9 +668,9 @@ public final class ActionPath {
             boolean right = !s.requiresCorrectToolForDrops();
             float speed = 1f; // bare hands
             for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.isEmpty()) continue; speed = Math.max(speed, it.getDestroySpeed(s)); if (!right && it.isCorrectToolForDrops(s)) right = true; }
-            if (!right) return -1; // the user: stone with bare hands is no way (7.5 s a block, nothing drops): round it, dirt, or a block put down
+            if (!right) { if (mode != Mode.MAY_BEND) return -1; bend = bend == null ? BY_HAND : bend + "; " + BY_HAND; } // the user: stone with bare hands is no way (7.5 s a block, nothing drops): round it, dirt, or a block put down; the last way only, shut in with no tool, a player punches out (live 06:02 11-19, stage 1780)
             float hard = s.getDestroySpeed(level, p);
-            float prog = hard <= 0 ? 1f : speed / hard / 30f; // (the best tool on him: the dig equips it; what's in his hand at planning time was the old price)
+            float prog = hard <= 0 ? 1f : speed / hard / (right ? 30f : 100f); // (vanilla: a block that wants a tool breaks at a third the speed without it) // (the best tool on him: the dig equips it; what's in his hand at planning time was the old price)
             if (prog <= 0) return -1;
             double sec = Math.min(10, 1.0 / (prog * 20)) + (structure(p) ? 40 : 0); // a structure's own block: very dear (round it, its doorway, a bridge); dug only with no way round, and put back (tasks)
             if (mode == Mode.MAY_REOPEN || mode == Mode.MAY_CUT_SHELL) { int r = reopenable(g, level, p); if (r == 1) return sec + 1.5; if (r == 2) return sec + 2.5; if (mode == Mode.MAY_CUT_SHELL && bp && g.blueprint.isShell(p)) return sec + 9; sec += 3; } // (a cut through his virgin shell: the dearest dig, only where nothing cheaper gets there) // reopening: his own patch at a modest price, the shell cell under/over it a bit more, virgin rock always dearer (04:25 a 30-block cut round a patch)

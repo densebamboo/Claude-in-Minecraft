@@ -10616,6 +10616,7 @@ public final class ClaudeBodyTest {
             case 1777: return st1777(stage, t, c, h, level, mock);
             case 1778: return st1778(stage, t, c, h, level, mock);
             case 1779: return st1779(stage, t, c, h, level, mock);
+            case 1780: return st1780(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34526,6 +34527,29 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1780 (D2D, live 06:02-06:10 11-19 at -39,10,-733: no tool, he had swum into a cell off a flooded cave, stood up in it, and with his eyes out of the water there was no swim back out; rock all round: "no way even with his own rules bent", 1 cell reached, for good. Stone by bare hands was no way at all, not even the last one; a player shut in punches out, 7.5 s a block). Shut in rock with nothing on him, a tunnel one wall off: he punches through. */
+    private static boolean st1780(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8)), to = at.offset(4, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 5) {
+            for (int x = -1; x <= 6; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 3; y++) { BlockPos q = at.offset(x, y, z);
+                boolean open = z == 0 && (y == 1 || y == 2) && (x == 0 || x >= 2 && x <= 5); // (his cell at x 0, the tunnel x 2..5, one stone wall between at x 1)
+                level.setBlock(q, (open ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(at.getX() + 0.5, at.getY() + 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        }
+        if (t[0] == 20) c.tasks.addFirst(new Task.GoTo(to, 0.9));
+        boolean there = t[0] > 22 && c.blockPosition().distSqr(to) <= 1;
+        if (there || t[0] == 20 + 20 * 90) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + ", task " + c.currentTask + ", queue " + c.tasks.size() + ", wall " + level.getBlockState(at.offset(1, 1, 0)).getBlock().getName().getString() + "/" + level.getBlockState(at.offset(1, 2, 0)).getBlock().getName().getString(); int took = t[0] - 20;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.forget(com.claudemod.entity.life.Attempts.Kind.WALK, to);
+            for (int x = -1; x <= 6; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5);
+            check(there && took <= 20 * 45, "shut in rock with no tool, out through the one wall by hand (2 blocks, ~15 s), not in 45 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "punched out in " + took + " ticks");
         }
         return true;
     }

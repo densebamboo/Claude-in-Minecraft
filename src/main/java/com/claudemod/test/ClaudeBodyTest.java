@@ -10613,6 +10613,7 @@ public final class ClaudeBodyTest {
             case 1773: return st1773(stage, t, c, h, level, mock);
             case 1775: return st1775(stage, t, c, h, level, mock);
             case 1776: return st1776(stage, t, c, h, level, mock);
+            case 1777: return st1777(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34523,6 +34524,29 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1777 (D2D death 05:24 11-19, live at -34,19,-725: night in a cave 700 blocks from home, no armor; the bed he had just set down beside him passed over, the sleep skill's walk limit read "geared for the night or lit up" off the cave he stood in (sky light 0) and gave him the whole night's walk: 746 blocks to his house bed, up and out over open ground, a skeleton's arrows and two creepers). Sealed in rock at 3 HP, no armor, night, his bed 31 off out in the open: no walk out to it. */
+    private static boolean st1777(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) sleepReset(c, level);
+        if (t[0] == 5) sleepTickets(h, level);
+        if (t[0] == 10) {
+            sleepArena(h, level);
+            for (int x = 2; x <= 6; x++) for (int z = 6; z <= 10; z++) for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (x == 4 && z == 8 && y <= 3 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            sleepHis = sleepBed(level, h.absolutePos(new BlockPos(34, 2, 8)), net.minecraft.core.Direction.EAST); c.myStations.add(sleepHis);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); level.setDayTime(13500); c.prefs.put("stay_close", "no"); c.setHealth(3); c.commandActive = false; // (his own sleep, the sundown rule's: no order of theirs)
+        }
+        if (t[0] == 40) {
+            int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, c.blockPosition()); c.setHealth(3); // (his food healed him 2 since: at 3 HP one hit in the open is death, priced over a night here)
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "sleep", "", 1);
+            boolean walk = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(sleepHis) <= 9);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.myStations.remove(sleepHis);
+            for (int x = 2; x <= 6; x++) for (int z = 6; z <= 10; z++) for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(sky < 4, "the setup: he should be sealed in rock, sky light " + sky);
+            check(!walk && !r.startsWith("heading to"), "3 HP, no armor, night: a walk out over open ground to his bed 31 off, the cave he stood in read as cover for it: " + r);
+            pass(stage, t, "sealed in at 3 HP, night: \"" + r + "\"");
         }
         return true;
     }

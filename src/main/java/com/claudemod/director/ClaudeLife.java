@@ -886,12 +886,13 @@ public final class ClaudeLife {
      * dusk, 35 into it at dark): their order, or geared / lit up for the night: any bed he reaches by morning; his own sleep with no
      * gear: what he covers before dark (the game's first surface spawns), after dark the night rule's own range.
      */
-    static double bedWalkBudget(ClaudeEntity g, ServerLevel level, String[] why) {
+    static double bedWalkBudget(ClaudeEntity g, ServerLevel level, String[] why, BlockPos bed) {
         long tod = level.getDayTime() % 24000L;
         double perTick = g.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).getBaseValue() * 2.158 * 1.3; // blocks a tick, sprinting (base 0.1: 5.6 a second)
         long light = tod >= 12542 ? 23460 - tod : 23460 - 12542; // till the game wakes him
         if (g.commandActive) { why[0] = "their order: a bed I reach by morning, " + light / 20 + " s off"; return light * perTick; }
-        if (nightGearNo(g, level, g.blockPosition()) == null) { why[0] = "geared for the night or lit up: a bed I reach by morning"; return light * perTick; }
+        boolean covered = g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) && g.blueprint.touches(bed); // the cover where he stands counts only for a walk that stays down his own mine (D2D death 05:24 11-19: a cave read as cover gave him 746 blocks over open ground; stage 1777)
+        if (nightGearNo(g, level, g.blockPosition(), covered) == null) { why[0] = "geared for the night or lit up: a bed I reach by morning"; return light * perTick; }
         // not geared: the farthest walk priced under a night in a hole here (the hits he'd expect on it, his health; Decide.walkS), not a clock cutoff (the user 11-05: a bed or his mine most nights, the hole last)
         int hostiles = com.claudemod.entity.life.Decide.hostilesKnown(g); double hole = com.claudemod.entity.life.Decide.holeS(tod), w = 0;
         while (w + 5 <= light / 20.0 && com.claudemod.entity.life.Decide.walkS(g, level, tod, w + 5, hostiles) <= hole) w += 5;
@@ -1114,7 +1115,8 @@ public final class ClaudeLife {
         }
         String others = "";
         for (var e : walked.entrySet()) if (!e.getKey().equals(best)) others += "; " + (beds.get(e.getKey()) ? "my bed" : "the free bed") + " at " + e.getKey().toShortString() + " is " + e.getValue().intValue();
-        { String[] bw = {""}; double budgetW = bedWalkBudget(g, level, bw);
+        String[] bw = {""}; double budgetW = best == null ? 0 : bedWalkBudget(g, level, bw, best);
+        {
           if (best != null && bestW > budgetW) { String nm = (beds.get(best) ? "my bed" : "the free bed") + " at " + best.toShortString(); why.add(nm + " is " + (int) bestW + " blocks of walk, more than the " + (int) budgetW + " I have (" + bw[0] + ")"); ClaudeMod.LOGGER.info("[Claude life] sleep: {} is {} blocks of walk, more than the {} he has ({}): not that one (ClaudeLife.sleepSkill)", nm, (int) bestW, (int) budgetW, bw[0]); best = null; } }
         if (best != null && !(packBed && bestW > 64)) { // (a pack bed set down here beats a walk of 64+ in the dark)
             String name = (beds.get(best) ? "my bed" : "the free bed") + " at " + best.toShortString();
@@ -1126,7 +1128,7 @@ public final class ClaudeLife {
             g.tasks.add(new Task.GoTo(best, 1.5));
             g.skillQueue.addFirst(new Skills.Step("sleep", "at " + best.getX() + " " + best.getY() + " " + best.getZ(), 1));
             String inMine = g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(best) ? (g.blueprint.touches(g.blockPosition()) ? ": his nook bed, the walk down his own mine under cover" : ": his nook bed, " + (int) Math.sqrt(g.blockPosition().distSqr(g.blueprint.entrance)) + " to his mine's entrance, then down it under cover") : ""; // (where the walk goes, said: D2D review 80 11-10 read 130 blocks down his mine as a walk through the dusk)
-            ClaudeMod.LOGGER.info("[Claude life] sleep: to {} ({} blocks of walk{}{})", name, (int) bestW, inMine, others);
+            ClaudeMod.LOGGER.info("[Claude life] sleep: to {} ({} blocks of walk{}{}; the most I'd walk {}: {}){}", name, (int) bestW, inMine, others, (int) budgetW, bw[0], why.isEmpty() ? "" : "; passed over: " + String.join("; ", why));
             return "heading to " + name + " to sleep (" + (int) bestW + " blocks of walk" + others + ")";
         }
         if (packBed) { // none to walk to: the one in his pack, set down where it's closed in

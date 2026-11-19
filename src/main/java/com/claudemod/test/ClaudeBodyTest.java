@@ -10615,6 +10615,7 @@ public final class ClaudeBodyTest {
             case 1776: return st1776(stage, t, c, h, level, mock);
             case 1777: return st1777(stage, t, c, h, level, mock);
             case 1778: return st1778(stage, t, c, h, level, mock);
+            case 1779: return st1779(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34525,6 +34526,30 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); c.setAirSupply(300); c.setHealth(20); com.claudemod.entity.nav.Route.forgetTrail(c);
             check(breathing && near && hp >= 20 && out1771 > 0 && out1771 <= 60, "the air two cells off round the corner not reached in 3 s on full health (the tunnel's air is 20 back): " + got + ", eyes out at tick " + out1771);
             pass(stage, t, "round the corner, eyes out of the water in " + out1771 + " ticks, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 1779 (D2D, live 05:50 11-19 at -43,12,-734: no pick, he had come down a 1-wide waterfall (-46,16..13,-727) into a cave pocket closed all round, 114 cells; the planner had no move up through water, so the waterfall he came down was no way back: "no way: every cell reachable tried"). A room whose one way out is a 1-wide waterfall 5 up: he swims up it, like a player holding jump. */
+    private static boolean st1779(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8)), to = at.offset(3, 6, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 5) {
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 8; y++) { BlockPos q = at.offset(x, y, z);
+                boolean room = z == 0 && x >= 0 && x <= 4 && (y == 1 || y == 2), shaft = z == 0 && x == 0 && y >= 3 && y <= 7, ledge = z == 0 && x >= 1 && x <= 4 && (y == 6 || y == 7);
+                level.setBlock(q, (room || shaft || ledge ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            level.setBlock(at.offset(0, 6, 0), Blocks.WATER.defaultBlockState(), 3); // (the waterfall's source at its top: it falls down the shaft into the room and runs over its floor)
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(at.getX() + 3.5, at.getY() + 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        }
+        if (t[0] == 60) c.tasks.addFirst(new Task.GoTo(to, 0.9));
+        boolean there = t[0] > 62 && c.blockPosition().distSqr(to) <= 1;
+        if (there || t[0] == 60 + 20 * 60) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + ", task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - 60;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.forget(com.claudemod.entity.life.Attempts.Kind.WALK, to);
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 8; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5);
+            check(there && took <= 20 * 20, "up the 1-wide waterfall, the room's one way out, not in 20 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "up the waterfall in " + took + " ticks");
         }
         return true;
     }

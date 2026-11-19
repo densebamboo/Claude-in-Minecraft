@@ -899,6 +899,11 @@ public final class ActionPath {
                     out.add(new Move(t.immutable(), 1.5 + failPenalty(t), acts));
                 }
             }
+            // up through water, a waterfall's falling water too: a player holds jump and swims up it (live 05:50 11-19: down a 1-wide waterfall into a pocket closed all round with no pick, and no move back up it; stage 1779)
+            if (swimming && water(feet.above()) && passable(feet.above()) && head(feet.above(2)) && !hurts(feet.above())) {
+                List<Act> acts = new ArrayList<>(); acts.add(new Act.Walk(feet.above().immutable()));
+                out.add(new Move(feet.above().immutable(), 2.0 + failPenalty(feet.above()), acts));
+            }
             // Solid footing and air above shallow water let his swim-jump clear the cell for a block.
             if (canPlace && (!swimming || floor(feet) && fs(feet.above()).isEmpty())) {
                 BlockPos up = feet.above();

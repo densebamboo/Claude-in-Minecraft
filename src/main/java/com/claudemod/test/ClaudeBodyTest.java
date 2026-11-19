@@ -10619,6 +10619,7 @@ public final class ClaudeBodyTest {
             case 1780: return st1780(stage, t, c, h, level, mock);
             case 1781: return st1781(stage, t, c, h, level, mock);
             case 1782: return st1782(stage, t, c, h, level, mock);
+            case 1783: return st1783(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34533,6 +34534,39 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1783 (D2D, death 121 live 14:33 11-19 at -85,18,-738, his flooded strip mine: out of air with water over his roof, "a dug way to the air at -87,16,-735" queued, then the swim-up reflex put the job he'd been doing (a shell patch, Place -79,16,-736, 5 off and out of reach) back in front of it; the place ran, "the dug way got him no nearer in 31 ticks", the reflex queued it again, the patch in front again, every 1.5 s for 20 s, 20 -> 0). Under water, water over the roof, the air behind a wall, a slow dig his job: the first thing he does is the way to the air, and he gets his breath back. */
+    private static String c1783First = "", c1783Doing = ""; private static int c1783Fired = -1; private static float c1783Low = 20f;
+    private static boolean st1783(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8)), job = at.offset(1, 1, -1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1783First = ""; c1783Doing = ""; c1783Fired = -1; c1783Low = 20f; }
+        if (t[0] == 5) {
+            for (int x = -8; x <= 13; x++) for (int z = -8; z <= 8; z++) for (int y = -3; y <= 10; y++) { BlockPos q = at.offset(x, y, z); // (sealed 8 round: no other air in his reach)
+                boolean wet = z == 0 && x >= 0 && x <= 2 && (y == 1 || y == 2 || y == 4), dry = z == 0 && (x == 4 || x == 5) && (y == 1 || y == 2); // (a flooded 2-high cell, rock roof at y 3 with water over it, the air past a 1-thick wall at x 3)
+                level.setBlock(q, (wet ? Blocks.WATER : dry ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+           
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(at.getX() + 1.5, at.getY() + 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setAirSupply(300);
+        }
+        if (t[0] == 20) c.tasks.addFirst(new Task.Break(job)); // (his job, one that holds him: the tunnel's side wall, 5x slow under water; live it was a shell patch out of reach)
+        if (t[0] == 30) { c1783Doing = String.valueOf(c.currentTask); c.setAirSupply(119); }
+        if (t[0] < 30) return true;
+        c1783Low = Math.min(c1783Low, c.getHealth());
+        if (c1783Fired < 0 && com.claudemod.entity.life.Watchdog.airRoute(c)) c1783Fired = t[0];
+        if (c1783Fired > 0 && t[0] == c1783Fired + 3) c1783First = String.valueOf(c.currentTask);
+        boolean breathed = c.getAirSupply() >= 280 && t[0] > 30;
+        if (breathed || !c.isAlive() || c1783Low < 10 || t[0] == 30 + 20 * 25) {
+            String got = "doing " + c1783Doing + " when his air dropped; first after the way was queued: " + c1783First + "; at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + ", air " + c.getAirSupply() + ", lowest health " + c1783Low + ", task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - 30;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20f); c.setAirSupply(300);
+            for (int x = -8; x <= 13; x++) for (int z = -8; z <= 8; z++) for (int y = -3; y <= 10; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(c1783Fired > 0, "under water with the air behind a wall: a dug way to it queued: " + got);
+            check(!c1783First.equals(String.valueOf(new Task.Break(job))), "the way to the air first, not the job he was on: " + got);
+            check(breathed && c1783Low >= 10, "his breath back through the wall, health 10+, in 25 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "the way to the air first (" + c1783First + "), breath back in " + took + " ticks, lowest health " + c1783Low);
+        }
+        return true;
+    }
     /** Stage 1782 (D2D, death 1488 live 12:45 11-19 at -30,14,-727: back in the same flooded mine for the 1420 drops (the save at 12:50, his plugs since in it). Air 119 at -29,18,-730, "coming up to breathe", down to -30,15,-727 (out of air there): "no air in sight: back the way he came, toward -30,14,-727 (air over -31,14,-726)", two cells off past a 1-high flooded gap; his body held a jump to float (the step there diagonal: the rock over its two side cells unseen) and the dive and the jump cancelled out at the rock over the gap, bobbing between y 14 and 15 for 12 s, 20 -> 0). Out of air where he was pinned: through the gap, his breath back, health 14+. */
     private static final int[] c1782Built = {-1}; private static int c1782Go = -1; private static float c1782Low = 20f;
     private static boolean st1782(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

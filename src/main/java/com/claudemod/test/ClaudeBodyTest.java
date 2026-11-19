@@ -10614,6 +10614,7 @@ public final class ClaudeBodyTest {
             case 1775: return st1775(stage, t, c, h, level, mock);
             case 1776: return st1776(stage, t, c, h, level, mock);
             case 1777: return st1777(stage, t, c, h, level, mock);
+            case 1778: return st1778(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34527,6 +34528,29 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1778 (D2D, live 05:25-05:40 11-19 at -45,13,-730: respawned with nothing, he went down a waterfall into a flooded pocket; east of him the water ran on under a stone ceiling, a 1-high gap. The planner read his feet in water as swimming and routed him through it, but with his eyes out of the water a player can't go into a swim and doesn't fit: the walker found no way, the walk was written off as BLOCKED_FLUID, and the plan sent him at it again for 15 min). A 1-deep pool with the gap in it and a way round: he takes the way round. */
+    private static boolean st1778(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(1, 4, 8)), to = at.offset(8, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 5) {
+            for (int x = -1; x <= 9; x++) for (int z = -1; z <= 3; z++) for (int y = 0; y <= 3; y++) { BlockPos q = at.offset(x, y, z);
+                boolean row = z == 0 && x >= 0 && x <= 8 && (y == 1 || y == 2 && x != 4), round = (y == 1 || y == 2) && ((x == 1 || x == 7) && z >= 0 && z <= 2 || z == 2 && x >= 1 && x <= 7); // (the row's ceiling drops to y 2 at x 4: a 1-high gap, the pool's water in it)
+                level.setBlock(q, (row && y == 1 && x >= 2 && x <= 6 ? Blocks.WATER : row || round ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(at.getX() + 3.5, at.getY() + 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        }
+        if (t[0] == 40) c.tasks.addFirst(new Task.GoTo(to, 0.9));
+        boolean there = t[0] > 42 && c.blockPosition().distSqr(to) <= 1;
+        if (there || t[0] == 40 + 20 * 60) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX() - at.getX(), c.getY() - at.getY(), c.getZ() - at.getZ()) + ", task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - 40;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.forget(com.claudemod.entity.life.Attempts.Kind.WALK, to);
+            for (int x = -1; x <= 9; x++) for (int z = -1; z <= 3; z++) for (int y = 0; y <= 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5);
+            check(there && took <= 20 * 30, "past the 1-high flooded gap he can't swim into (eyes out of the water), by the way round, not in 30 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "round the flooded gap in " + took + " ticks");
+        }
+        return true;
+    }
     /** Stage 1777 (D2D death 05:24 11-19, live at -34,19,-725: night in a cave 700 blocks from home, no armor; the bed he had just set down beside him passed over, the sleep skill's walk limit read "geared for the night or lit up" off the cave he stood in (sky light 0) and gave him the whole night's walk: 746 blocks to his house bed, up and out over open ground, a skeleton's arrows and two creepers). Sealed in rock at 3 HP, no armor, night, his bed 31 off out in the open: no walk out to it. */
     private static boolean st1777(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) sleepReset(c, level);
@@ -34542,7 +34566,7 @@ public final class ClaudeBodyTest {
             int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, c.blockPosition()); c.setHealth(3); // (his food healed him 2 since: at 3 HP one hit in the open is death, priced over a night here)
             String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "sleep", "", 1);
             boolean walk = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(sleepHis) <= 9);
-            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.myStations.remove(sleepHis);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.myStations.remove(sleepHis); level.setDayTime(6000); level.setBlock(sleepHis, Blocks.AIR.defaultBlockState(), 2); level.setBlock(sleepHis.west(), Blocks.AIR.defaultBlockState(), 2); // (day again and the bed gone: the next stage's night rule walked him to it)
             for (int x = 2; x <= 6; x++) for (int z = 6; z <= 10; z++) for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
             check(sky < 4, "the setup: he should be sealed in rock, sky light " + sky);
             check(!walk && !r.startsWith("heading to"), "3 HP, no armor, night: a walk out over open ground to his bed 31 off, the cave he stood in read as cover for it: " + r);

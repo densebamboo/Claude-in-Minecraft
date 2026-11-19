@@ -697,7 +697,7 @@ public final class ActionPath {
         /** Every move from here: 4 ways flat / one up / down to 3, a door opened on the way, up or down a ladder, straight up a block (placed under him), each with the digs and placements it takes. */
         List<Move> moves(BlockPos feet) {
             List<Move> out = new ArrayList<>();
-            boolean swimming = water(feet);
+            boolean swimming = water(feet), underWater = swimming && (water(feet.above()) || !passable(feet.above())); // (into a swim takes his eyes under water, or he's swimming a flooded 1-high gap already: wading with his head out he doesn't fit one, live 05:25-05:40 11-19, stage 1778)
             for (Direction d : Direction.Plane.HORIZONTAL) {
                 BlockPos ahead = feet.relative(d);
                 // flat, or one up, or down 1..3: the cell he ends up standing in
@@ -712,7 +712,7 @@ public final class ActionPath {
                     else if (dy == 0) { through.add(ahead); through.add(ahead.above()); }
                     else { through.add(ahead); through.add(ahead.above()); for (int k = -1; k >= dy; k--) through.add(ahead.above(k)); }
                     for (BlockPos q : through) {
-                        if (swimming && dy == 0 && q.equals(ahead.above()) && water(ahead) && !passable(q)) { cost += 2.0; continue; } // a flooded 1-high gap: swum through flat, like a player
+                        if (underWater && dy == 0 && q.equals(ahead.above()) && water(ahead) && !passable(q)) { cost += 2.0; continue; } // a flooded 1-high gap: swum through flat, like a player
                         if (door(q) && !doorOpen(q) && dy == 0) { cost += 1.5; acts.add(new Act.Door(q.immutable())); continue; } // a closed door or gate: opened on the way
                         if (q.equals(t.above()) || q.equals(feet.above(2)) || dy < 0 && q.equals(ahead.above()) ? head(q) : passable(q)) { if (water(q)) cost += 1.5; continue; } // (a head cell: no low floor in it, a lily pad blocks him; review 143)
                         double sec = digSeconds(q);

@@ -10620,6 +10620,7 @@ public final class ClaudeBodyTest {
             case 1781: return st1781(stage, t, c, h, level, mock);
             case 1782: return st1782(stage, t, c, h, level, mock);
             case 1783: return st1783(stage, t, c, h, level, mock);
+            case 1784: return st1784(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34534,6 +34535,43 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1784 (D2D death 609, live 17:49 11-19 at -51,22,-734 by his mine, incident 20261119-174944-death-609): a creeper heard closing in unseen (12, 9, 6 off), "fight.flee ... run", "creeper 6 blocks off down here: walling it off at -51,23,-734"; the wall's placement ran his mine's patch rules, "Copper Ore at -50,23,-730 shows through the hole at -51,23,-734: mined first, then the patch", 5 digs toward the creeper (its check held quiet: his wall still queued), blown up 20 -> 0 in 5 s. A wall against a creeper is no patch: it goes in first. Here: a 1-wide tunnel over his mine, him at its end, copper in its wall 4 past its choke, a creeper coming down it. */
+    private static final java.util.Set<Long> s1784Forced = new java.util.HashSet<>(); private static double s1784Near = 99; private static net.minecraft.world.entity.monster.Creeper s1784Cr; private static int s1784T; private static float s1784Low; private static BlockPos s1784O; private static boolean s1784Dug;
+    private static boolean st1784(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1784Cr != null) s1784Cr.discard(); s1784Cr = null; s1784T = -1; s1784Low = 20; s1784Dug = false; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = nightMine(h, level); c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos o = b.rows().get(3).first().above(6); s1784O = o; // (4 tall: a tunnel 2 over his mine's roof, running south: as live, by his mine, not in it)
+            s1784Forced.clear(); for (int z = -1; z <= 13; z += 2) { BlockPos q = o.offset(0, 0, z); long k = net.minecraft.world.level.ChunkPos.asLong(q.getX() >> 4, q.getZ() >> 4); if (!level.getForcedChunks().contains(k) && s1784Forced.add(k)) level.setChunkForced(q.getX() >> 4, q.getZ() >> 4, true); } // (past the arena the creeper's chunk didn't tick: it stood where it spawned)
+            for (int x = -2; x <= 2; x++) for (int z = -1; z <= 13; z++) for (int y = -1; y <= 2; y++) { BlockPos q = o.offset(x, y, z); if (b.roleAt(q) != null) continue;
+                level.setBlock(q, (x == 0 && (y == 0 || y == 1) && z >= 0 && z <= 12 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            BlockPos ore = o.offset(1, 0, 5); level.setBlock(ore, Blocks.COPPER_ORE.defaultBlockState(), 2); com.claudemod.director.ClaudeLife.seenOre(c).add(ore.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            if (mock[0] != null) mock[0].teleportTo(o.getX() + 0.5, o.getY() + 40, o.getZ() + 6.5); // (them out of it, 40 over: 60 off left the creeper's chunk unticked, it never came)
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(180); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { var cr = EntityType.CREEPER.create(level); BlockPos at = s1784O.offset(0, 0, 11); cr.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 180, 0); s1784Near = 99; cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); s1784Cr = cr; s1784T = t[0]; }
+        if (s1784T > 0 && t[0] > s1784T) {
+            BlockPos o = s1784O; s1784Low = Math.min(s1784Low, c.getHealth()); double s = (t[0] - s1784T) / 20.0; boolean dead = !c.isAlive() || c.getHealth() <= 0, gone = s1784Cr == null || !s1784Cr.isAlive();
+            if (!gone && !level.getBlockState(o.offset(1, 0, 5)).is(Blocks.COPPER_ORE)) s1784Dug = true; if (!gone) s1784Near = Math.min(s1784Near, s1784Cr.distanceTo(c));
+            if (s1784Cr != null && s1784Cr.isAlive() && s1784Cr.getTarget() == null) s1784Cr.setTarget(c);
+            if (dead || gone || s > 15) {
+                String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); float low = s1784Low; boolean dug = s1784Dug; at += "; creeper " + (s1784Cr == null ? "none" : (s1784Cr.isAlive() ? "alive" : "gone") + String.format(" at %.1f %.1f %.1f, target %s", s1784Cr.getX() - o.getX(), s1784Cr.getY() - o.getY(), s1784Cr.getZ() - o.getZ(), s1784Cr.getTarget()));
+                boolean wall = false; for (int k = 1; k <= 4; k++) if (!level.getBlockState(o.offset(0, 0, k)).getCollisionShape(level, o.offset(0, 0, k)).isEmpty()) wall = true;
+                if (s1784Cr != null) s1784Cr.discard(); s1784Cr = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (c.isAlive()) c.setHealth(20);
+                for (int x = -2; x <= 2; x++) for (int z = -1; z <= 13; z++) for (int y = -1; y <= 2; y++) { BlockPos q = o.offset(x, y, z); if (c.blueprint == null || c.blueprint.roleAt(q) == null) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); }
+                c.blueprint = null; c.prefs.put("mine_model", "legacy"); com.claudemod.director.ClaudeLife.seenOre(c).remove(o.offset(1, 0, 5)); for (long k : s1784Forced) level.setChunkForced(net.minecraft.world.level.ChunkPos.getX(k), net.minecraft.world.level.ChunkPos.getZ(k), false); s1784Forced.clear(); // (the harness default back: left on blueprint, 1720 next never walled its creeper off)
+                check(!dead, "killed by the creeper coming down the tunnel after " + String.format("%.1f", s) + " s (at " + at + "; the copper dug first: " + dug + ")");
+                check(!dug, "the copper past his wall dug before the wall went in, toward the creeper (at " + at + ")");
+                check(s1784Near < 7, "set up: the creeper never came within 7 (closest " + String.format("%.1f", s1784Near) + "; " + at + ")");
+                check((wall || gone) && low >= 16, "the tunnel walled across against the creeper (or it spent on his wall: 1 in 44 runs it lit at the wall before the head block went in), health 16+: wall " + wall + ", lowest " + (int) low + " (at " + at + ")");
+                pass(stage, t, "walled off, the creeper came to " + String.format("%.1f", s1784Near) + ", the copper left, lowest health " + (int) low);
+            }
+        }
+        return true;
+    }
     /** Stage 1783 (D2D, death 121 live 14:33 11-19 at -85,18,-738, his flooded strip mine: out of air with water over his roof, "a dug way to the air at -87,16,-735" queued, then the swim-up reflex put the job he'd been doing (a shell patch, Place -79,16,-736, 5 off and out of reach) back in front of it; the place ran, "the dug way got him no nearer in 31 ticks", the reflex queued it again, the patch in front again, every 1.5 s for 20 s, 20 -> 0). Under water, water over the roof, the air behind a wall, a slow dig his job: the first thing he does is the way to the air, and he gets his breath back. */
     private static String c1783First = "", c1783Doing = ""; private static int c1783Fired = -1; private static float c1783Low = 20f;
     private static boolean st1783(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

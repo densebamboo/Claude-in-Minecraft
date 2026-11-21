@@ -10621,6 +10621,7 @@ public final class ClaudeBodyTest {
             case 1782: return st1782(stage, t, c, h, level, mock);
             case 1783: return st1783(stage, t, c, h, level, mock);
             case 1784: return st1784(stage, t, c, h, level, mock);
+            case 1785: return st1785(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34535,6 +34536,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1785 (D2D, death 551 live 21:55 11-19 at -41,21,-732, his flooded iron branches under the lake): a Drowned fought on 7 s of air, out of air at 14 HP, "a dug way to the air" asked for the air 4.4 off at -43,22,-729: "165 swims refused as longer under water than half his air ... 14 cells reached", "no way found", 10 s drowning, 14 -> 0. At air 0 half his air is nothing: every swim over a cell was refused, the one to the air too. A way to the air needs no way back. Here: out of air at 14 HP at the end of a flooded tunnel, the air up a shaft round a bend 8 swims off, walls he can't dig (his plugs live): the dug way is found and he gets his breath. */
+    private static int s1785T; private static float s1785Low; private static String s1785Why = "";
+    private static boolean st1785(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1785T = -1; s1785Low = 20; s1785Why = ""; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            for (int x = 1; x <= 15; x++) for (int z = 1; z <= 15; z++) for (int y = 2; y <= 13; y++) h.setBlock(new BlockPos(x, y, z), Blocks.BEDROCK); // (rock he can't dig: his plugs, live; the only way is the swim)
+            java.util.List<BlockPos> wet = new java.util.ArrayList<>(); for (int x = 8; x <= 11; x++) wet.add(new BlockPos(x, 4, 8)); for (int z = 9; z <= 11; z++) wet.add(new BlockPos(11, 4, z));
+            for (BlockPos q : wet) { h.setBlock(q, Blocks.WATER); h.setBlock(q.above(), Blocks.WATER); } // a 2-high flooded tunnel: 3 east, 3 south
+            h.setBlock(new BlockPos(11, 6, 11), Blocks.WATER); h.setBlock(new BlockPos(11, 7, 11), Blocks.WATER); h.setBlock(new BlockPos(11, 8, 11), Blocks.AIR); h.setBlock(new BlockPos(11, 9, 11), Blocks.AIR); // the shaft up to the air at its end
+            BlockPos me = h.absolutePos(new BlockPos(8, 4, 8)); c.teleportTo(me.getX() + 0.5, me.getY() + 0.1, me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 16) { c.setAirSupply(0); c.setHealth(14); s1785Why = com.claudemod.entity.life.Watchdog.drowningOutForTest(c); s1785T = t[0]; } // the moment it fired live: no air, 14 HP
+        if (s1785T > 0 && t[0] > s1785T) {
+            s1785Low = Math.min(s1785Low, c.getHealth()); boolean dead = !c.isAlive() || c.getHealth() <= 0, breathed = !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
+            if (dead || breathed || t[0] > s1785T + 200) { int took = t[0] - s1785T; BlockPos o = h.absolutePos(new BlockPos(8, 4, 8)); String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ());
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (c.isAlive()) { c.setHealth(20); c.setAirSupply(c.getMaxAirSupply()); }
+                for (int x = 1; x <= 15; x++) for (int z = 1; z <= 15; z++) for (int y = 2; y <= 13; y++) h.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+                check(s1785Why.contains("dug way"), "out of air with the air 8 swims off round a bend: no way to it planned (" + s1785Why + ")");
+                check(!dead && breathed, "drowned or still under water after " + took + " ticks (at " + at + ", lowest " + (int) s1785Low + "; " + s1785Why + ")");
+                pass(stage, t, "the way to the air planned out of air, breath back in " + took + " ticks, lowest health " + (int) s1785Low); }
+        }
+        return true;
+    }
     /** Stage 1784 (D2D death 609, live 17:49 11-19 at -51,22,-734 by his mine, incident 20261119-174944-death-609): a creeper heard closing in unseen (12, 9, 6 off), "fight.flee ... run", "creeper 6 blocks off down here: walling it off at -51,23,-734"; the wall's placement ran his mine's patch rules, "Copper Ore at -50,23,-730 shows through the hole at -51,23,-734: mined first, then the patch", 5 digs toward the creeper (its check held quiet: his wall still queued), blown up 20 -> 0 in 5 s. A wall against a creeper is no patch: it goes in first. Here: a 1-wide tunnel over his mine, him at its end, copper in its wall 4 past its choke, a creeper coming down it. */
     private static final java.util.Set<Long> s1784Forced = new java.util.HashSet<>(); private static double s1784Near = 99; private static net.minecraft.world.entity.monster.Creeper s1784Cr; private static int s1784T; private static float s1784Low; private static BlockPos s1784O; private static boolean s1784Dug;
     private static boolean st1784(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

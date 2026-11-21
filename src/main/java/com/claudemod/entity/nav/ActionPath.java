@@ -129,11 +129,13 @@ public final class ActionPath {
         final Costs c; final PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
         final Map<BlockPos, Node> best = new HashMap<>(); // (by cost alone, the cheap arrival that had used his blocks pruned the dearer one that hadn't, and the way on needed one)
         final boolean scarce; int expanded; long spent; int slices, lastTick, firstTick; String key = "";
+        final int swimCap; // the most cells in a row under water a way may swim
         Search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
             this.g = g; this.level = level; this.from = from; this.to = to; this.within = within; this.w = w; this.budget = budget; this.mode = mode; firstTick = g.tickCount;
             c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
             open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, 0, 0));
             best.put(from.immutable(), open.peek());
+            int air = g.getAirSupply(); swimCap = air < 120 && c.water(from.above()) && !c.water(to.above()) && c.passable(to.above()) ? Math.max(1, Math.max(0, air) / 10 + Math.max(0, (int) g.getHealth() - 2)) : Math.max(1, air / 20); // half the air left, there and back; short of air under water with the air his goal, no way back is needed: all of it, and the drowning his health takes (2 HP and 2 cells a second) less a heart (at air 0 half was nothing: every swim over a cell refused, the one to the air 4 off too, death 551 live 21:55 11-19, stage 1785)
             scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         }
         Plan arrivedAt(Node n) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) prune(level.getGameTime()); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
@@ -160,7 +162,7 @@ public final class ActionPath {
                     int np = n.puts, nf = n.fire; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put pu) { np++; if (byLava(level, pu.pos())) nf++; } else if (a instanceof Act.Leap lp) nh += lp.hp(); }
                     if (np > c.maxPuts || nf > c.fireProof) continue; // (by lava only blocks that don't burn: a log bridge over a lava lake caught fire under him, death 77 11-10, stage 1389) // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
                     int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
-                    if (nw > Math.max(1, g.getAirSupply() / 20)) { c.airRefused++; continue; } // a swim under water no longer than half the air he has left (~10 ticks a cell): there and back, a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned); half of what's left, not half a full tank less what's spent: at air 119 that refused every move, the one up to the air too (D2D review 84, stage 1557)
+                    if (nw > swimCap) { c.airRefused++; c.swimCap = swimCap; continue; } // a swim under water no longer than half the air he has left (~10 ticks a cell): there and back, a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned); half of what's left, not half a full tank less what's spent: at air 119 that refused every move, the one up to the air too (D2D review 84, stage 1557)
                     double ng = n.g + m.cost;
                     Node was = best.get(m.feet);
                     if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.fire() <= nf && was.wet() <= nw && was.hurt() <= nh) continue;
@@ -190,7 +192,7 @@ public final class ActionPath {
 
     private static void coverNote(Costs c, BlockPos from, BlockPos to) {
         if (c.digAirRefused > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: {} spot(s) to dig it from under water turned down: the dig there and the swim back out are longer than his air ({}) (ActionPath.plan)", from.toShortString(), to.toShortString(), c.digAirRefused, c.g.getAirSupply());
-        if (c.airRefused > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: {} swims refused as longer under water than half his air (ActionPath.plan)", from.toShortString(), to.toShortString(), c.airRefused);
+        if (c.airRefused > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: {} swims refused as longer under water than his air allows ({} cells in a row) (ActionPath.plan)", from.toShortString(), to.toShortString(), c.airRefused, c.swimCap);
         if (c.coverLeft > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: his cover's cells left alone ({} looks at them refused): never dug through (ActionPath.plan)", from.toShortString(), to.toShortString(), c.coverLeft);
     }
 
@@ -537,7 +539,7 @@ public final class ActionPath {
             threatMemo.put(t.immutable(), add); return add;
         }
         int digAirRefused; // arrivals turned down: the dig there under water and the swim back longer than his air
-        int airRefused; // moves turned down as a longer swim under water than half his air
+        int airRefused, swimCap; // moves turned down as a longer swim under water than his air allows; that limit
         float hurtNow; // the HP the drops on the way to the node being expanded took (no regen counted)
         final float hp, margin; final double hpPrice; // his health now; the HP he keeps after any drop (Leaps.margin); what an HP is worth to him now (Leaps.hpPrice: dear when he can't regen it)
         final java.util.Map<String, String> refused = new java.util.LinkedHashMap<>(); // drops / jumps turned down, and why

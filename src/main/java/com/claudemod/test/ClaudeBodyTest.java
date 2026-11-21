@@ -10622,6 +10622,7 @@ public final class ClaudeBodyTest {
             case 1783: return st1783(stage, t, c, h, level, mock);
             case 1784: return st1784(stage, t, c, h, level, mock);
             case 1785: return st1785(stage, t, c, h, level, mock);
+            case 1786: return st1786(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34536,6 +34537,37 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1786 (D2D, death 111 live 15:36 11-21 at -44,11,-737, his flooded mine: two trident hits from a Drowned, 20 -> 7, "escape: out of their sight at -43,10,-736: holding"; 45 s held at 7 HP, hunger 17 so no regen, no food on him, a cooked cod done in his furnace at -44,12,-735 2 off ("FURNACE_LEFT"); then "stuck on Flee for 45s", the job walked him into its line, 7 -> 0). As 1495 with no food on him and his furnace's cooked cod in reach of his hide: he takes it from there and eats. */
+    private static int s1786T; private static net.minecraft.world.entity.monster.Blaze s1786B; private static BlockPos s1786Me, s1786F;
+    private static boolean st1786(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1786T = -1; if (s1786B != null) s1786B.discard(); s1786B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1786Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable(); s1786F = s1786Me.offset(-1, 1, 1).immutable();
+            for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1786Me.offset(3, y, z), Blocks.STONE.defaultBlockState(), 2); // the wall between him and the shooter
+            level.setBlock(s1786F.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(s1786F, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(s1786F); // his furnace a step up beside his hide, as live
+            if (level.getBlockEntity(s1786F) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.setItem(2, new ItemStack(Items.COOKED_COD, 1));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 6)); // no food on him
+            c.teleportTo(s1786Me.getX() + 0.5, s1786Me.getY(), s1786Me.getZ() + 0.5); c.setHealth(7); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = s1786Me.east(9); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1786B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(s1786Me); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); }
+        if (t[0] == 40) { check(c.currentTask instanceof Task.Flee, "the run to his hide not under way: " + c.currentTask + " " + c.tasks); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0); s1786T = t[0]; } // (live: hunger 17 while he held)
+        if (s1786T > 0 && t[0] > s1786T) {
+            boolean ate = c.getFoodData().getFoodLevel() > 17;
+            if (ate || t[0] - s1786T > 20 * 10) {
+                double s = (t[0] - s1786T) / 20.0; String q = c.currentTask + " " + c.tasks; float hp = c.getHealth(); double moved = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s1786Me));
+                s1786B.discard(); s1786B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getFoodData().setFoodLevel(20); c.work.escapeHoldForTest(null);
+                for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1786Me.offset(3, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.myStations.remove(s1786F); level.setBlock(s1786F, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1786F.below(), Blocks.AIR.defaultBlockState(), 2);
+                check(ate, "at his hide, out of the shooter's sight, " + hp + " HP and hunger 17, no food on him, a cooked cod in his furnace in reach: no meal in 10 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                check(moved < 1.6, "left his hide for the furnace (" + String.format("%.1f", moved) + " off it)");
+                pass(stage, t, "at his hide at 7 HP with no food on him: the cod from his furnace eaten in " + s + " s");
+            }
+        }
+        return true;
+    }
     /** Stage 1785 (D2D, death 551 live 21:55 11-19 at -41,21,-732, his flooded iron branches under the lake): a Drowned fought on 7 s of air, out of air at 14 HP, "a dug way to the air" asked for the air 4.4 off at -43,22,-729: "165 swims refused as longer under water than half his air ... 14 cells reached", "no way found", 10 s drowning, 14 -> 0. At air 0 half his air is nothing: every swim over a cell was refused, the one to the air too. A way to the air needs no way back. Here: out of air at 14 HP at the end of a flooded tunnel, the air up a shaft round a bend 8 swims off, walls he can't dig (his plugs live): the dug way is found and he gets his breath. */
     private static int s1785T; private static float s1785Low; private static String s1785Why = "";
     private static boolean st1785(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

@@ -72,6 +72,7 @@ public final class Route {
     public static boolean stoodBy(ClaudeEntity g, int x, int y, int z) { var n = near.get(g.getUUID()); return n != null && n.containsKey(BlockPos.asLong(x >> 2, y >> 2, z >> 2)); }
     /** The cells he passed in the last {@code ticks}, newest first: the way he came (the drowning escape swims back along it). */
     public static boolean walked(ClaudeEntity g, BlockPos p) { var m = trail.get(g.getUUID()); return m != null && m.containsKey(p); }
+    public static void trailForTest(ClaudeEntity g, int[][] rows) { var m = new java.util.LinkedHashMap<BlockPos, Integer>(512, 0.75f, true); for (int[] r : rows) m.put(new BlockPos(r[1], r[2], r[3]), g.tickCount + r[0]); trail.put(g.getUUID(), m); } // (tests: a live trail, {ticks before now, x, y, z})
     public static void forgetTrail(ClaudeEntity g) { trail.remove(g.getUUID()); near.remove(g.getUUID()); } // (another dimension: its cells are nowhere here)
     public static List<BlockPos> wayBack(ClaudeEntity g, int ticks) {
         List<BlockPos> out = new ArrayList<>(); var m = trail.get(g.getUUID()); if (m == null) return out;

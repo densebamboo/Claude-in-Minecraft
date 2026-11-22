@@ -117,8 +117,10 @@ public class WorkGoal extends Goal {
             if (fits) return way.get(i); }
         return null;
     }
+    private String spotWhy = ""; // which way breathingSpot found its spot (the reflex's log)
+    private BlockPos spotSaid; // the last spot the reflex logged
     private BlockPos breathingSpot() {
-        var level = g.level(); noOpenAir = false;
+        var level = g.level(); noOpenAir = false; spotWhy = "";
         BlockPos eye = BlockPos.containing(g.getEyePosition());
         Vec3 from = g.getEyePosition();
         if (!level.getBlockState(eye).getCollisionShape(level, eye).isEmpty() && !level.getFluidState(eye.below()).isEmpty()) { eye = eye.below(); from = Vec3.atCenterOf(eye); } // (pressed up under a roof in a 1-high flood his eye sits in the roof block: from inside it no column, no line, only "dig up for air" into his own floor, refused every tick, 20 -> 12 drowning a cell from the hole, live 19:49 11-10, stage 1438)
@@ -126,7 +128,7 @@ public class WorkGoal extends Goal {
         for (int dy = 0; dy <= 16; dy++) {
             BlockPos q = eye.above(dy);
             if (!level.getFluidState(q).isEmpty()) continue;
-            if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return q.below(); // feet one below the air: head out of the water
+            if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) { spotWhy = "air straight up"; return q.below(); } // feet one below the air: head out of the water
             break; // a ceiling over the water: look around instead
         }
         // a roof over him (an overhang, a cave): the nearest column close by with open water all the way up to air, and he swims across under it
@@ -158,8 +160,8 @@ public class WorkGoal extends Goal {
             used[i] = true;
             BlockPos c = cands.get(i);
             var line = level.clip(new net.minecraft.world.level.ClipContext(from, Vec3.atCenterOf(c), /* (to the cell under the air, the air straight over it: a line on to the air itself clipped a roof corner one cell from the hole, stage 1438) */ net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
-            if (line.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return c; // a straight swim
-            if (routes++ < 4) { var p = g.getNavigation().createPath(c, 0); if (p != null && p.canReach()) return c; } // round a corner (a few tries a tick at most)
+            if (line.getType() == net.minecraft.world.phys.HitResult.Type.MISS) { spotWhy = "a straight swim"; return c; } // a straight swim
+            if (routes++ < 4) { var p = g.getNavigation().createPath(c, 0); if (p != null && p.canReach()) { spotWhy = "a route of " + p.getNodeCount() + " nodes"; return c; } } // round a corner (a few tries a tick at most)
         }
         { // the way he came: he swam in along it, so it's water he can swim back through (the user, 11-04: "he opens a water pocket and swims into it and doesnt swim back through it"; 00:50 he aimed at air 5 blocks back through a wall and drowned)
             java.util.List<BlockPos> back = com.claudemod.entity.nav.Route.wayBack(g, 20 * 300); /* (the last 5 min: live 03:25 11-12 his last air was 62 s back and the dig for it couldn't finish) */
@@ -169,7 +171,7 @@ public class WorkGoal extends Goal {
             BlockPos start = cells.contains(g.blockPosition()) || swimCell(level, g.blockPosition()) ? g.blockPosition().immutable() : null; double sd = Double.MAX_VALUE; // (from his own cell through any open water too: floated off his trail behind rock, the nearest trail cell was past a shelf, no line, no path, and with nothing to steer at the swim held space, y22 -> y38, deaths 37/38 live 11-17, stage 1765)
             if (start == null) for (BlockPos q : cells) { double d0 = q.distToCenterSqr(g.position()); if (d0 < sd) { sd = d0; start = q; } } // (the nearest cell of the way, beside-trail cells too: the nearest trail cell alone was one behind him when he bobbed up off a cut corner, so the aim turned west then east with every bob, 16 s pinned, death 35 live 09:29 11-17, stage 1764)
             java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> frontier = new java.util.ArrayDeque<>(); BlockPos goal = null;
-            if (wayMemo != null && g.tickCount - wayMemoTick < 200 && g.getAirSupply() <= wayMemoAir && g.position().distanceTo(wayMemoAt) <= 2 + 0.3 * (g.tickCount - wayMemoTick)) { BlockPos v = straightSwim(wayMemo); if (v != null) return v; } // (the way found a moment ago, off which the straight swim takes him: searched again from up under the roof, 17 cells from his trail, it ran out, stage 1767)
+            if (wayMemo != null && g.tickCount - wayMemoTick < 200 && g.getAirSupply() <= wayMemoAir && g.position().distanceTo(wayMemoAt) <= 2 + 0.3 * (g.tickCount - wayMemoTick)) { BlockPos v = straightSwim(wayMemo); if (v != null) { spotWhy = "his way back, swum straight, air over " + wayMemo.get(wayMemo.size() - 1).toShortString(); return v; } } // (the way found a moment ago, off which the straight swim takes him: searched again from up under the roof, 17 cells from his trail, it ran out, stage 1767)
             for (int near = 1; near >= 0 && goal == null; near--) { came.clear(); frontier.clear(); // (the nearest air first, by plain distance over a few hundred cells; then his way first: his trail alone ran 33 cells to the far air with air two cells off round a corner, death 44 live 14:58 11-18, stage 1771)
             if (start != null) { came.put(start, start); frontier.add(start); }
             while (!frontier.isEmpty() && goal == null && came.size() < (near == 1 ? 300 : 4000)) {
@@ -184,7 +186,7 @@ public class WorkGoal extends Goal {
                 BlockPos aim = way.size() > 1 && way.get(0).equals(here0) ? way.get(1) : way.get(0); // the next cell along it, one face at a time (floated off it: back onto it first)
                 { BlockPos v = straightSwim(way); if (v != null) aim = v; } wayMemo = way; wayMemoTick = g.tickCount; wayMemoAir = g.getAirSupply(); wayMemoAt = g.position(); /* (this breath only, swum from here: air back up is a new dive, a jump further than a swim is somewhere else) */ // the farthest of it in a straight swim (his trail went down, across and up the cave: 90 cells round, the air 30 straight across, stage 1767)
                 if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no air in sight at {}: back the way he came, toward {} (air over {}, {} cells along his trail; body y {} pose {} sprint {} swimming {} hcoll {} vcoll {} motion {}; aim {}/{} head {})", g.blockPosition().toShortString(), aim.toShortString(), goal.toShortString(), way.size() - 1, String.format("%.2f", g.getY()), g.getPose(), g.isSprinting(), g.isSwimming(), g.horizontalCollision, g.verticalCollision, g.getDeltaMovement().toString(), level.getBlockState(aim).getBlock().getName().getString(), level.getFluidState(aim).isEmpty() ? "dry" : "wet", level.getBlockState(aim.above()).getBlock().getName().getString()); // (11-04 17:35 and 17:37: two drownings at 535,13,117 aimed 2 cells back and never moved; the log had no body state to say why)
-                return aim;
+                spotWhy = "back the way he came, " + (way.size() - 1) + " cells, air over " + goal.toShortString(); return aim;
             }
         }
         // nothing open within reach: a player digs the roof out over his head (he has a few seconds of air for it)
@@ -209,7 +211,7 @@ public class WorkGoal extends Goal {
             double digS = roofDigS(roof), haveS = g.getAirSupply() / 20.0 + Math.max(0, g.getHealth() - 4) / 2.0;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] under a roof in the water at {}: digging up for air (~{} s of rock, {} s of air and health{})", g.blockPosition().toShortString(), digS > 1e6 ? "unbreakable" : String.format("%.1f", digS), String.format("%.1f", haveS), digS > haveS ? "; it can't finish in time, nothing better in reach" : "");
         }
-        return eye.above(2);
+        spotWhy = "nothing open: up"; return eye.above(2);
     }
 
     private int fireSaid = -1000;
@@ -247,6 +249,7 @@ public class WorkGoal extends Goal {
         if (underwater && !eyesUnder) diveAir = g.getAirSupply(); eyesUnder = underwater; // (the air he went under with: a full breath that didn't get him there is the answer for that block)
         if (((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) && !com.claudemod.entity.life.Watchdog.airRoute(g)) { // (the watchdog's dug way to air, once the swim-up failed: its tasks run, not this)
             BlockPos spot = breathingSpot();
+            if (g.tickCount % 20 == 0 || spotSaid == null || spot.distSqr(spotSaid) > 16) { spotSaid = spot.immutable(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] breathing: toward {} ({}), air {}, at {} (WorkGoal.reflexes)", spot.toShortString(), spotWhy, g.getAirSupply(), String.format("%.2f %.2f %.2f", g.getX(), g.getY(), g.getZ())); } // (and whenever the aim jumps: a flip between two ways drowned him, death 581)
             boolean diggingRoof = roofDig(current) && noOpenAir; // Keep the same overhead dig when he sinks toward the floor. (only a dig for air: with air open in reach, a dig over his head is a step of his way on and waits; live 10:51 11-09 he mined one floating, sank out of reach and drowned with the air one cell over: stage 1258)
             if (!surfacing) {
                 surfacing = true;

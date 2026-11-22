@@ -362,7 +362,7 @@ public class WorkGoal extends Goal {
     public void tick() {
         if (g.tickCount % 5 == 0) g.attempts.sweep(); // (failures whose cause no longer holds leave the records the planners read)
         if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
-        heldWhy = "reflexes"; if (reflexes()) return; // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them)
+        heldWhy = "reflexes"; if (reflexes()) { if (g.isShiftKeyDown() && !com.claudemod.director.Primitives.crouching(g)) { g.setShiftKeyDown(false); leanFor = null; } return; } // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them). A reflex is his own move: a task's sneak (a lean to place, a bridge edge) let go, as maybeStandUp would if the task ran (death 192, live 21:54 11-21: a placing's lean held through "coming up to breathe", 17 s crouched, a swim at 30% and sinking, 20 -> 0; stage 1791)
         heldWhy = "asleep"; if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
         heldWhy = "gravel over him"; if (gravelOverHim()) return; // gravel coming down into a column his body is in: out from under it first (04:01 Nov 4, suffocated on a fresh step)
         heldWhy = g.urgentAttacker == null ? "no attacker armed" : "the self-defence block";

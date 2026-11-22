@@ -10627,6 +10627,7 @@ public final class ClaudeBodyTest {
             case 1788: return st1788(stage, t, c, h, level, mock);
             case 1789: return st1789(stage, t, c, h, level, mock);
             case 1790: return st1790(stage, t, c, h, level, mock);
+            case 1791: return st1791(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34541,6 +34542,35 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1791 (D2D, death 192 live 21:54 11-21 at -47,20,-740: back in the flooded lake mine plugging its water, health 20, hunger 20; "low on air (119) at -44,16,-745: coming up to breathe" with the sneak from his last placing still held (pose CROUCHING every tick from then: a swim at 30%, sinking), the aim flipping between the pocket at -50,21,-740 and his way back, 13 s out of air, 20 -> 0 pressed on the pocket's corner at -48,20,-741). The live save at 21:57, his trail from the incident positions. Air 119, crouched as live: up off the sneak, his breath back, health 14+. */
+    private static final int[][] TRAIL1791 = {{-5605,-49,12,-746},{-5600,-50,12,-746},{-5580,-49,12,-745},{-5580,-48,12,-745},{-5573,-47,11,-744},{-5561,-47,12,-743},{-5561,-47,12,-742},{-5560,-47,11,-743},{-5560,-47,12,-745},{-5560,-47,12,-744},{-5558,-47,11,-742},{-5552,-47,11,-741},{-5540,-48,12,-742},{-5540,-47,12,-741},{-5540,-47,12,-740},{-5259,-48,12,-737},{-5162,-47,11,-737},{-5157,-47,12,-737},{-5105,-47,13,-738},{-5060,-47,12,-738},{-4547,-45,14,-741},{-4498,-45,13,-737},{-4199,-46,12,-739},{-4084,-45,14,-740},{-4047,-45,15,-740},{-2559,-47,15,-740},{-2535,-47,14,-741},{-2531,-46,13,-740},{-2519,-46,12,-740},{-2359,-46,15,-740},{-2231,-45,15,-738},{-2220,-45,14,-739},{-2216,-45,13,-739},{-2200,-46,13,-739},{-2037,-44,13,-737},{-1989,-44,10,-737},{-1895,-45,10,-737},{-1756,-46,11,-737},{-1736,-46,12,-737},{-1731,-45,11,-737},{-1706,-45,12,-738},{-1698,-45,12,-739},{-1694,-45,13,-740},{-1691,-45,12,-740},{-1685,-45,12,-741},{-1680,-45,12,-742},{-1647,-45,13,-743},{-1562,-45,17,-743},{-1557,-45,16,-743},{-1553,-45,14,-743},{-1550,-45,14,-742},{-1549,-45,13,-742},{-1546,-44,13,-742},{-1540,-44,14,-741},{-1537,-44,14,-740},{-1533,-44,13,-740},{-1524,-44,12,-738},{-1520,-44,12,-737},{-1519,-44,11,-737},{-1517,-44,11,-736},{-1516,-45,12,-737},{-583,-46,13,-737},{-543,-44,13,-738},{-523,-44,13,-739},{-503,-45,13,-738},{-483,-46,14,-740},{-403,-45,15,-739},{-383,-46,15,-739},{-340,-46,18,-740},{-323,-46,19,-740},{-303,-46,19,-741},{-301,-46,20,-741},{-283,-47,21,-741},{-280,-49,21,-740},{-263,-50,21,-740},{-183,-50,20,-740},{-160,-49,20,-740},{-143,-47,20,-740},{-140,-48,20,-740},{-137,-47,19,-740},{-128,-47,19,-741},{-123,-47,19,-742},{-123,-46,19,-742},{-120,-47,18,-742},{-110,-46,18,-742},{-106,-46,18,-743},{-100,-46,16,-743},{-100,-46,17,-743},{-93,-46,15,-743},{-88,-45,15,-743},{-84,-45,15,-744},{-80,-45,16,-744},{-19,-46,16,-745},{-1,-45,16,-745}};
+    private static final int[] c1791Built = {-1}; private static int c1791Go = -1, c1791Crouched = 0, c1791Sneak = -1; private static float c1791Low = 20f;
+    private static boolean st1791(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1791Built[0] = -1; c1791Go = -1; c1791Crouched = 0; c1791Sneak = -1; c1791Low = 20f; }
+        if (!w17Cave(t, level, c1791Built, "w17_cave192")) return true;
+        int t0 = c1791Built[0] + 10;
+        if (t[0] == t0) { c1791Go = t[0];
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 20)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 38)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 18)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 4)); // (his kit live)
+            w17Mine(c, true);
+            c.teleportTo(level, -43.23, 16.18, -744.49, 90, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0; c.setAirSupply(119); c.setHealth(20f); c.getFoodData().setFoodLevel(20); // (where "coming up to breathe" fired live)
+            com.claudemod.entity.nav.Route.trailForTest(c, TRAIL1791);
+            c.tasks.add(new Task.Place(new BlockPos(-42, 15, -745), Items.DIRT)); c.tasks.add(new Task.GoTo(new BlockPos(-46, 16, -744), 0.8)); c.tasks.add(new Task.Place(new BlockPos(-42, 18, -745), Items.DIRT)); c.tasks.add(new Task.Place(new BlockPos(-43, 18, -745), Items.DIRT)); // (his queue live: more water to plug)
+        }
+        if (c1791Go < 0) return true;
+        if (c1791Sneak < 0 && c.getAirSupply() <= 114) { c1791Sneak = t[0]; c.setShiftKeyDown(true); } // (the sneak from his last placing, held as the breath took over live (the lean is set fresh each tick the Place runs): pose CROUCHING from then on)
+        c1791Low = Math.min(c1791Low, c.getHealth()); if (c1791Sneak > 0 && t[0] > c1791Sneak + 5 && c.isShiftKeyDown()) c1791Crouched++;
+        boolean breathed = c.getAirSupply() >= 280 && t[0] > c1791Go + 20;
+        if (breathed || !c.isAlive() || t[0] == c1791Go + 20 * 15) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", air " + c.getAirSupply() + ", alive " + c.isAlive() + ", lowest health " + c1791Low + ", crouched " + c1791Crouched + " ticks, task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - c1791Go;
+            c.setShiftKeyDown(false); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20f); c.setAirSupply(300); w17Mine(c, false);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(c1791Crouched == 0, "coming up to breathe with a placing's sneak held (death 192): still crouched, a swim at 30%: " + got + " after " + took + " ticks");
+            check(breathed && c1791Low >= 14, "air 119 in the flooded lake mine (death 192): his breath back, health 14+, in 15 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "up off the sneak, his breath back in " + took + " ticks, lowest health " + c1791Low);
+        }
+        return true;
+    }
     /** Stage 1790 (D2D, live 20:23-20:31 11-21 at -77,16,-477, his mine's tunnel at dusk: 3 zombies shut out behind his escape plug; "collect cobblestone x32 -> my cobblestone is in my chest at -103,16,-500", the walk there back among them: "behind his plug, the ones he shut out across it", Wait 5 s and the walk again, 64+ times, STUCK 180 s; meanwhile every ~10 s "a Zombie 3.4 off is coming for him (heard)" -> fight priced -> "behind stone ... no fight through it, let be"). As 1546, a walk past them queued: held no longer than the plug's own job drop prices going back (flee.job_drop_s), then the job is dropped; the plug kept; no fight queued at the ones behind it. */
     private static net.minecraft.world.entity.Mob[] s1790M; private static String s1790Broke; private static int s1790Attacks, s1790Shut; private static boolean s1790Was;
     private static boolean st1790(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

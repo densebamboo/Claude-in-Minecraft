@@ -10187,6 +10187,11 @@ public final class ClaudeLife {
             BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, trees).below(), log = null; for (int dy = 0; dy <= 8 && log == null; dy++) for (BlockPos q : BlockPos.betweenClosed(trees.offset(-2, dy, -2), trees.offset(2, dy, 2))) if (level.getBlockState(q).is(BlockTags.LOGS)) { log = q.immutable(); break; }
             final BlockPos lg = log; ClaudeMod.LOGGER.info("[Claude skill] collect {}: the treetops at {} ({} on top) are no tree to the search near him: {} (ClaudeLife.runSkill)", target, trees.toShortString(), BuiltInRegistries.BLOCK.getKey(level.getBlockState(top).getBlock()).getPath(), lg == null ? "no log under them within 2 across and 8 up (leaves alone)" : "the log at " + lg.toShortString() + ": placed by them " + PlayerProfile.placedBy(player).contains(lg) + ", his temp block " + com.claudemod.entity.life.TempLedger.has(g, lg) + ", village " + villageBuilding(g, lg) + ", structure " + structureLog(level, lg) + ", his build " + hisBuildKeeps(g, level, lg) + ", storage " + isStorageSpot(g, lg) + ", crown " + hasCrown(level, lg) + ", open " + touchesOpen(level, lg) + ", house " + (g.house != null && g.house.roleAt(lg) != null) + ", farm " + (g.farm != null && g.farm.touches(lg)) + ", nook " + anyNookTouches(g, lg)); }
     }
+    /** A log the search near him takes for a tree's (its rules that need no player): the far scan heads only for those (it kept only the structure and crown rules, so the village's tree east and a shut-in log west were "nearest ones are ~8 blocks east/west" every 1.5 s, live 19:20 11-21, stage 1788). shortcut: their placed blocks (PlayerProfile.placedBy) need the player, not passed here; add it if their builds turn up as treetops. */
+    private static boolean treeLog(ClaudeEntity g, ServerLevel level, BlockPos q) {
+        return level.getBlockState(q).is(BlockTags.LOGS) && !structureLog(level, q) && hasCrown(level, q) && touchesOpen(level, q) && !villageBuilding(g, q) && !hisBuildKeeps(g, level, q) && !com.claudemod.entity.life.TempLedger.has(g, q) && !isStorageSpot(g, q)
+            && !(g.house != null && g.house.roleAt(q) != null) && !(g.farm != null && g.farm.touches(q)) && !anyNookTouches(g, q);
+    }
     private static BlockPos reachableTreetops(ClaudeEntity g, ServerLevel level, int range) {
         BlockPos from = g.blockPosition();
         List<BlockPos> tops = new ArrayList<>();
@@ -10208,7 +10213,7 @@ public final class ClaudeLife {
         for (BlockPos p : tops) {
             if (looked.size() >= 8 || Math.sqrt(p.distSqr(from)) - 4 >= bw) break; // (none farther could be a shorter walk)
             if (looked.stream().anyMatch(q -> q.distSqr(p) <= 8 * 8)) continue; // the same stand of trees: looked at once
-            { boolean log = false; for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -1, -2), p.offset(2, 10, 2))) if (level.getBlockState(q).is(BlockTags.LOGS) && !structureLog(level, q) && hasCrown(level, q)) { log = true; break; } if (!log) continue; } // a tree's log under the treetops, as the search near him wants one: leaves alone (a bush) are no tree (live 01:01:43-01:02:15 11-13, D2D 010228-36: "nearest ones are ~8 blocks north/west" every ~10 s, the search there "no log under them"; stage 1336)
+            { boolean log = false; for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -1, -2), p.offset(2, 10, 2))) if (treeLog(g, level, q)) { log = true; break; } if (!log) continue; } // a tree's log under the treetops, as the search near him wants one: leaves alone (a bush) are no tree (live 01:01:43-01:02:15 11-13, D2D 010228-36: "nearest ones are ~8 blocks north/west" every ~10 s, the search there "no log under them"; stage 1336)
             looked.add(p);
             double w = reachWalk(g, level, p, 4, true, com.claudemod.entity.life.Weights.w("trees.known_walk_max", 240)); // (trees he sees, a minute's walk round a pond and a wall: still better than a scouting leg over bare ground; the 1.6x-the-line cutoff sent him 5 times over the same leg south, 13 logs short at nightfall, live 13:18-13:30 11-09, stage 1275)
             if (w >= 0 && w < bw) { bw = w; best = p; }

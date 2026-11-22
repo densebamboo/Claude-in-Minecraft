@@ -10631,6 +10631,7 @@ public final class ClaudeBodyTest {
             case 1792: return st1792(stage, t, c, h, level, mock);
             case 1793: return st1793(stage, t, c, h, level, mock);
             case 1794: return st1794(stage, t, c, h, level, mock);
+            case 1795: return st1795(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34545,6 +34546,37 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1795 (D2D, live loop 10:41-11:10 11-22 at -95,16,-740, World 17's lake mine, the live save at 11:08: after coal and iron off his z -745 branch he dropped 4 into the pit he'd dug (-93,18,-739 -> -93,14,-740), 14 dry cells, no dry way out on foot; "inventory full in his mine" sent him to his junk chest at -126,16,-744, 29-31 off: past the walk planner's 28, so "path stops at -95,16,-740", NO_PATH, skipped spot by spot; the 20 s way out aimed at the queue's first walk, -92,17,-740 3 off, "he stands somewhere new" cleared the skips and the deposit went on again, 77 times in 30 min). The pit, the deposit, his leftover walks behind it: he gets out to the chest. */
+    private static final int[] c1795Built = {-1}; private static float c1795Low = 20f;
+    private static final int[][] C1795_MINE = {{16,-749,-149,-80},{16,-748,-85,-84},{16,-747,-85,-84},{16,-746,-85,-84},{16,-745,-149,-80},{16,-744,-85,-84},{16,-743,-85,-84},{16,-742,-85,-84},{16,-741,-85,-80},{16,-740,-85,-84},{16,-739,-85,-84},{16,-738,-85,-84},{16,-737,-149,-80},{16,-736,-85,-84},{16,-735,-85,-84},{16,-734,-85,-84},{16,-733,-144,-80},{16,-732,-85,-84},{16,-731,-85,-84},{16,-730,-85,-84},{16,-729,-149,-80},{16,-728,-85,-84},{16,-727,-85,-84},{16,-726,-85,-84},{16,-725,-149,-80},{17,-749,-149,-80},{17,-748,-85,-84},{17,-747,-85,-84},{17,-746,-85,-84},{17,-745,-149,-80},{17,-744,-85,-84},{17,-743,-85,-84},{17,-742,-85,-84},{17,-741,-85,-80},{17,-740,-85,-84},{17,-739,-85,-84},{17,-738,-85,-84},{17,-737,-149,-80},{17,-736,-85,-84},{17,-735,-85,-84},{17,-734,-85,-84},{17,-733,-144,-80},{17,-732,-85,-84},{17,-731,-85,-84},{17,-730,-85,-84},{17,-729,-149,-80},{17,-728,-85,-84},{17,-727,-85,-84},{17,-726,-85,-84},{17,-725,-149,-80},{18,-749,-85,-84},{18,-748,-85,-84},{18,-747,-85,-84},{18,-746,-85,-84},{18,-745,-85,-84},{18,-744,-85,-84},{18,-743,-85,-84},{18,-742,-85,-84},{18,-741,-85,-84},{18,-740,-85,-84},{18,-739,-85,-84},{18,-738,-85,-84},{18,-737,-85,-84},{18,-736,-85,-84},{18,-735,-85,-84},{18,-734,-85,-84},{18,-733,-85,-84},{18,-732,-85,-84},{18,-731,-85,-84},{18,-730,-85,-84},{18,-729,-85,-84},{18,-728,-85,-84},{18,-727,-85,-84},{18,-726,-85,-84},{18,-725,-85,-84}}; // (his mine cells in the box, the live save's, as x runs {y, z, x0, x1})
+    private static boolean st1795(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1795Built[0] = -1; c1795Low = 20f; }
+        if (!w17Cave(t, level, c1795Built, "w17_cave1795")) return true;
+        int t0 = c1795Built[0] + 10; BlockPos chest = new BlockPos(-126, 16, -744);
+        if (t[0] == t0) {
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (ItemStack s : new ItemStack[] {new ItemStack(Items.DIAMOND_PICKAXE), new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.COBBLESTONE, 64), new ItemStack(Items.COBBLESTONE, 37), new ItemStack(Items.COBBLED_DEEPSLATE, 7), new ItemStack(Items.ANDESITE, 47), new ItemStack(Items.OAK_LOG, 34), new ItemStack(Items.TORCH, 9), new ItemStack(Items.RAW_IRON, 2), new ItemStack(Items.COOKED_COD, 3)}) c.getInventory().add(s); // (his kit live, the junk the trip was for)
+            c.mineCells.clear(); c.landingCells.clear(); for (int[] r : C1795_MINE) for (int x = r[2]; x <= r[3]; x++) c.mineCells.add(new BlockPos(x, r[0], r[1]));
+            for (int y = 16; y <= 17; y++) for (int x = -127; x <= -126; x++) c.landingCells.add(new BlockPos(x, y, -744));
+            c.mineFace = new BlockPos(-427, -58, 124); // (his mine's face live, far off)
+            var bp = new com.claudemod.entity.life.MineBlueprint(new BlockPos(-16, 68, -20), net.minecraft.core.Direction.WEST, 2, 4); bp.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.RUN, new BlockPos(-85, 16, -725), net.minecraft.core.Direction.NORTH, 25, null)); for (int z : new int[] {-749, -745, -737, -733, -729, -725}) bp.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, new BlockPos(-86, 16, z), net.minecraft.core.Direction.WEST, z == -733 ? 59 : 64, null)); c.blueprint = bp; // (his blueprint's pieces in the box, as live: the run north along x -85, its branches west; the pit is 5 off the z -745 branch, so "near his mine")
+            c.teleportTo(level, -94.5, 16.0, -739.5, 90, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Deposit(chest)); // (junkChestRound's trip, as queued live)
+            c.tasks.add(new Task.GoTo(new BlockPos(-92, 17, -740), 0.9)); c.tasks.add(new Task.GoTo(new BlockPos(-93, 14, -740), 0.9)); c.tasks.add(new Task.GoTo(new BlockPos(-93, 14, -740), 0.9)); // (his queue behind it live: the ore dig's leftover walks)
+        }
+        if (t[0] < t0) return true;
+        c.nextPlanTick = c.tickCount + 20 * 600; c.spottedDiamonds.clear(); // (the trip alone: live no other job cut in)
+        c1795Low = Math.min(c1795Low, c.getHealth());
+        boolean there = c.blockPosition().distSqr(chest) <= 16;
+        if (there || !c.isAlive() || c1795Low < 14 || t[0] == t0 + 20 * 90) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", alive " + c.isAlive() + ", lowest health " + c1795Low + ", task " + c.currentTask + ", queue " + c.tasks; int took = t[0] - t0;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.mineCells.clear(); c.landingCells.clear(); c.mineFace = null; c.setHealth(20f); c.blueprint = null;
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(there && c1795Low >= 14, "in the pit 2 down off his branch, his junk chest 31 off (the 30 min live loop): not by the chest in 90 s: " + (got.length() > 300 ? got.substring(0, 300) : got));
+            pass(stage, t, "out of the pit and by his chest in " + took / 20 + " s, lowest health " + c1795Low);
+        }
+        return true;
+    }
     /** Stage 1794 (D2D, 1793's live loop, its second link: the walk to the plugs' stance -146,16,-737 in the channel behind the rock, "stall at -143,17,-739 ... next node none", "low on air (119)" every 14 s; while he swam up to breathe nothing ran (the walk back in his queue), so the stuck clock went by how far he'd moved, 6 up, and called it progress: no stuck rung fired in 58 min). The live cycle: the walk queued, down at the stall with air 119, up to breathe, down again: the walk dropped (or reached) inside 80 s, health 14+. */
     private static final int[] c1794Built = {-1}; private static float c1794Low = 20f; private static int c1794Gone = 0, c1794Dives = 0;
     private static boolean st1794(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

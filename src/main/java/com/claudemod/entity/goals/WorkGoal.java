@@ -942,6 +942,8 @@ public class WorkGoal extends Goal {
     private static java.util.Map<BlockPos, Integer> forcedAt() { if (forcedAt == null) forcedAt = new java.util.HashMap<>(); return forcedAt; }
 
     /** In his mine or within walk.out_mine_near (6) of it: a row of its blueprint (branches too), a step of its stairs, a nook. A pocket off his own tunnel walks home through the mine, never out through some cave (D2D, his smelting pocket 2 up from a branch end). */
+    /** Past the planner's 28, underground by his mine: no hop (the surface's) and no way out (away from his mine only) covers the walk, so the planner plans it (live 10:41 11-22: 2 down in a pit off his lake mine, his junk chest 29-31 off, "path stops" for 30 min; stage 1795). */
+    private boolean plansFar() { return !g.level().canSeeSky(g.blockPosition()) && nearHisMine(g.blockPosition()); }
     private boolean nearHisMine(BlockPos p) {
         if (com.claudemod.director.ClaudeLife.inHisMine(g, p)) return true;
         double r2 = Math.pow(com.claudemod.entity.life.Weights.w("walk.out_mine_near", 6), 2);
@@ -1384,7 +1386,7 @@ public class WorkGoal extends Goal {
         boolean deepWater = g.isInWater() && !com.claudemod.entity.body.Controls.wading(g);
         if (ticks == 2 && !routeReaches && !g.onGround() && !g.isInWater() && !g.onClimbable()) airPlanFor = pos.immutable(); // (in the air on tick 2: the plan waits for the landing, stage 385)
         boolean resumePlan = pos.equals(planningFor) && g.tickCount - planningTick <= 20 && (g.onGround() || g.isInWater() || g.onClimbable()); // (his plan for this walk still being searched, a slice a tick: on with it)
-        if (resumePlan || (((ticks == 2 || ticks <= 40 && pos.equals(airPlanFor)) && !routeReaches || stuck == 20 || stuck > 20 && stuck % 200 == 20) && d > Math.max(within, 1.0) && d <= 28 && !routeReaches && !deepWater && !(inHole() && g.isInWater()) // (a dry hole: planned like any walk, MAY_DIG; a flooded one stays the cutter's) (airborne on tick 2: planned once landed, up to tick 40; the partial path had walked him into a trench, stage 385)
+        if (resumePlan || (((ticks == 2 || ticks <= 40 && pos.equals(airPlanFor)) && !routeReaches || stuck == 20 || stuck > 20 && stuck % 200 == 20) && d > Math.max(within, 1.0) && (d <= 28 || plansFar()) && !routeReaches && !deepWater && !(inHole() && g.isInWater()) // (a dry hole: planned like any walk, MAY_DIG; a flooded one stays the cutter's) (airborne on tick 2: planned once landed, up to tick 40; the partial path had walked him into a trench, stage 385)
                 && g.tickCount - plannedAt().getOrDefault(pos.immutable(), -100000) > 60 // (3 s between plans for one spot: a loop guard, not a wait)
                 && (g.onGround() || g.isInWater() || g.onClimbable() || airborneSaid(pos)))) { // (in the air: planned once he's landed; a plan from mid-air started its leap from a cell he wasn't standing on, live 10:36, 5 min of bobbing)
             plannedAt().put(pos.immutable(), g.tickCount); if (plannedAt().size() > 64) plannedAt().clear(); airPlanFor = null; planningFor = null;
@@ -1566,7 +1568,7 @@ public class WorkGoal extends Goal {
                 stuck = 30;
                 return false;
             }
-            boolean plannerHadItsSay = d <= 28 && !(g.isInWater() && !com.claudemod.entity.body.Controls.wading(g)) && !(inHole() && g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)); // (shallow water in a hole: the planner pillars out of it now, Nov 4; the cutter racing it dithered stage 30) (the planner plans dug staircases itself within 28, out of a dry hole too (MAY_DIG there); deep water and a flooded hole are the cutter's)
+            boolean plannerHadItsSay = (d <= 28 || plansFar()) && !(g.isInWater() && !com.claudemod.entity.body.Controls.wading(g)) && !(inHole() && g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)); // (shallow water in a hole: the planner pillars out of it now, Nov 4; the cutter racing it dithered stage 30) (the planner plans dug staircases itself within 28, out of a dry hole too (MAY_DIG there); deep water and a flooded hole are the cutter's)
             Boolean r = plannerHadItsSay || !mayDig(pos) ? null : digStepUp(pos, within); // the old cutter only where the planner can't look, and never where digging isn't allowed (it carved steps into a surface hill after a "no way")
             if (r != null) return r;
             boolean trappedBelow = !g.level().canSeeSky(g.blockPosition()) && g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();

@@ -8551,7 +8551,8 @@ public final class ClaudeLife {
     public static boolean escapeStuck(ClaudeEntity g, ServerLevel level, Task now) {
         BlockPos to = null; double within = 3.5;
         List<Task> look = new ArrayList<>(); if (now != null) look.add(now); look.addAll(g.tasks);
-        for (Task t : look) {
+        BlockPos own = now == null || now instanceof Task.GoTo || now instanceof Task.Break || now instanceof Task.Place || now instanceof Task.Leap ? null : com.claudemod.entity.life.Watchdog.target(now); // the stuck job's own spot (a chest, a door, a furnace), never the queue's next walk behind it (live 10:41 11-22: a deposit 31 off, the way out 3 off to a leftover walk, "somewhere new" put the deposit on again, 77 times in 30 min; stage 1795)
+        if (own != null) to = own; else for (Task t : look) {
             if (t instanceof Task.GoTo go) { to = go.pos(); within = Math.max(1.0, go.within()); break; }
             if (t instanceof Task.Break b) { to = b.pos(); break; }
             if (t instanceof Task.Place p) { to = p.pos(); break; }

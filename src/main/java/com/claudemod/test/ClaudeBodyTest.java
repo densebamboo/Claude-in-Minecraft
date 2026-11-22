@@ -10625,6 +10625,7 @@ public final class ClaudeBodyTest {
             case 1786: return st1786(stage, t, c, h, level, mock);
             case 1787: return st1787(stage, t, c, h, level, mock);
             case 1788: return st1788(stage, t, c, h, level, mock);
+            case 1789: return st1789(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34539,6 +34540,33 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1789 (D2D, death 83 live 19:44 11-21 at -39,15,-735: back in the flooded lake mine for the 581 pile, 0 meals, hunger 5-6 (no sprint, no swim pose); three dives from the dry pocket by -44,12,-737, each out of air (8 -> 6, 6 -> 4); the third: "low on air (119) at -40,17,-735", then "breathing: toward -41,14,-735 / -39,14,-735 (his way back, swum straight, air over -41,12,-732)" flipping every second, 7 s pinned at y 15 between the two, 4 -> 0). The live save at 19:46, his trail from the incident positions. Air 119 at 4 HP, hunger 5: his breath back alive. */
+    private static final int[][] TRAIL1789 = {{-5987,-50,16,-729},{-5987,-49,16,-729},{-5980,-47,16,-729},{-5979,-46,16,-729},{-5975,-46,15,-729},{-5970,-47,14,-729},{-5967,-48,16,-729},{-5967,-47,14,-730},{-5959,-46,14,-729},{-5910,-46,14,-730},{-5907,-46,14,-731},{-5890,-46,13,-729},{-5867,-47,13,-730},{-5861,-46,13,-730},{-5850,-45,13,-731},{-5847,-46,13,-731},{-5838,-45,14,-731},{-5818,-44,14,-731},{-5810,-43,14,-731},{-5802,-43,13,-731},{-4919,-41,12,-731},{-4898,-40,13,-731},{-4896,-40,12,-731},{-4894,-41,13,-731},{-4846,-42,12,-731},{-4843,-42,13,-731},{-4713,-40,12,-732},{-4712,-42,13,-732},{-4692,-41,12,-734},{-4692,-41,13,-733},{-4652,-43,12,-736},{-4616,-45,11,-737},{-4532,-45,14,-741},{-4359,-41,13,-737},{-4357,-41,12,-738},{-4339,-42,13,-739},{-4325,-42,12,-740},{-4316,-43,11,-740},{-4191,-44,12,-737},{-4163,-44,11,-736},{-4061,-42,12,-736},{-3595,-41,11,-735},{-3594,-41,10,-735},{-3593,-42,10,-735},{-3582,-42,12,-735},{-3581,-43,12,-735},{-3562,-43,10,-736},{-3556,-44,11,-737},{-3536,-43,11,-737},{-3516,-42,11,-736},{-3471,-42,11,-734},{-3388,-40,11,-733},{-3356,-41,12,-732},{-3350,-41,13,-732},{-3346,-40,13,-733},{-3341,-40,12,-733},{-3340,-41,12,-733},{-3332,-41,11,-733},{-3322,-41,11,-734},{-3311,-42,11,-735},{-3304,-43,11,-735},{-3296,-43,11,-736},{-2612,-36,12,-739},{-2528,-43,12,-740},{-2512,-44,12,-741},{-2244,-39,13,-738},{-2235,-38,13,-738},{-1725,-36,13,-738},{-1685,-39,12,-738},{-1625,-44,12,-740},{-1515,-46,12,-737},{-1450,-45,13,-739},{-1443,-45,12,-740},{-1426,-44,13,-740},{-1415,-43,13,-740},{-1400,-41,13,-740},{-1391,-41,13,-739},{-1387,-41,14,-739},{-1378,-41,14,-738},{-1376,-40,13,-738},{-1366,-40,14,-738},{-1355,-39,14,-738},{-1343,-38,14,-738},{-1332,-37,14,-738},{-1321,-36,14,-738},{-1309,-35,14,-738},{-1307,-34,14,-738},{-1300,-34,13,-738},{-1295,-35,12,-738},{-425,-36,12,-738},{-415,-37,12,-738},{-404,-38,12,-738},{-384,-39,12,-739},{-375,-40,12,-739},{-364,-41,12,-739},{-344,-42,13,-740},{-335,-43,14,-740},{-324,-44,14,-741},{-304,-46,12,-740},{-295,-46,12,-739},{-204,-45,12,-737},{-184,-45,12,-738},{-164,-45,12,-739},{-144,-45,13,-740},{-124,-45,13,-741},{-115,-44,13,-741},{-104,-43,13,-741},{-84,-42,14,-740},{-75,-42,14,-739},{-64,-41,13,-738},{-55,-40,13,-737},{-38,-40,13,-736},{-33,-40,14,-736},{-21,-40,14,-735},{-14,-40,15,-735},{-9,-40,16,-735},{-1,-40,18,-735},{0,-40,17,-735}}; // {ticks before, x, y, z}
+    private static final int[] c1789Built = {-1}; private static int c1789Go = -1; private static float c1789Low = 20f;
+    private static boolean st1789(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1789Built[0] = -1; c1789Go = -1; c1789Low = 20f; }
+        if (!w17Cave(t, level, c1789Built, "w17_cave83")) return true;
+        int t0 = c1789Built[0] + 10;
+        if (t[0] == t0) { c1789Go = t[0];
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 1)); c.getInventory().add(new ItemStack(Items.STICK, 2)); c.getInventory().add(new ItemStack(Items.CHEST)); // (his kit live: no food)
+            w17Mine(c, true);
+            c.teleportTo(level, -39.48, 17.88, -734.43, -193, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0; c.setAirSupply(119); c.setHealth(4f); c.getFoodData().setFoodLevel(5); c.getFoodData().setSaturation(0); // (where "coming up to breathe" fired live)
+            com.claudemod.entity.nav.Route.trailForTest(c, TRAIL1789);
+            for (BlockPos q : new BlockPos[] {new BlockPos(-40, 18, -735), new BlockPos(-38, 18, -736), new BlockPos(-38, 17, -737), new BlockPos(-40, 17, -737)}) c.tasks.add(new Task.GoTo(q, 0.9)); c.tasks.add(new Task.GoTo(new BlockPos(-41, 17, -737), 1.0)); // (his queue live: the walk to the pile)
+        }
+        if (c1789Go < 0) return true;
+        c1789Low = Math.min(c1789Low, c.getHealth());
+        boolean breathed = c.getAirSupply() >= 280 && t[0] > c1789Go + 20;
+        if (breathed || !c.isAlive() || t[0] == c1789Go + 20 * 15) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", air " + c.getAirSupply() + ", alive " + c.isAlive() + ", lowest health " + c1789Low + ", task " + c.currentTask + ", queue " + c.tasks.size(); int took = t[0] - c1789Go;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20f); c.setAirSupply(300); c.getFoodData().setFoodLevel(20); w17Mine(c, false);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(breathed && c1789Low > 0, "air 119 at 4 HP, hunger 5, in the flooded branch by his pile (death 83): his breath back alive, in 15 s: " + got + " after " + took + " ticks");
+            pass(stage, t, "his breath back in " + took + " ticks, lowest health " + c1789Low);
+        }
+        return true;
+    }
     /** Stage 1788 (D2D, live 19:20-19:22 11-21 at -16,68,-23 by his home mine's door: "collect logs x3 -> no trees close by; nearest ones are ~8 blocks west/east, heading there" every 1.5 s, 112+ times: the far scan picked treetops whose logs the search near him throws out ("village true" east, "open false" west), a step toward one, the other nearest). A village's tree 9 east and nothing else: the far scan never sends him to a tree the search near him won't take. */
     private static String s1788Said = "";
     private static boolean st1788(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

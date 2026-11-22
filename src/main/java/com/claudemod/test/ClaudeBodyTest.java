@@ -10628,6 +10628,7 @@ public final class ClaudeBodyTest {
             case 1789: return st1789(stage, t, c, h, level, mock);
             case 1790: return st1790(stage, t, c, h, level, mock);
             case 1791: return st1791(stage, t, c, h, level, mock);
+            case 1792: return st1792(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34542,6 +34543,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1792 (D2D, death 43 live 23:13 11-21 under the lake mine: at 23:07:50 his walk to a shell patch at -42,17,-745 planned 113 walks west along his y 16 tunnel, down into the flooded cave at -88,11,-736 and back east under water at y 11-12; at -63,11,-740 "low on air (119): coming up to breathe" and the nearest air was a magma bubble column that dragged him to y 1; 5 min at its foot, then a swim out of it drowned him. The y 11 passage from -86 to -71 is one high, rock over the water: the planner read rock over his head as no swim, the run of cells under water started again at every one). The live save at 23:14: the greedy way between two of his live waypoints, -88,11,-736 to -64,11,-740 (the flooded passage), swims no more cells in a row with no air than his breath allows (15 on a full one). */
+    private static final int[] c1792Built = {-1};
+    private static boolean st1792(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1792Built[0] = -1; }
+        if (!w17Cave(t, level, c1792Built, "w17_cave43")) return true;
+        int t0 = c1792Built[0] + 10;
+        if (t[0] == t0) {
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 63)); c.getInventory().add(new ItemStack(Items.TORCH, 10)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); // (his kit live)
+            c.teleportTo(level, -87.5, 12.0, -734.5, 180, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.setAirSupply(300);
+        }
+        if (t[0] == t0 + 5) {
+            c.setAirSupply(300);
+            BlockPos from = new BlockPos(-88, 11, -736), to = new BlockPos(-64, 11, -740); // (two waypoints of his walk live, NO_DIG: "kept: no digging on this walk"; the plain search ran out, the greedy one went)
+            double gw = com.claudemod.entity.nav.ActionPath.lineWeight(level, from, to);
+            var p = com.claudemod.entity.nav.ActionPath.plan(c, level, from, to, 1.0, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0, java.util.List.of(), gw);
+            int run = 0, most = 0; BlockPos at = null; int walks = 0;
+            if (p != null) for (var a : p.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk wk) { walks++; BlockPos f = wk.feet(), hd = f.above();
+                boolean wet = level.getFluidState(hd).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(f).is(net.minecraft.tags.FluidTags.WATER) && !level.getBlockState(hd).getCollisionShape(level, hd).isEmpty(); // (no air for his eye: water over his head, or water with rock over it)
+                run = wet ? run + 1 : 0; if (run > most) { most = run; at = f; } }
+            check(p == null || most <= 15, "the greedy way (w " + String.format("%.1f", gw) + ") from -88,11,-736 to -64,11,-740 on a full breath (death 43): " + most + " cells in a row under water with no air (to " + at + "), " + walks + " walks, more than his 15");
+            pass(stage, t, p == null ? "no way through the flooded passage on one breath" : "a way with " + most + " cells in a row with no air at most (" + walks + " walks)");
+        }
+        return true;
+    }
     /** Stage 1791 (D2D, death 192 live 21:54 11-21 at -47,20,-740: back in the flooded lake mine plugging its water, health 20, hunger 20; "low on air (119) at -44,16,-745: coming up to breathe" with the sneak from his last placing still held (pose CROUCHING every tick from then: a swim at 30%, sinking), the aim flipping between the pocket at -50,21,-740 and his way back, 13 s out of air, 20 -> 0 pressed on the pocket's corner at -48,20,-741). The live save at 21:57, his trail from the incident positions. Air 119, crouched as live: up off the sneak, his breath back, health 14+. */
     private static final int[][] TRAIL1791 = {{-5605,-49,12,-746},{-5600,-50,12,-746},{-5580,-49,12,-745},{-5580,-48,12,-745},{-5573,-47,11,-744},{-5561,-47,12,-743},{-5561,-47,12,-742},{-5560,-47,11,-743},{-5560,-47,12,-745},{-5560,-47,12,-744},{-5558,-47,11,-742},{-5552,-47,11,-741},{-5540,-48,12,-742},{-5540,-47,12,-741},{-5540,-47,12,-740},{-5259,-48,12,-737},{-5162,-47,11,-737},{-5157,-47,12,-737},{-5105,-47,13,-738},{-5060,-47,12,-738},{-4547,-45,14,-741},{-4498,-45,13,-737},{-4199,-46,12,-739},{-4084,-45,14,-740},{-4047,-45,15,-740},{-2559,-47,15,-740},{-2535,-47,14,-741},{-2531,-46,13,-740},{-2519,-46,12,-740},{-2359,-46,15,-740},{-2231,-45,15,-738},{-2220,-45,14,-739},{-2216,-45,13,-739},{-2200,-46,13,-739},{-2037,-44,13,-737},{-1989,-44,10,-737},{-1895,-45,10,-737},{-1756,-46,11,-737},{-1736,-46,12,-737},{-1731,-45,11,-737},{-1706,-45,12,-738},{-1698,-45,12,-739},{-1694,-45,13,-740},{-1691,-45,12,-740},{-1685,-45,12,-741},{-1680,-45,12,-742},{-1647,-45,13,-743},{-1562,-45,17,-743},{-1557,-45,16,-743},{-1553,-45,14,-743},{-1550,-45,14,-742},{-1549,-45,13,-742},{-1546,-44,13,-742},{-1540,-44,14,-741},{-1537,-44,14,-740},{-1533,-44,13,-740},{-1524,-44,12,-738},{-1520,-44,12,-737},{-1519,-44,11,-737},{-1517,-44,11,-736},{-1516,-45,12,-737},{-583,-46,13,-737},{-543,-44,13,-738},{-523,-44,13,-739},{-503,-45,13,-738},{-483,-46,14,-740},{-403,-45,15,-739},{-383,-46,15,-739},{-340,-46,18,-740},{-323,-46,19,-740},{-303,-46,19,-741},{-301,-46,20,-741},{-283,-47,21,-741},{-280,-49,21,-740},{-263,-50,21,-740},{-183,-50,20,-740},{-160,-49,20,-740},{-143,-47,20,-740},{-140,-48,20,-740},{-137,-47,19,-740},{-128,-47,19,-741},{-123,-47,19,-742},{-123,-46,19,-742},{-120,-47,18,-742},{-110,-46,18,-742},{-106,-46,18,-743},{-100,-46,16,-743},{-100,-46,17,-743},{-93,-46,15,-743},{-88,-45,15,-743},{-84,-45,15,-744},{-80,-45,16,-744},{-19,-46,16,-745},{-1,-45,16,-745}};
     private static final int[] c1791Built = {-1}; private static int c1791Go = -1, c1791Crouched = 0, c1791Sneak = -1; private static float c1791Low = 20f;

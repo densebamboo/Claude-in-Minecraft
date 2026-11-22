@@ -161,7 +161,7 @@ public final class ActionPath {
                 for (Move m : c.moves(n.feet)) {
                     int np = n.puts, nf = n.fire; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put pu) { np++; if (byLava(level, pu.pos())) nf++; } else if (a instanceof Act.Leap lp) nh += lp.hp(); }
                     if (np > c.maxPuts || nf > c.fireProof) continue; // (by lava only blocks that don't burn: a log bridge over a lava lake caught fire under him, death 77 11-10, stage 1389) // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
-                    int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
+                    int nw = c.water(m.feet.above()) || c.water(m.feet) && !c.passable(m.feet.above()) ? n.wet + 1 : 0; // (under water with no air: water over his head, or a 1-high flooded passage with rock over it; the rock read as air started the run again at every cell: 27 in a row on a 15-cell breath, death 43 live 23:13 11-21, stage 1792)
                     if (nw > swimCap) { c.airRefused++; c.swimCap = swimCap; continue; } // a swim under water no longer than half the air he has left (~10 ticks a cell): there and back, a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned); half of what's left, not half a full tank less what's spent: at air 119 that refused every move, the one up to the air too (D2D review 84, stage 1557)
                     double ng = n.g + m.cost;
                     Node was = best.get(m.feet);

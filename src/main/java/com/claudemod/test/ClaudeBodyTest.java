@@ -10626,6 +10626,7 @@ public final class ClaudeBodyTest {
             case 1787: return st1787(stage, t, c, h, level, mock);
             case 1788: return st1788(stage, t, c, h, level, mock);
             case 1789: return st1789(stage, t, c, h, level, mock);
+            case 1790: return st1790(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34540,6 +34541,47 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1790 (D2D, live 20:23-20:31 11-21 at -77,16,-477, his mine's tunnel at dusk: 3 zombies shut out behind his escape plug; "collect cobblestone x32 -> my cobblestone is in my chest at -103,16,-500", the walk there back among them: "behind his plug, the ones he shut out across it", Wait 5 s and the walk again, 64+ times, STUCK 180 s; meanwhile every ~10 s "a Zombie 3.4 off is coming for him (heard)" -> fight priced -> "behind stone ... no fight through it, let be"). As 1546, a walk past them queued: held no longer than the plug's own job drop prices going back (flee.job_drop_s), then the job is dropped; the plug kept; no fight queued at the ones behind it. */
+    private static net.minecraft.world.entity.Mob[] s1790M; private static String s1790Broke; private static int s1790Attacks, s1790Shut; private static boolean s1790Was;
+    private static boolean st1790(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; if (s1790M != null) for (var m : s1790M) m.discard(); s1790M = null; s1790Broke = null; s1790Attacks = 0; s1790Was = false; s1790Shut = -1; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 7 || x == -3 || x == 20 || z == -3 || z == 16 || z == 5 && !(x == 8 && y <= 3) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a room split by a wall with one gap at x 8
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 10)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(0); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            s1790M = new net.minecraft.world.entity.Mob[] {EntityType.ZOMBIE.create(level), EntityType.ZOMBIE.create(level), EntityType.ZOMBIE.create(level)}; int[][] at = {{2, 14}, {3, 15}, {14, 15}};
+            for (int k = 0; k < 3; k++) { BlockPos wp = h.absolutePos(new BlockPos(at[k][0], 2, at[k][1])); s1790M[k].moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 180, 0); s1790M[k].setNoAi(true); s1790M[k].setPersistenceRequired(); level.addFreshEntity(s1790M[k]); }
+        }
+        if (t[0] == 14) {
+            try {
+                var wg = com.claudemod.entity.goals.WorkGoal.class;
+                var se = wg.getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); se.setAccessible(true); se.invoke(c.work, "gap", c.blockPosition().immutable(), h.absolutePos(new BlockPos(8, 2, 5)));
+                var ae = wg.getDeclaredMethod("atEscape", java.util.List.class); ae.setAccessible(true); Object r = ae.invoke(c.work, java.util.List.of(s1790M));
+                var ce = wg.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work);
+                if (!Integer.valueOf(2).equals(r)) s1790Broke = "setup: atEscape returned " + r + ", no plug";
+            } catch (Exception e) { s1790Broke = "setup threw " + e; }
+        }
+        if (t[0] > 14 && s1790M != null && s1790Broke == null) {
+            for (var m : s1790M) if (m.isAlive()) m.setTarget(c);
+            BlockPos g0 = h.absolutePos(new BlockPos(8, 2, 5)), g1 = g0.above(); boolean shut = !level.getBlockState(g0).isAir() && !level.getBlockState(g1).isAir();
+            if (s1790Shut < 0 && shut) { s1790Shut = t[0]; int[][] up = {{7, 6}, {9, 7}, {8, 8}}; for (int k = 0; k < 3; k++) { BlockPos wp = h.absolutePos(new BlockPos(up[k][0], 2, up[k][1])); s1790M[k].moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 180, 0); } /* (up against his plug, 2-4 off across it, as live) */ c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(17, 2, 12)), 2.0)); } // (the plug in, the next job's walk past them: live the walk to his chest)
+            if (s1790Shut > 0) { boolean att = c.currentTask instanceof Task.Attack; if (att && !s1790Was) s1790Attacks++; s1790Was = att; }
+            if (s1790Shut > 0 && !shut) s1790Broke = "the plug opened " + (t[0] - s1790Shut) + " ticks after it went in, 3 he shut out across it (tasks " + c.tasks + ")";
+            if (s1790Shut < 0 && t[0] > 14 + 200) s1790Broke = "setup: the plug never went in (" + c.currentTask + " " + c.tasks + ")";
+        }
+        if (t[0] > 14 && (s1790Broke != null || s1790Shut > 0 && t[0] == s1790Shut + 20 * 75)) {
+            String q = c.currentTask + " " + c.tasks; boolean walkQueued = java.util.stream.Stream.concat(java.util.stream.Stream.of(c.currentTask), c.tasks.stream()).anyMatch(x -> x instanceof Task.GoTo gt && gt.pos().equals(h.absolutePos(new BlockPos(17, 2, 12))));
+            for (var m : s1790M) m.discard(); s1790M = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(s1790Broke == null, s1790Broke);
+            check(!walkQueued, "75 s on, the walk back among the 3 he shut out still queued behind his plug: " + (q.length() > 200 ? q.substring(0, 200) : q));
+            check(s1790Attacks == 0, s1790Attacks + " fight(s) queued at the ones behind his plug, out of sight across it");
+            pass(stage, t, "the walk among them dropped, the plug kept, no fight at them through it");
+        }
+        return true;
+    }
     /** Stage 1789 (D2D, death 83 live 19:44 11-21 at -39,15,-735: back in the flooded lake mine for the 581 pile, 0 meals, hunger 5-6 (no sprint, no swim pose); three dives from the dry pocket by -44,12,-737, each out of air (8 -> 6, 6 -> 4); the third: "low on air (119) at -40,17,-735", then "breathing: toward -41,14,-735 / -39,14,-735 (his way back, swum straight, air over -41,12,-732)" flipping every second, 7 s pinned at y 15 between the two, 4 -> 0). The live save at 19:46, his trail from the incident positions. Air 119 at 4 HP, hunger 5: his breath back alive. */
     private static final int[][] TRAIL1789 = {{-5987,-50,16,-729},{-5987,-49,16,-729},{-5980,-47,16,-729},{-5979,-46,16,-729},{-5975,-46,15,-729},{-5970,-47,14,-729},{-5967,-48,16,-729},{-5967,-47,14,-730},{-5959,-46,14,-729},{-5910,-46,14,-730},{-5907,-46,14,-731},{-5890,-46,13,-729},{-5867,-47,13,-730},{-5861,-46,13,-730},{-5850,-45,13,-731},{-5847,-46,13,-731},{-5838,-45,14,-731},{-5818,-44,14,-731},{-5810,-43,14,-731},{-5802,-43,13,-731},{-4919,-41,12,-731},{-4898,-40,13,-731},{-4896,-40,12,-731},{-4894,-41,13,-731},{-4846,-42,12,-731},{-4843,-42,13,-731},{-4713,-40,12,-732},{-4712,-42,13,-732},{-4692,-41,12,-734},{-4692,-41,13,-733},{-4652,-43,12,-736},{-4616,-45,11,-737},{-4532,-45,14,-741},{-4359,-41,13,-737},{-4357,-41,12,-738},{-4339,-42,13,-739},{-4325,-42,12,-740},{-4316,-43,11,-740},{-4191,-44,12,-737},{-4163,-44,11,-736},{-4061,-42,12,-736},{-3595,-41,11,-735},{-3594,-41,10,-735},{-3593,-42,10,-735},{-3582,-42,12,-735},{-3581,-43,12,-735},{-3562,-43,10,-736},{-3556,-44,11,-737},{-3536,-43,11,-737},{-3516,-42,11,-736},{-3471,-42,11,-734},{-3388,-40,11,-733},{-3356,-41,12,-732},{-3350,-41,13,-732},{-3346,-40,13,-733},{-3341,-40,12,-733},{-3340,-41,12,-733},{-3332,-41,11,-733},{-3322,-41,11,-734},{-3311,-42,11,-735},{-3304,-43,11,-735},{-3296,-43,11,-736},{-2612,-36,12,-739},{-2528,-43,12,-740},{-2512,-44,12,-741},{-2244,-39,13,-738},{-2235,-38,13,-738},{-1725,-36,13,-738},{-1685,-39,12,-738},{-1625,-44,12,-740},{-1515,-46,12,-737},{-1450,-45,13,-739},{-1443,-45,12,-740},{-1426,-44,13,-740},{-1415,-43,13,-740},{-1400,-41,13,-740},{-1391,-41,13,-739},{-1387,-41,14,-739},{-1378,-41,14,-738},{-1376,-40,13,-738},{-1366,-40,14,-738},{-1355,-39,14,-738},{-1343,-38,14,-738},{-1332,-37,14,-738},{-1321,-36,14,-738},{-1309,-35,14,-738},{-1307,-34,14,-738},{-1300,-34,13,-738},{-1295,-35,12,-738},{-425,-36,12,-738},{-415,-37,12,-738},{-404,-38,12,-738},{-384,-39,12,-739},{-375,-40,12,-739},{-364,-41,12,-739},{-344,-42,13,-740},{-335,-43,14,-740},{-324,-44,14,-741},{-304,-46,12,-740},{-295,-46,12,-739},{-204,-45,12,-737},{-184,-45,12,-738},{-164,-45,12,-739},{-144,-45,13,-740},{-124,-45,13,-741},{-115,-44,13,-741},{-104,-43,13,-741},{-84,-42,14,-740},{-75,-42,14,-739},{-64,-41,13,-738},{-55,-40,13,-737},{-38,-40,13,-736},{-33,-40,14,-736},{-21,-40,14,-735},{-14,-40,15,-735},{-9,-40,16,-735},{-1,-40,18,-735},{0,-40,17,-735}}; // {ticks before, x, y, z}
     private static final int[] c1789Built = {-1}; private static int c1789Go = -1; private static float c1789Low = 20f;

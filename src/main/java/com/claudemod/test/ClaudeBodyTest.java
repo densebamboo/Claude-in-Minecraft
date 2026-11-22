@@ -10629,6 +10629,7 @@ public final class ClaudeBodyTest {
             case 1790: return st1790(stage, t, c, h, level, mock);
             case 1791: return st1791(stage, t, c, h, level, mock);
             case 1792: return st1792(stage, t, c, h, level, mock);
+            case 1793: return st1793(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34543,6 +34544,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1793 (D2D, live loop 00:53-01:24 11-22 at -143,17,-739, World 17's flooded lake mine, the live save at 01:24: in the water by his old branch at z -737, "blocking 12 spots where it comes in" queued plugs at -145..-147,18,-737 and -147,15,-737, water in a channel 2 rock off his pool (it touches his branch's refilled cells, so it read as an entry); their stance -146,16,-737 had no way in, the walk stalled at -143,17,-739, a breath every 14 s, 30 min). Plugs go only where his water reaches: none in the channel behind the rock. */
+    private static final int[] c1793Built = {-1};
+    private static boolean st1793(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1793Built[0] = -1; }
+        if (!w17Cave(t, level, c1793Built, "w17_cave146")) return true;
+        int t0 = c1793Built[0] + 10;
+        if (t[0] == t0) {
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.mineCells.clear(); c.landingCells.clear(); for (int z : new int[] {-749, -745, -737, -733, -729}) for (int x = z == -733 ? -144 : -149; x <= -132; x++) for (int y = 16; y <= 17; y++) c.mineCells.add(new BlockPos(x, y, z)); // (his mine cells in the box, as the live save has them)
+            c.teleportTo(level, -142.5, 17.0, -738.5, 90, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.setAirSupply(300); // (where the walk stalled live)
+        }
+        if (t[0] > t0 && t[0] < t0 + 5) { c.teleportTo(-142.5, 17.0, -738.5); c.tasks.clear(); c.currentTask = null; c.setAirSupply(300); }
+        if (t[0] == t0 + 5) {
+            String q; boolean behind;
+            try { var m = c.work.getClass().getDeclaredMethod("blockWaterInflow"); m.setAccessible(true);
+                c.tasks.clear(); com.claudemod.entity.nav.Route.forgetTrail(c); m.invoke(c.work); q = String.valueOf(c.tasks);
+                behind = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.pos().getX() <= -145); // (the channel west of the rock: x -148..-145)
+            } catch (Exception e) { check(false, "no call: " + e); return true; }
+            boolean inWater = level.getFluidState(BlockPos.containing(c.getEyePosition())).is(net.minecraft.tags.FluidTags.WATER); String at = c.blockPosition().toShortString(); // (the water at his eyes: the body's flag lags a teleport)
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.mineCells.clear(); c.setAirSupply(300);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(inWater, "setup: him not under water at " + at);
+            check(!behind, "in his pool by the old branch: plugs queued in the channel behind the rock, no way to them (" + (q.length() > 300 ? q.substring(0, 300) : q) + ")");
+            pass(stage, t, "no plug behind the rock: " + (q.length() > 160 ? q.substring(0, 160) : q));
+        }
+        return true;
+    }
     /** Stage 1792 (D2D, death 43 live 23:13 11-21 under the lake mine: at 23:07:50 his walk to a shell patch at -42,17,-745 planned 113 walks west along his y 16 tunnel, down into the flooded cave at -88,11,-736 and back east under water at y 11-12; at -63,11,-740 "low on air (119): coming up to breathe" and the nearest air was a magma bubble column that dragged him to y 1; 5 min at its foot, then a swim out of it drowned him. The y 11 passage from -86 to -71 is one high, rock over the water: the planner read rock over his head as no swim, the run of cells under water started again at every one). The live save at 23:14: the greedy way between two of his live waypoints, -88,11,-736 to -64,11,-740 (the flooded passage), swims no more cells in a row with no air than his breath allows (15 on a full one). */
     private static final int[] c1792Built = {-1};
     private static boolean st1792(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

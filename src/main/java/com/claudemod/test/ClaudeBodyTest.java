@@ -10630,6 +10630,7 @@ public final class ClaudeBodyTest {
             case 1791: return st1791(stage, t, c, h, level, mock);
             case 1792: return st1792(stage, t, c, h, level, mock);
             case 1793: return st1793(stage, t, c, h, level, mock);
+            case 1794: return st1794(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34544,6 +34545,37 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1794 (D2D, 1793's live loop, its second link: the walk to the plugs' stance -146,16,-737 in the channel behind the rock, "stall at -143,17,-739 ... next node none", "low on air (119)" every 14 s; while he swam up to breathe nothing ran (the walk back in his queue), so the stuck clock went by how far he'd moved, 6 up, and called it progress: no stuck rung fired in 58 min). The live cycle: the walk queued, down at the stall with air 119, up to breathe, down again: the walk dropped (or reached) inside 80 s, health 14+. */
+    private static final int[] c1794Built = {-1}; private static float c1794Low = 20f; private static int c1794Gone = 0, c1794Dives = 0;
+    private static boolean st1794(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c1794Built[0] = -1; c1794Low = 20f; c1794Gone = 0; c1794Dives = 0; }
+        if (!w17Cave(t, level, c1794Built, "w17_cave146")) return true;
+        int t0 = c1794Built[0] + 10; BlockPos to = new BlockPos(-146, 16, -737);
+        if (t[0] == t0) {
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 8));
+            c.mineCells.clear(); c.landingCells.clear(); for (int z : new int[] {-749, -745, -737, -733, -729}) for (int x = z == -733 ? -144 : -149; x <= -132; x++) for (int y = 16; y <= 17; y++) c.mineCells.add(new BlockPos(x, y, z));
+            c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+            c.mineFace = new BlockPos(-427, -58, 76); // (his mine's face live, 900 off: the ore round the pool never cut in, ClaudeLife.mineSpottedOre's far-from-his-face gate)
+            c.tasks.add(new Task.GoTo(to, 0.5)); // (doPlace's walk to the stance, as queued live)
+        }
+        if (t[0] < t0) return true;
+        c.nextPlanTick = c.tickCount + 20 * 600; c.spottedDiamonds.clear(); // (the walk and his breaths alone: live no other job cut in)
+        boolean down = c.blockPosition().getY() <= 18 && c.blockPosition().distSqr(new BlockPos(-143, 17, -739)) <= 2;
+        if (t[0] == t0 || !down && c.getAirSupply() >= 280) { c1794Dives++; c.teleportTo(level, -142.5, 17.0, -738.5, 90, 0); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.setAirSupply(119); } // (his dive back down to the stall, out of air there: the live 14 s cycle)
+        c1794Low = Math.min(c1794Low, c.getHealth());
+        boolean has = c.currentTask instanceof Task.GoTo go && go.pos().equals(to) || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo go && go.pos().equals(to));
+        c1794Gone = has ? 0 : c1794Gone + 1;
+        boolean there = c.blockPosition().distSqr(to) <= 1;
+        if (c1794Gone >= 20 || there || !c.isAlive() || c1794Low < 14 || t[0] == t0 + 20 * 80) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", air " + c.getAirSupply() + ", alive " + c.isAlive() + ", lowest health " + c1794Low + ", " + c1794Dives + " dives, task " + c.currentTask + ", queue " + c.tasks; int took = t[0] - t0;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.mineCells.clear(); c.mineFace = null; c.setHealth(20f); c.setAirSupply(300);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check((c1794Gone >= 20 || there) && c1794Low >= 14, "the walk to -146,16,-737 behind the rock, a breath every dive (the 58 min live loop): still on after " + took / 20 + " s, or hurt: " + (got.length() > 300 ? got.substring(0, 300) : got));
+            pass(stage, t, (there ? "there" : "the walk dropped") + " after " + took / 20 + " s, " + c1794Dives + " dives, lowest health " + c1794Low);
+        }
+        return true;
+    }
     /** Stage 1793 (D2D, live loop 00:53-01:24 11-22 at -143,17,-739, World 17's flooded lake mine, the live save at 01:24: in the water by his old branch at z -737, "blocking 12 spots where it comes in" queued plugs at -145..-147,18,-737 and -147,15,-737, water in a channel 2 rock off his pool (it touches his branch's refilled cells, so it read as an entry); their stance -146,16,-737 had no way in, the walk stalled at -143,17,-739, a breath every 14 s, 30 min). Plugs go only where his water reaches: none in the channel behind the rock. */
     private static final int[] c1793Built = {-1};
     private static boolean st1793(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

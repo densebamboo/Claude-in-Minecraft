@@ -8588,7 +8588,7 @@ public final class ClaudeLife {
         int brk = broken.getOrDefault(g.getUUID(), 0);
         int items = 0;
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) items += g.inventory.items.getItem(i).getCount();
-        Task now = g.currentTask;
+        Task now = g.currentTask != null ? g.currentTask : g.tasks.peekFirst(); // nothing running, work queued (a swim up to breathe, a reflex): measured on the queued work's own target, never on how far he moved (6 up to breathe every 14 s read as progress: 58 min on a walk with no way in, live 00:53-01:51 11-22, stage 1794)
         boolean atFurnace = now instanceof Task.FurnaceTake fq && Math.sqrt(fq.pos().distToCenterSqr(g.getEyePosition())) <= 5.0; // (waiting at it; on the way to it, a walk like any: live 07:14 World 15, 47 min "doing FurnaceTake" walking at a lava cell, never seen stuck)
         boolean waiting = atFurnace || now instanceof Task.Wait || now instanceof Task.Eat || now instanceof Task.Flee || now instanceof Task.Attack || now instanceof Task.Fish;
         boolean busy = (now != null || !g.tasks.isEmpty()) && !g.staying && !waiting;

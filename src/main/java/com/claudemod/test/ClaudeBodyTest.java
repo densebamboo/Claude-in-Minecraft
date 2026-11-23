@@ -10632,6 +10632,7 @@ public final class ClaudeBodyTest {
             case 1793: return st1793(stage, t, c, h, level, mock);
             case 1794: return st1794(stage, t, c, h, level, mock);
             case 1795: return st1795(stage, t, c, h, level, mock);
+            case 1796: return st1796(stage, t, c, h, level, mock);
             case 1701: return st1701(stage, t, c, h, level, mock);
             case 1700: return st1700(stage, t, c, h, level, mock);
             case 1699: return st1699(stage, t, c, h, level, mock);
@@ -34546,6 +34547,35 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1781 (D2D, death 1420 live 12:27 11-19 at -31,19,-729: World 17's flooded strip mine under a lake, the live save's blocks (tools/mca_extract.py). Out for iron at -15,20,-727, air 119 at -21,20,-729: "coming up to breathe", 10 cells back west, then 13 s pinned at -31,20,-728 drowning, 20 -> 0, his aim flipping every tick between the opening at -34,20,-725 (air over it, 5 off) and a cell behind him; the watchdog's way to air refused every swim at air 0). Air low on the way out: he gets his breath back at the air close by, health 14+. */
+    /** Stage 1796 (D2D, live 16:40-17:45 11-22: the planner's arrow plan [explore meadow, fight chicken 10, obtain arrow 32]; no meadow anywhere, so "explore meadow: not seen yet" 902 times over an hour while kit.food saw chickens 22-47 off from 16:56 on; 232 food points walked off to 22, night out with no food, health 20 -> 4 to skeletons 1500 blocks from home). By day, the same plan, a chicken 14 off in sight: the search ends and the chicken is fought. */
+    private static int s1796T = -1; private static net.minecraft.world.entity.animal.Chicken s1796C;
+    private static boolean st1796(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; s1796T = -1; level.setDayTime(6000); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            for (int x = -6; x <= 30; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10)); c.getInventory().add(new ItemStack(Items.FLINT, 8)); c.getInventory().add(new ItemStack(Items.STICK, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+            var ch = EntityType.CHICKEN.create(level); ch.moveTo(me.getX() + 14.5, me.getY(), me.getZ() + 0.5, 0, 0); ch.setNoAi(true); ch.setPersistenceRequired(); level.addFreshEntity(ch); s1796C = ch;
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("explore", "meadow", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("fight", "chicken", 10)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("obtain", "arrow", 32)); // (his plan live)
+            s1796T = t[0];
+        }
+        if (s1796T < 0 || t[0] <= s1796T) return true;
+        c.nextPlanTick = Math.max(c.nextPlanTick, c.tickCount + 200);
+        boolean dead = s1796C.getHealth() <= 0 || s1796C.getRemovalReason() == net.minecraft.world.entity.Entity.RemovalReason.KILLED; // (that chicken itself: one left behind out of a box round him is not one fought)
+        if (dead || t[0] - s1796T > 20 * 20) {
+            double off = s1796C.distanceTo(c); s1796C.discard();
+            double s = (t[0] - s1796T) / 20.0; String q = c.currentTask + " " + c.tasks + " skills " + c.skillQueue + " at " + c.blockPosition().toShortString();
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            check(dead, "explore meadow ahead of fight chicken, a chicken 14 off in sight, no meadow: the chicken not fought in 20 s, " + (int) off + " off it (" + (q.length() > 240 ? q.substring(0, 240) : q) + ")");
+            pass(stage, t, "the search ended on the chicken in sight: fought in " + s + " s");
+        }
+        return true;
+    }
     /** Stage 1795 (D2D, live loop 10:41-11:10 11-22 at -95,16,-740, World 17's lake mine, the live save at 11:08: after coal and iron off his z -745 branch he dropped 4 into the pit he'd dug (-93,18,-739 -> -93,14,-740), 14 dry cells, no dry way out on foot; "inventory full in his mine" sent him to his junk chest at -126,16,-744, 29-31 off: past the walk planner's 28, so "path stops at -95,16,-740", NO_PATH, skipped spot by spot; the 20 s way out aimed at the queue's first walk, -92,17,-740 3 off, "he stands somewhere new" cleared the skips and the deposit went on again, 77 times in 30 min). The pit, the deposit, his leftover walks behind it: he gets out to the chest. */
     private static final int[] c1795Built = {-1}; private static float c1795Low = 20f;
     private static final int[][] C1795_MINE = {{16,-749,-149,-80},{16,-748,-85,-84},{16,-747,-85,-84},{16,-746,-85,-84},{16,-745,-149,-80},{16,-744,-85,-84},{16,-743,-85,-84},{16,-742,-85,-84},{16,-741,-85,-80},{16,-740,-85,-84},{16,-739,-85,-84},{16,-738,-85,-84},{16,-737,-149,-80},{16,-736,-85,-84},{16,-735,-85,-84},{16,-734,-85,-84},{16,-733,-144,-80},{16,-732,-85,-84},{16,-731,-85,-84},{16,-730,-85,-84},{16,-729,-149,-80},{16,-728,-85,-84},{16,-727,-85,-84},{16,-726,-85,-84},{16,-725,-149,-80},{17,-749,-149,-80},{17,-748,-85,-84},{17,-747,-85,-84},{17,-746,-85,-84},{17,-745,-149,-80},{17,-744,-85,-84},{17,-743,-85,-84},{17,-742,-85,-84},{17,-741,-85,-80},{17,-740,-85,-84},{17,-739,-85,-84},{17,-738,-85,-84},{17,-737,-149,-80},{17,-736,-85,-84},{17,-735,-85,-84},{17,-734,-85,-84},{17,-733,-144,-80},{17,-732,-85,-84},{17,-731,-85,-84},{17,-730,-85,-84},{17,-729,-149,-80},{17,-728,-85,-84},{17,-727,-85,-84},{17,-726,-85,-84},{17,-725,-149,-80},{18,-749,-85,-84},{18,-748,-85,-84},{18,-747,-85,-84},{18,-746,-85,-84},{18,-745,-85,-84},{18,-744,-85,-84},{18,-743,-85,-84},{18,-742,-85,-84},{18,-741,-85,-84},{18,-740,-85,-84},{18,-739,-85,-84},{18,-738,-85,-84},{18,-737,-85,-84},{18,-736,-85,-84},{18,-735,-85,-84},{18,-734,-85,-84},{18,-733,-85,-84},{18,-732,-85,-84},{18,-731,-85,-84},{18,-730,-85,-84},{18,-729,-85,-84},{18,-728,-85,-84},{18,-727,-85,-84},{18,-726,-85,-84},{18,-725,-85,-84}}; // (his mine cells in the box, the live save's, as x runs {y, z, x0, x1})

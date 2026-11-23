@@ -3154,6 +3154,7 @@ public final class ClaudeLife {
             }
             case "explore": {
                 if (st.target().contains("stronghold") && com.claudemod.entity.life.EyeHunt.found(g) != null) { ClaudeMod.LOGGER.info("[Claude skill] explore stronghold: he's at its bricks ({}), and walking its corridors isn't a skill of his yet: holding there, no surface wander (ClaudeLife explore)", com.claudemod.entity.life.EyeHunt.found(g).toShortString()); return "done: I'm at the stronghold's bricks at " + com.claudemod.entity.life.EyeHunt.found(g).toShortString() + "; finding the portal room inside isn't something I can do yet, so I'm holding here"; } // (the plain explore walked him back up the stairs from the bricks, live 00:31)
+                { String qd = exploreQuarry(g, level, st); if (qd != null) return qd; } // the quarry this search is for, in sight: the search is over (stage 1796)
                 if (!"trees".equals(st.target()) && g.blueprint != null && !g.blueprint.isEmpty() && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("strip_mine"))) { /* (the trip's wood search is not the surface walk for ore this skip is for: skipped, collect logs said "walking off" and stood there) */ ClaudeMod.LOGGER.info("[Claude skill] explore skipped: a strip_mine is queued and his mine is there to push (ore comes from the mine, not the surface)"); return "skipped exploring: my mine is where the ore is, on with it"; } // (the planner put explore before strip_mine iron at 02:21:54: he walked the surface for iron while his y16 branches waited)
                 boolean weakNow = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem && !x.is(Items.WOODEN_SWORD)) || (x.getItem() instanceof net.minecraft.world.item.AxeItem && !x.is(Items.WOODEN_AXE))) == 0
                         || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty();
@@ -7026,6 +7027,15 @@ public final class ClaudeLife {
     static String woodNightNo(ClaudeEntity g, ServerLevel level) {
         String no = nightOutsideNo(g, level, g.blockPosition());
         return no != null ? no : nightOutsideNo(g, level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition()));
+    }
+    /** An explore step ahead of a fight/collect step: that step's quarry in sight within 24 ends the search and the plan goes on to it (live 16:40-17:45 11-22: explore meadow ahead of fight chicken walked on past chickens 22 off for an hour, his trip food eaten on the way, night out at 4 HP; stage 1796). */
+    private static String exploreQuarry(ClaudeEntity g, ServerLevel level, Skills.Step st) {
+        var nx = g.skillQueue.peek();
+        if (nx == null || !(nx.skill().equals("fight") || nx.skill().equals("collect")) || nx.target() == null || nx.target().isBlank() || nx.target().equals("hostile")) return null;
+        var q = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, g.getBoundingBox().inflate(24), e -> e.isAlive() && e != g && BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath().equals(nx.target()) && g.hasLineOfSight(e)).stream().min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(g))).orElse(null);
+        if (q == null) return null;
+        ClaudeMod.LOGGER.info("[Claude skill] explore {}: the {} the next step is for is in sight at {} ({} off): the search is over (ClaudeLife explore)", st.target(), nx.target(), q.blockPosition().toShortString(), (int) q.distanceTo(g));
+        return "found a " + nx.target() + " in sight at " + q.blockPosition().toShortString() + ": on to the " + nx.skill(); // (no "done:": that ends the plan, the fight with it)
     }
     public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at) { return nightOutsideNo(g, level, at, -1); }
     /** The same with the time he'd be out given (outS < 0: the trip to at and back plus night.job_s; the night hold asks for the whole night, toDawn). */
